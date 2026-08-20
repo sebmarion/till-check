@@ -71,21 +71,59 @@ export function centsToEuros(cents) {
  * @param {string|number} [input.cashAdded]   cash added during the day
  * @param {string|number} [input.cardTransfer] card revenue moved to bank (logged)
  * @param {string}        [input.declared]    declared-cash note
- * @param {number}        booksBalanceCents   current books balance (cents)
+ * @param {object}        [input.denominations] counts by denomination:
+ *        { "50": n, "20": n, "10": n, "5": n, "2": n, "1": n, "0.5": n, "0.2": n }
+ *        where n is the count of each note/coin (integer). When present, the
+ *        total derived from denominations is used as `actual` (overrides the
+ *        raw `actual` field). This lets the owner count by notes/coins rather
+ *        than typing a sum.
+ * @param {number} booksBalanceCents   current books balance (cents)
  * @returns {{expectedCents:number, actualCents:number, varianceCents:number, status:string}}
  */
-export function reconcileDay({ actual, cashRemoved = 0, cashAdded = 0, cardTransfer = 0, declared = '' }, booksBalanceCents) {
-  const actualCents = eurosToCents(actual)
-  const removedCents = eurosToCents(cashRemoved)
-  const addedCents = eurosToCents(cashAdded)
-  const cardCents = eurosToCents(cardTransfer)
-  const declaredNote = String(declared ?? '')
 
-  const expectedCents = booksBalanceCents + addedCents - removedCents
-  const varianceCents = actualCents - expectedCents
+// Denomination values in cents, in counting order (large → small).
+export const DENOMINATIONS = [
+  { id: "50",  valueCents: 5000, label: "€50" },
+  { id: "20",  valueCents: 2000, label: "€20" },
+  { id: "10",  valueCents: 1000, label: "€10" },
+  { id: "5",   valueCents: 500,  label: "€5"  },
+  { id: "2",   valueCents: 200,  label: "€2"  },
+  { id: "1",   valueCents: 100,  label: "€1"  },
+  { id: "0.5", valueCents: 50,   label: "€0.50" },
+  { id: "0.2", valueCents: 20,   label: "€0.20" },
+];
+
+/**
+ * Sum a denominations object into integer cents.
+ * @param {Record<string, number>} counts  e.g. { "50": 3, "20": 2, "1": 5 }
+ * @returns {number} total in cents
+ */
+export function denominationsToCents(counts) {
+  if (!counts) return 0;
+  let total = 0;
+  for (const [id, n] of Object.entries(counts)) {
+    const def = DENOMINATIONS.find((d) => d.id === id);
+    if (!def) continue; // ignore unknown denominations
+    const count = Number(n);
+    if (!Number.isFinite(count) || count < 0) continue;
+    total += Math.trunc(count) * def.valueCents;
+  }
+  return total;
+}
+
+export function reconcileDay({ actual, cashRemoved = 0, cashAdded = 0, cardTransfer = 0, declared = "", denominations } , booksBalanceCents) {
+  // If denominations are provided, they define the actual count.
+  const actualCents = denominations ? denominationsToCents(denominations) : eurosToCents(actual);
+  const removedCents = eurosToCents(cashRemoved);
+  const addedCents = eurosToCents(cashAdded);
+  const cardCents = eurosToCents(cardTransfer);
+  const declaredNote = String(declared ?? "");
+
+  const expectedCents = booksBalanceCents + addedCents - removedCents;
+  const varianceCents = actualCents - expectedCents;
 
   const status =
-    varianceCents < 0 ? STATUS.SHORT : varianceCents > 0 ? STATUS.OVER : STATUS.BALANCED
+    varianceCents < 0 ? STATUS.SHORT : varianceCents > 0 ? STATUS.OVER : STATUS.BALANCED;
 
   return {
     expectedCents,
@@ -98,7 +136,7 @@ export function reconcileDay({ actual, cashRemoved = 0, cashAdded = 0, cardTrans
     status,
     // After confirming, the books accept reality: the balance becomes actual.
     nextBooksBalanceCents: actualCents,
-  }
+  };
 }
 
 export function statusForCents(varianceCents) {

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#f4f1ea">
 <title>Till Check</title>
 <style>
@@ -73,21 +73,41 @@ button {
 button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
 button:active { transform: translateY(1px); }
 
-/* Ledger — rows, not cards */
+/* Denomination counter */
+.denom-list { list-style: none; margin: 0 0 12px; padding: 0; }
+.denom-row {
+  display: grid; grid-template-columns: 72px 1fr 56px; gap: 10px; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid var(--line);
+}
+.denom-row:last-child { border-bottom: 0; }
+.denom-label { font-size: 15px; font-weight: 500; }
+.denom-input {
+  width: 100%; font-size: 17px; padding: 8px 10px; border: 1px solid var(--line);
+  border-radius: 8px; background: #fff; text-align: center;
+}
+.denom-total { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+.denom-sum {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0; margin-top: 8px; font-size: 15px;
+}
+.denom-sum .total { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+/* Ledger — full record */
 .ledger { list-style: none; margin: 0; padding: 0; }
 .ledger li {
-  display: grid; grid-template-columns: 70px 1fr auto; gap: 8px; align-items: center;
-  padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 15px;
+  padding: 12px 0; border-bottom: 1px solid var(--line);
 }
 .ledger li:last-child { border-bottom: 0; }
-.ledger .date { color: var(--muted); font-variant-numeric: tabular-nums; }
+.ledger .row1 { display: flex; justify-content: space-between; align-items: center; }
+.ledger .date { color: var(--muted); font-size: 13px; }
 .ledger .var { font-variant-numeric: tabular-nums; font-weight: 600; }
 .ledger .var.short { color: var(--red); }
 .ledger .var.over { color: var(--amber); }
 .ledger .var.balanced { color: var(--green); }
-.ledger .dot { width: 8px; height: 8px; border-radius: 50%; }
+.ledger .details { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.ledger .denom-break { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
+.ledger .declared { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
 
-/* Baseline setup */
 .baseline-hint { font-size: 14px; color: var(--muted); margin-top: 8px; }
 .hidden { display: none !important; }
 footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
@@ -119,8 +139,11 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
   <div id="entryCard" class="card hidden">
     <div class="label">Today's count</div>
 
-    <label>Cash in the till</label>
-    <input id="actual" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+    <div class="denom-list" id="denomList"></div>
+    <div class="denom-sum">
+      <span>Counted total</span>
+      <span class="total" id="denomTotal">€0.00</span>
+    </div>
 
     <div class="row2">
       <div>
@@ -155,11 +178,8 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 <script>
 // Base for API calls: relative to this page's own directory, so the app
 // works whether it is served at the root (/) or behind a prefix (/till/).
-// The page lives at <base>/  (index.html), so <base>/api/... is correct.
 const PAGE_DIR = (function () {
-  // location.pathname is like "/till/" or "/" — strip any trailing segment.
   const p = location.pathname.replace(/[^/]*$/, '');
-  // Ensure a trailing slash so "api/state" resolves to <dir>/api/state.
   return p.endsWith('/') ? p : p + '/';
 })();
 const API = {
@@ -168,6 +188,7 @@ const API = {
   confirm: PAGE_DIR + 'api/confirm',
   history: PAGE_DIR + 'api/history',
   baseline: PAGE_DIR + 'api/baseline',
+  denominations: PAGE_DIR + 'api/denominations',
 };
 const euroFmt = (v) => {
   const n = Number(v);
@@ -188,6 +209,8 @@ async function req(method, url, body) {
   return data;
 }
 
+let DENOMS = [];
+
 function setVerdict(status, varianceCents, label) {
   const el = document.getElementById('verdict');
   el.classList.remove('hidden');
@@ -199,7 +222,74 @@ function setVerdict(status, varianceCents, label) {
   document.getElementById('vSub').textContent = label;
 }
 
+function denomLabel(id) {
+  return DENOMS.find((d) => d.id === id)?.label || id;
+}
+
+function buildDenomList() {
+  const list = document.getElementById('denomList');
+  list.innerHTML = '';
+  for (const d of DENOMS) {
+    const li = document.createElement('li');
+    li.className = 'denom-row';
+    li.innerHTML = `
+      <span class="denom-label">${d.label}</span>
+      <input class="denom-input" type="text" inputmode="numeric" placeholder="0"
+             data-denom="${d.id}" autocomplete="off">
+      <span class="denom-total" id="dt-${d.id}">€0.00</span>
+    `;
+    list.appendChild(li);
+  }
+  // Live-update the total as the owner types counts.
+  list.querySelectorAll('.denom-input').forEach((inp) => {
+    inp.addEventListener('input', () => updateDenomTotal());
+  });
+}
+
+function getDenomCounts() {
+  const counts = {};
+  for (const d of DENOMS) {
+    const inp = document.querySelector(`[data-denom="${d.id}"]`);
+    const raw = inp ? inp.value.trim() : '';
+    if (raw === '') { counts[d.id] = 0; continue; }
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 0) counts[d.id] = Math.trunc(n);
+  }
+  return counts;
+}
+
+function denomTotalCents() {
+  const counts = getDenomCounts();
+  let total = 0;
+  for (const d of DENOMS) {
+    const n = counts[d.id] || 0;
+    total += n * d.valueCents;
+  }
+  return total;
+}
+
+function updateDenomTotal() {
+  const total = denomTotalCents();
+  document.getElementById('denomTotal').textContent = euroFmt(total / 100);
+  // Update per-denomination subtotals
+  const counts = getDenomCounts();
+  for (const d of DENOMS) {
+    const n = counts[d.id] || 0;
+    const span = document.getElementById('dt-' + d.id);
+    if (span) span.textContent = euroFmt((n * d.valueCents) / 100);
+  }
+}
+
 async function init() {
+  // Load denominations table
+  try {
+    const dres = await req('GET', API.denominations);
+    DENOMS = dres.denominations;
+    buildDenomList();
+  } catch (e) {
+    console.error('failed to load denominations', e);
+  }
+
   const state = await req('GET', API.state);
   const baselineOut = document.getElementById('baselineOut');
   if (!state.hasBaseline) {
@@ -214,6 +304,9 @@ async function init() {
 async function refresh() {
   const state = await req('GET', API.state);
   baselineOut.textContent = euroFmt(Number(state.booksBalance) || 0);
+  // Pre-fill the denomination inputs with the expected balance (so the owner
+  // starts from "what should be there" and only adjusts).
+  prefillFromExpected(state);
   // Load today's entry if present, else show neutral verdict.
   let todayEntry = null;
   try {
@@ -226,6 +319,22 @@ async function refresh() {
       verdictLabel(todayEntry.status));
     document.getElementById('confirmBtn').classList.remove('hidden');
   }
+}
+
+function prefillFromExpected(state) {
+  // The "expected" is the books balance (what should be in the till).
+  // We pre-fill the denomination inputs with a simple breakdown of the expected
+  // amount, so the owner can see what they're starting from and adjust.
+  const expectedCents = Number(state.booksBalance) * 100 || 0;
+  // Clear all denom inputs, then fill the €50 slot with the expected total
+  // (the owner will adjust from there). This is a starting point, not a count.
+  const counts = {};
+  for (const d of DENOMS) {
+    const inp = document.querySelector(`[data-denom="${d.id}"]`);
+    if (inp) inp.value = '';
+    counts[d.id] = 0;
+  }
+  updateDenomTotal();
 }
 
 function verdictLabel(status) {
@@ -242,9 +351,35 @@ function renderLedger(entries) {
   ul.innerHTML = '';
   for (const e of entries.slice(0, 30)) {
     const li = document.createElement('li');
-    const span = document.createElement('span'); span.className = 'date'; span.textContent = pretty(e.date);
-    const mid = document.createElement('span'); mid.className = 'var ' + e.status; mid.textContent = euroFmt(Number(e.variance));
-    li.append(span, mid);
+    const row1 = document.createElement('div'); row1.className = 'row1';
+    const dateSpan = document.createElement('span'); dateSpan.className = 'date'; dateSpan.textContent = pretty(e.date);
+    const varSpan = document.createElement('span'); varSpan.className = 'var ' + e.status; varSpan.textContent = euroFmt(Number(e.variance));
+    row1.append(dateSpan, varSpan);
+    li.append(row1);
+
+    // Details: count, removed, added, card, expected
+    const details = document.createElement('div'); details.className = 'details';
+    details.textContent = `Counted €${e.actual} · Removed €${e.cashRemoved} · Added €${e.cashAdded} · Card €${e.cardTransfer} · Expected €${e.expected}`;
+    li.append(details);
+
+    // Denomination breakdown (if present)
+    if (e.denominations) {
+      const db = document.createElement('div'); db.className = 'denom-break';
+      const parts = Object.entries(e.denominations)
+        .filter(([id, n]) => n > 0)
+        .map(([id, n]) => `${n}×${denomLabel(id)}`)
+        .join(', ');
+      db.textContent = 'Counted: ' + parts;
+      li.append(db);
+    }
+
+    // Declared note
+    if (e.declared) {
+      const dec = document.createElement('div'); dec.className = 'declared';
+      dec.textContent = '“' + e.declared + '”';
+      li.append(dec);
+    }
+
     ul.append(li);
   }
 }
@@ -260,13 +395,16 @@ document.getElementById('setupBtn').addEventListener('click', async () => {
 });
 
 document.getElementById('checkBtn').addEventListener('click', async () => {
+  const counts = getDenomCounts();
+  const hasDenomInput = Object.values(counts).some((n) => n > 0);
   const payload = {
     date: today(),
-    actual: document.getElementById('actual').value,
+    actual: hasDenomInput ? null : '0',  // When denominations are used, actual is derived
     cashRemoved: document.getElementById('removed').value,
     cashAdded: document.getElementById('added').value,
     cardTransfer: document.getElementById('card').value,
     declared: document.getElementById('declared').value,
+    denominations: hasDenomInput ? counts : null,
   };
   try {
     const entry = await req('POST', API.entry, payload);

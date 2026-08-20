@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zeus — workspace</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0d1117;
+    --panel: #151b24;
+    --panel-2: #1a222d;
+    --line: #283342;
+    --line-soft: #202a36;
+    --text: #edf2f7;
+    --muted: #91a0b2;
+    --faint: #617084;
+    --blue: #8eb7ff;
+    --green: #55d89b;
+    --red: #ff827d;
+    --amber: #f4c96b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 ui-sans-serif, system-ui, -apple-system, sans-serif; }
+  a { color: inherit; }
+  .shell { max-width: 1180px; margin: 0 auto; padding: 38px 24px 64px; }
+  .masthead { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+  .eyebrow { color: var(--blue); font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; margin-bottom: 8px; }
+  h1 { font-size: clamp(30px, 4vw, 46px); line-height: 1; letter-spacing: -.045em; margin: 0 0 10px; }
+  .intro { color: var(--muted); max-width: 570px; margin: 0; }
+  .host { min-width: 190px; padding: 13px 15px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  .host-label { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+  .host-value { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-weight: 650; }
+  .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 30px; }
+  .metric { padding: 15px 17px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  .metric-value { display: block; font-size: 25px; font-weight: 700; letter-spacing: -.04em; }
+  .metric-label { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .metric.good .metric-value { color: var(--green); }
+  .metric.bad .metric-value { color: var(--red); }
+  .metric.neutral .metric-value { color: var(--blue); }
+  .section-title { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 12px; }
+  .projects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .project { border: 1px solid var(--line); border-radius: 15px; background: var(--panel); overflow: hidden; }
+  .project.platform { grid-column: 1 / -1; }
+  .project-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; padding: 19px 20px 16px; border-bottom: 1px solid var(--line-soft); }
+  .project-title { display: flex; gap: 12px; align-items: flex-start; }
+  .project-mark { width: 34px; height: 34px; display: grid; place-items: center; flex: none; border-radius: 10px; background: #243247; color: var(--blue); font-size: 13px; font-weight: 800; letter-spacing: .04em; }
+  .project h2 { font-size: 18px; line-height: 1.2; letter-spacing: -.02em; margin: 0 0 3px; }
+  .title-edit { border: 0; padding: 2px 4px; margin-left: 5px; border-radius: 5px; background: transparent; color: var(--faint); cursor: pointer; font: inherit; font-size: 12px; opacity: .35; vertical-align: 2px; }
+  .title-edit:hover { color: var(--blue); background: #243247; opacity: 1; }
+  .title-editor { min-width: 150px; border: 1px solid var(--blue); border-radius: 5px; padding: 3px 6px; background: var(--bg); color: var(--text); font: inherit; font-size: 13px; }
+  .title-save, .title-cancel { border: 1px solid var(--line); border-radius: 5px; padding: 3px 6px; margin-left: 4px; background: var(--panel-2); color: var(--text); cursor: pointer; font: inherit; font-size: 11px; }
+  .title-save { color: var(--green); border-color: #2b664e; }
+  .title-cancel { color: var(--muted); }
+  .project-desc { color: var(--muted); font-size: 12px; margin: 0; }
+  .project-health { color: var(--muted); font-size: 12px; white-space: nowrap; padding-top: 4px; }
+  .service-list { padding: 6px 20px 10px; }
+  .service { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 13px 0; border-bottom: 1px solid var(--line-soft); }
+  .service:last-child { border-bottom: 0; }
+  .service-main { min-width: 0; }
+  .service-name { display: flex; align-items: center; gap: 8px; font-weight: 650; }
+  .service-detail { color: var(--muted); font-size: 12px; margin: 3px 0 0 17px; }
+  .local-dir { display: block; color: var(--faint); font: 10px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; margin-top: 4px; overflow-wrap: anywhere; }
+  .service-meta { display: flex; align-items: center; gap: 8px; margin: 7px 0 0 17px; }
+  .health { color: var(--muted); font-size: 11px; }
+  .health.good { color: var(--green); }
+  .health.bad { color: var(--red); }
+  .health.wait { color: var(--amber); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--faint); }
+  .dot.good { background: var(--green); box-shadow: 0 0 0 3px #55d89b1a; }
+  .dot.bad { background: var(--red); }
+  .dot.wait { background: var(--amber); }
+  .service-actions { display: flex; align-items: center; gap: 6px; }
+  .open, .power { display: inline-flex; align-items: center; justify-content: center; min-height: 31px; border: 1px solid var(--line); border-radius: 7px; padding: 0 10px; font: inherit; font-size: 12px; font-weight: 650; text-decoration: none; cursor: pointer; background: var(--panel-2); color: var(--text); }
+  .open:hover { border-color: var(--blue); color: var(--blue); }
+  .power { min-width: 53px; }
+  .power.start { color: var(--green); border-color: #2b664e; background: #14251f; }
+  .power.stop { color: var(--red); border-color: #6b3837; background: #291918; }
+  .power:disabled { cursor: default; opacity: .3; }
+  .power.busy { opacity: .65; animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .work { padding: 12px 20px 18px; background: var(--panel); border-top: 1px solid var(--line-soft); }
+  .work-label { color: var(--faint); font-size: 10px; font-weight: 700; letter-spacing: .11em; text-transform: uppercase; margin-bottom: 9px; }
+  .work-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .work-item { display: block; min-height: 76px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel-2); text-decoration: none; }
+  .work-item:hover { border-color: var(--blue); background: #1d2938; }
+  .work-name { display: block; font-weight: 620; font-size: 12px; }
+  .work-kind { display: inline-block; color: var(--blue); font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-top: 4px; }
+  .work-detail { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .footer { color: var(--faint); font-size: 12px; margin: 24px 0 0; }
+  code { color: #c8d8ee; font-size: .9em; }
+  @media (max-width: 720px) {
+    .shell { padding: 25px 15px 45px; }
+    .masthead { display: block; }
+    .host { margin-top: 17px; }
+    .summary { grid-template-columns: repeat(2, 1fr); }
+    .projects { grid-template-columns: 1fr; }
+    .project.platform { grid-column: auto; }
+  }
+  @media (max-width: 460px) {
+    .service { grid-template-columns: 1fr; gap: 10px; }
+    .service-actions { justify-content: flex-start; margin-left: 17px; }
+    .work-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main class="shell">
+  <header class="masthead">
+    <div>
+      <div class="eyebrow">Zeus workspace</div>
+      <h1>Everything in one place.</h1>
+      <p class="intro">A project-first view of the services, sites, and tools running on this machine. Start what you need; stop what you don't.</p>
+    </div>
+    <div class="host">
+      <div class="host-label">Host</div>
+      <div class="host-value"><span class="dot good"></span> Zeus · online</div>
+    </div>
+  </header>
+
+  <section class="summary" aria-label="Zeus summary">
+    <div class="metric neutral"><span id="metric-projects" class="metric-value">6</span><span class="metric-label">projects</span></div>
+    <div class="metric good"><span id="metric-running" class="metric-value">—</span><span class="metric-label">services running</span></div>
+    <div class="metric good"><span id="metric-responding" class="metric-value">—</span><span class="metric-label">responding</span></div>
+    <div class="metric bad"><span id="metric-stopped" class="metric-value">—</span><span class="metric-label">stopped / unavailable</span></div>
+  </section>
+
+  <h2 class="section-title">Projects</h2>
+  <section class="projects">
+    <article class="project" data-project-card="comandero">
+      <header class="project-head">
+        <div class="project-title"><div class="project-mark">CO</div><div><h2><span class="title-text" data-title-id="project:comandero">Comandero</span></h2><p class="project-desc">Restaurant operations and customer-facing web tools</p></div></div>
+        <div class="project-health" data-project-health="comandero">—</div>
+      </header>
+      <div class="service-list">
+        <div class="service" data-service="comandero-app">
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:comandero-app">Operations app</span></div><p class="service-detail">Orders, products, and day-to-day management<span class="local-dir">/home/seb/projects/comandero/app</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="http://zeus.tailfad2e3.ts.net:3202/">Open</a><button class="power start" data-control="comandero-app" data-action="start" disabled>Start</button><button class="power stop" data-control="comandero-app" data-action="stop" disabled>Stop</button></div>
+        </div>
+        <div class="service" data-service="comandero-www">
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:comandero-www">Comandero website</span></div><p class="service-detail">Public product and restaurant-facing site<span class="local-dir">/home/seb/projects/comandero/www</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="http://zeus.tailfad2e3.ts.net:3201/es">Open</a><button class="power start" data-control="comandero-www" data-action="start" disabled>Start</button><button class="power stop" data-control="comandero-www" data-action="stop" disabled>Stop</button></div>
+        </div>
+      </div>
+      <div class="work"><div class="work-label">Projects</div><div class="work-grid">
+        <a class="work-item" href="https://github.com/sebmarion/scanner"><span class="work-name"><span class="title-text" data-title-id="entry:scanner">Menu scanner</span></span><span class="work-kind">API</span><span class="work-detail">Turn menus into structured data<span class="local-dir">/home/seb/projects/comandero/scanner</span></span></a>
+        <a class="work-item" href="https://github.com/sebmarion/comandero-marketing"><span class="work-name"><span class="title-text" data-title-id="entry:comandero-marketing">Marketing site</span></span><span class="work-kind">Project</span><span class="work-detail">Campaigns and positioning<span class="local-dir">/home/seb/projects/comandero/marketing</span></span></a>
+        <a class="work-item" href="https://github.com/sebmarion/automation"><span class="work-name"><span class="title-text" data-title-id="entry:automation">Operations automation</span></span><span class="work-kind">Automation</span><span class="work-detail">Repeatable restaurant workflows<span class="local-dir">/home/seb/projects/comandero/automation</span></span></a>
+
+      </div></div>
+    </article>
+
+    <article class="project" data-project-card="snow">
+      <header class="project-head">
+        <div class="project-title"><div class="project-mark">SM</div><div><h2><span class="title-text" data-title-id="project:snow">Snow Monster</span></h2><p class="project-desc">Accounting, invoices, and the Snow Monster web presence</p></div></div>
+        <div class="project-health" data-project-health="snow">—</div>
+      </header>
+      <div class="service-list">
+        <div class="service" data-service="snow">
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:snow">Accounting dashboard</span></div><p class="service-detail">Invoices, accounting review, and exports<span class="local-dir">/home/seb/projects/snow-monster-accounting</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/accounting/">Open</a><button class="power start" data-control="snow-monster" data-action="start" disabled>Start</button><button class="power stop" data-control="snow-monster" data-action="stop" disabled>Stop</button></div>
+        </div>
+        <div class="service" data-service="snowmonster-web">
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:snowmonster-web">Snow Monster website</span></div><p class="service-detail">Public Snow Monster web presence · on-demand preview<span class="local-dir">/home/seb/projects/snowmonster/www_snowmonster_es</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/snowmonster/">Open</a><button class="power start" data-control="snowmonster-web" data-action="start" disabled>Start</button><button class="power stop" data-control="snowmonster-web" data-action="stop" disabled>Stop</button></div>
+        </div>
+      </div>
+      <div class="work"><div class="work-label">Projects</div><div class="work-grid">
+        <a class="work-item" href="https://github.com/sebmarion/invoicescrawler"><span class="work-name"><span class="title-text" data-title-id="entry:invoicescrawler">Invoice importer</span></span><span class="work-kind">Worker</span><span class="work-detail">Invoice collection and processing<span class="local-dir">/home/seb/projects/invoicescrawler</span></span></a>
+
+      </div></div>
+    </article>
+
+    <article class="project" data-project-card="orchestrero">
+      <header class="project-head">
+        <div class="project-title"><div class="project-mark">OR</div><div><h2><span class="title-text" data-title-id="project:orchestrero">Orchestrero</span></h2><p class="project-desc">Agent coordination and control plane</p></div></div>
+        <div class="project-health" data-project-health="orchestrero">—</div>
+      </header>
+      <div class="service-list">
+        <div class="service" data-service="orchestrero">
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:orchestrero">Orchestrero control plane</span></div><p class="service-detail">Coordinate work across agents and tools<span class="local-dir">/home/seb/projects/Orchestrero</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/orchestrero/">Open</a><button class="power start" data-control="orchestrero" data-action="start" disabled>Start</button><button class="power stop" data-control="orchestrero" data-action="stop" disabled>Stop</button></div>
+        </div>
+      </div>
+
+    </article>
+
+    <article class="project" data-project-card="bistrot">
+      <header class="project-head">
+        <div class="project-title"><div class="project-mark">BI</div><div><h2><span class="title-text" data-title-id="project:bistrot">Bistrot</span></h2><p class="project-desc">Digital menu and restaurant website</p></div></div>
+        <div class="project-health" data-project-health="bistrot">—</div>
+      </header>
+      <div class="service-list">
+        <div class="service" data-service="qr">
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:qr">Menu bistrot</span></div><p class="service-detail">QR-accessible digital menu<span class="local-dir">/home/seb/projects/bistrot/QR_menu_v2</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/qr/">Open</a><button class="power start" data-control="qr-menu" data-action="start" disabled>Start</button><button class="power stop" data-control="qr-menu" data-action="stop" disabled>Stop</button></div>
+        </div>
+        <div class="service" data-service="bistrot-web">
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:bistrot-web">Bistrot Barcelona website</span></div><p class="service-detail">Public restaurant website · on-demand preview<span class="local-dir">/home/seb/projects/bistrot/www_bistrotbcn_com</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/bistrot/">Open</a><button class="power start" data-control="bistrot-web" data-action="start" disabled>Start</button><button class="power stop" data-control="bistrot-web" data-action="stop" disabled>Stop</button></div>
+        </div>
+        <div class="service" data-service="till">
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:till">Till Check</span></div><p class="service-detail">Daily bistro cash reconciliation<span class="local-dir">/home/seb/projects/bistrot/till-check</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/till/">Open</a><button class="power start" data-control="till-check" data-action="start" disabled>Start</button><button class="power stop" data-control="till-check" data-action="stop" disabled>Stop</button></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="project platform" data-project-card="platform">
+      <header class="project-head">
+        <div class="project-title"><div class="project-mark">PL</div><div><h2><span class="title-text" data-title-id="project:platform">Platform</span></h2><p class="project-desc">The infrastructure and operator tools behind the workspace</p></div></div>
+        <div class="project-health" data-project-health="platform">—</div>
+      </header>
+      <div class="service-list">
+        <div class="service" data-service="gpu">
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:gpu">GPU monitor</span></div><p class="service-detail">Hardware and model-server telemetry · always on<span class="local-dir">/home/seb/services/gpu-monitor</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health">operator tool</span></div></div>
+          <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/gpu/">Open</a></div>
+        </div>
+        <div class="service" data-service="radar">
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:radar">Hermes Radar</span></div><p class="service-detail">Activity and progress view for Hermes<span class="local-dir">/home/seb/.hermes/state/radar/current</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/radar/">Open</a><button class="power start" data-control="hermes-radar" data-action="start" disabled>Start</button><button class="power stop" data-control="hermes-radar" data-action="stop" disabled>Stop</button></div>
+        </div>
+      </div>
+      <div class="work"><div class="work-label">Projects</div><div class="work-grid">
+        <a class="work-item" href="/local-inference/"><span class="work-name"><span class="title-text" data-title-id="entry:local-inference">Local model dashboard</span></span><span class="work-kind">Web page</span><span class="work-detail">Models and inference services<span class="local-dir">/home/seb/projects/local-inference</span></span></a>
+        <a class="work-item" href="https://github.com/NousResearch/hermes-agent"><span class="work-name"><span class="title-text" data-title-id="entry:hermes-agent">Hermes Agent</span></span><span class="work-kind">Runtime</span><span class="work-detail">Agent runtime<span class="local-dir">/home/seb/projects/hermes-agent</span></span></a>
+        <a class="work-item" href="https://github.com/sebmarion/hermes-skills"><span class="work-name"><span class="title-text" data-title-id="entry:hermes-skills">Hermes skills</span></span><span class="work-kind">Library</span><span class="work-detail">Reusable capabilities<span class="local-dir">/home/seb/projects/hermes-skills</span></span></a>
+      </div></div>
+    </article>
+
+    <article class="project" data-project-card="engineering">
+      <header class="project-head">
+        <div class="project-title"><div class="project-mark">EN</div><div><h2><span class="title-text" data-title-id="project:engineering">Engineering</span></h2><p class="project-desc">Activity visibility and engineering operations</p></div></div>
+        <div class="project-health" data-project-health="engineering">—</div>
+      </header>
+      <div class="service-list">
+        <div class="service" data-service="activity-tracker">
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:activity-tracker">Engineering activity tracker</span></div><p class="service-detail">Private GitHub activity and delivery dashboard · on-demand preview<span class="local-dir">/home/seb/projects/Set Piece/Activity Tracker</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/activity/">Open</a><button class="power start" data-control="activity-tracker" data-action="start" disabled>Start</button><button class="power stop" data-control="activity-tracker" data-action="stop" disabled>Stop</button></div>
+        </div>
+      </div>
+      <div class="work" style="border-top:0">
+        <div class="work-label">Projects</div>
+        <div class="work-grid">
+          <a class="work-item" href="https://github.com/sebmarion/tradebot"><span class="work-name"><span class="title-text" data-title-id="entry:tradebot">Trading bot</span></span><span class="work-kind">Worker</span><span class="work-detail">Automated trading experiments<span class="local-dir">/home/seb/projects/tradebot</span></span></a>
+          <a class="work-item" href="https://github.com/sebmarion/PrivateClip"><span class="work-name"><span class="title-text" data-title-id="entry:privateclip">PrivateClip</span></span><span class="work-kind">Utility</span><span class="work-detail">Private clipboard utility<span class="local-dir">/home/seb/projects/PrivateClip</span></span></a>
+        </div>
+      </div>
+    </article>
+  </section>
+  <p class="footer">Updated <span id="updated">—</span> · Service state is read from Zeus; health indicates whether the web endpoint responds.</p>
+</main>
+<script>
+  const services = [
+    { id: "comandero-app", health: "comandero-app", control: "comandero-app", project: "comandero" },
+    { id: "comandero-www", health: "comandero-www", control: "comandero-www", project: "comandero" },
+    { id: "snow", health: "snow", control: "snow-monster", project: "snow" },
+    { id: "snowmonster-web", health: "snowmonster-web", control: "snowmonster-web", project: "snow" },
+    { id: "orchestrero", health: "orchestrero", control: "orchestrero", project: "orchestrero" },
+    { id: "qr", health: "qr", control: "qr-menu", project: "bistrot" },
+    { id: "bistrot-web", health: "bistrot-web", control: "bistrot-web", project: "bistrot" },
+    { id: "till", health: "till", control: "till-check", project: "bistrot" },
+    { id: "gpu", health: "gpu", control: null, project: "platform" },
+    { id: "radar", health: "radar", control: "hermes-radar", project: "platform" },
+    { id: "activity-tracker", health: "activity-tracker", control: "activity-tracker", project: "engineering" },
+  ];
+
+  const byId = (id, root = document) => root.querySelector(`[data-service="${id}"]`);
+
+  function installTitleEditors() {
+    document.querySelectorAll(".title-text[data-title-id]").forEach(text => {
+      const parent = text.parentElement;
+      if (parent.querySelector(".title-edit")) return;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "title-edit";
+      button.textContent = "✎";
+      button.title = "Edit title";
+      button.setAttribute("aria-label", `Edit ${text.textContent.trim()}`);
+      button.addEventListener("click", () => beginTitleEdit(text, button));
+      parent.append(button);
+    });
+  }
+
+  function beginTitleEdit(text, editButton) {
+    const parent = text.parentElement;
+    if (parent.querySelector(".title-editor")) return;
+    const input = document.createElement("input");
+    input.className = "title-editor";
+    input.value = text.textContent.trim();
+    input.maxLength = 120;
+    const save = document.createElement("button");
+    save.type = "button";
+    save.className = "title-save";
+    save.textContent = "Save";
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.className = "title-cancel";
+    cancel.textContent = "Cancel";
+    text.hidden = true;
+    editButton.hidden = true;
+    parent.append(input, save, cancel);
+    input.focus();
+    input.select();
+    const close = () => {
+      text.hidden = false;
+      editButton.hidden = false;
+      input.remove();
+      save.remove();
+      cancel.remove();
+    };
+    cancel.addEventListener("click", close);
+    input.addEventListener("keydown", event => {
+      if (event.key === "Enter") save.click();
+      if (event.key === "Escape") cancel.click();
+    });
+    save.addEventListener("click", async () => {
+      const value = input.value.trim();
+      if (!value) return;
+      save.disabled = true;
+      try {
+        const response = await fetch("/control/titles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [text.dataset.titleId]: value }),
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!response.ok) throw new Error("title save failed");
+        text.textContent = value;
+        close();
+      } catch (error) {
+        save.disabled = false;
+        save.textContent = "Retry";
+        console.error(error);
+      }
+    });
+  }
+
+  async function loadTitles() {
+    try {
+      const response = await fetch("/control/titles", { cache: "no-store", signal: AbortSignal.timeout(4000) });
+      if (!response.ok) return;
+      const titles = await response.json();
+      for (const text of document.querySelectorAll(".title-text[data-title-id]")) {
+        if (typeof titles[text.dataset.titleId] === "string") text.textContent = titles[text.dataset.titleId];
+      }
+    } catch (_) {}
+  }
+
+  function setHealth(service, ok, status) {
+    const row = byId(service.id);
+    if (!row) return;
+    const dot = row.querySelector("[data-dot]");
+    const label = row.querySelector("[data-health]");
+    dot.className = `dot ${ok ? "good" : "bad"}`;
+    label.className = `health ${ok ? "good" : "bad"}`;
+    label.textContent = ok ? "responding" : `not responding${status ? ` · ${status}` : ""}`;
+  }
+
+  function setUnitState(service, active, known = true) {
+    const row = byId(service.id);
+    if (!row || !service.control) return;
+    const label = row.querySelector("[data-unit-state]");
+    const start = row.querySelector(`[data-action="start"]`);
+    const stop = row.querySelector(`[data-action="stop"]`);
+    if (!known) {
+      label.textContent = "control unavailable";
+      start.disabled = true;
+      stop.disabled = true;
+      return;
+    }
+    label.textContent = active ? "running" : "stopped";
+    label.className = `health ${active ? "good" : "bad"}`;
+    start.disabled = active;
+    stop.disabled = !active;
+  }
+
+  async function checkHealth(service) {
+    try {
+      const response = await fetch(`/health/${service.health}`, { cache: "no-store", signal: AbortSignal.timeout(4000) });
+      setHealth(service, response.ok, response.ok ? "" : response.status);
+      return response.ok;
+    } catch (_) {
+      setHealth(service, false, "offline");
+      return false;
+    }
+  }
+
+  function updateSummary(states, health) {
+    const controlled = services.filter(s => s.control);
+    const running = controlled.filter(s => states[s.control]?.active).length;
+    const responding = health.filter(Boolean).length;
+    const stopped = services.length - running - (services.length - controlled.length);
+    document.getElementById("metric-running").textContent = `${running}/${controlled.length}`;
+    document.getElementById("metric-responding").textContent = `${responding}/${services.length}`;
+    document.getElementById("metric-stopped").textContent = Math.max(0, stopped);
+  }
+
+  function updateProjectHealth(states, healthById) {
+    for (const project of document.querySelectorAll("[data-project-card]")) {
+      const id = project.dataset.projectCard;
+      const members = services.filter(s => s.project === id);
+      if (!members.length) continue;
+      const live = members.filter(s => s.control ? states[s.control]?.active : healthById[s.id]).length;
+      const responding = members.filter(s => healthById[s.id]).length;
+      const target = project.querySelector("[data-project-health]");
+      target.textContent = `${live}/${members.length} active · ${responding}/${members.length} responding`;
+    }
+  }
+
+  async function refresh() {
+    const health = await Promise.all(services.map(checkHealth));
+    const healthById = Object.fromEntries(services.map((s, i) => [s.id, health[i]]));
+    let states = {};
+    try {
+      const response = await fetch("/control/units", { cache: "no-store", signal: AbortSignal.timeout(4000) });
+      if (response.ok) states = await response.json();
+    } catch (_) {}
+    for (const service of services) setUnitState(service, Boolean(states[service.control]?.active), Boolean(service.control && states[service.control]));
+    updateSummary(states, health);
+    updateProjectHealth(states, healthById);
+    document.getElementById("updated").textContent = new Date().toLocaleTimeString();
+  }
+
+  async function control(button) {
+    const service = services.find(s => s.control === button.dataset.control);
+    if (!service) return;
+    const row = byId(service.id);
+    const buttons = [...row.querySelectorAll("button.power")];
+    buttons.forEach(b => { b.disabled = true; b.classList.add("busy"); });
+    button.textContent = button.dataset.action === "start" ? "Starting…" : "Stopping…";
+    try {
+      await fetch(`/control/${service.control}/${button.dataset.action}`, { method: "POST", signal: AbortSignal.timeout(30000) });
+    } finally {
+      await refresh();
+      buttons.forEach(b => b.classList.remove("busy"));
+    }
+  }
+
+  document.querySelectorAll("button.power").forEach(button => button.addEventListener("click", () => control(button)));
+  installTitleEditors();
+  loadTitles();
+  refresh();
+  setInterval(refresh, 15000);
+</script>
+</body>
+</html>

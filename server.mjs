@@ -21,6 +21,7 @@ import {
   eurosToCents,
   centsToEuros,
   STATUS,
+  DENOMINATIONS,
 } from './reconcile.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -56,6 +57,7 @@ CREATE TABLE IF NOT EXISTS entries (
   cash_added_cents INTEGER NOT NULL DEFAULT 0,
   card_transfer_cents INTEGER NOT NULL DEFAULT 0,
   declared_note TEXT NOT NULL DEFAULT '',
+  denominations TEXT NOT NULL DEFAULT '',
   expected_cents INTEGER NOT NULL,
   variance_cents INTEGER NOT NULL,
   status TEXT NOT NULL,
@@ -65,6 +67,15 @@ CREATE TABLE IF NOT EXISTS entries (
 );
 CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(date DESC);
 `)
+
+// Migration: add columns that may be missing from older databases.
+function ensureColumn(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all()
+  if (!cols.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
+  }
+}
+ensureColumn('entries', 'denominations', "TEXT NOT NULL DEFAULT ''")
 
 function nowIso() {
   return new Date().toISOString()
@@ -96,17 +107,18 @@ function upsertEntry(entry) {
       `UPDATE entries SET
          actual_cents = @actual_cents, cash_removed_cents = @cash_removed_cents,
          cash_added_cents = @cash_added_cents, card_transfer_cents = @card_transfer_cents,
-         declared_note = @declared_note, expected_cents = @expected_cents,
+         declared_note = @declared_note, denominations = @denominations,
+         expected_cents = @expected_cents,
          variance_cents = @variance_cents, status = @status, updated_at = @updated_at
        WHERE id = @id`,
-    ).run(entry)
+    ).run({ ...entry, id: existing.id })
   } else {
     db.prepare(
       `INSERT INTO entries (date, actual_cents, cash_removed_cents, cash_added_cents,
-        card_transfer_cents, declared_note, expected_cents, variance_cents, status,
+        card_transfer_cents, declared_note, denominations, expected_cents, variance_cents, status,
         created_at, updated_at)
        VALUES (@date, @actual_cents, @cash_removed_cents, @cash_added_cents,
-        @card_transfer_cents, @declared_note, @expected_cents, @variance_cents,
+        @card_transfer_cents, @declared_note, @denominations, @expected_cents, @variance_cents,
         @status, @created_at, @updated_at)`,
     ).run(entry)
   }
@@ -172,6 +184,10 @@ function handleGetState() {
   }
 }
 
+function handleGetDenominations() {
+  return { code: 200, body: { denominations: DENOMINATIONS } }
+}
+
 async function handlePostEntry(req) {
   const raw = await readBody(req)
   let body
@@ -186,6 +202,12 @@ async function handlePostEntry(req) {
   }
   const today = body.date || todayKey()
   const declared = typeof body.declared === 'string' ? body.declared : ''
+  // Denominations: a map like { "50": 3, "20": 2, "1": 5 } (counts per denomination).
+  // When present, the total is derived from denominations (overrides `actual`).
+  const denominations =
+    body.denominations && typeof body.denominations === 'object'
+      ? body.denominations
+      : null
   const result = reconcileDay(
     {
       actual: body.actual,
@@ -193,6 +215,7 @@ async function handlePostEntry(req) {
       cashAdded: body.cashAdded ?? 0,
       cardTransfer: body.cardTransfer ?? 0,
       declared,
+      denominations,
     },
     state.booksBalanceCents,
   )
@@ -203,6 +226,7 @@ async function handlePostEntry(req) {
     cash_added_cents: result.addedCents,
     card_transfer_cents: result.cardCents,
     declared_note: result.declared,
+    denominations: denominations ? JSON.stringify(denominations) : '',
     expected_cents: result.expectedCents,
     variance_cents: result.varianceCents,
     status: result.status,
@@ -214,6 +238,10 @@ async function handlePostEntry(req) {
 }
 
 function entryToView(row) {
+  let denominations = null
+  if (row.denominations) {
+    try { denominations = JSON.parse(row.denominations) } catch { denominations = null }
+  }
   return {
     date: row.date,
     actual: centsToEuros(row.actual_cents),
@@ -221,6 +249,7 @@ function entryToView(row) {
     cashAdded: centsToEuros(row.cash_added_cents),
     cardTransfer: centsToEuros(row.card_transfer_cents),
     declared: row.declared_note,
+    denominations,
     expected: centsToEuros(row.expected_cents),
     variance: centsToEuros(row.variance_cents),
     status: row.status,
@@ -252,6 +281,13 @@ async function handlePostConfirm(req) {
 function handleGetHistory() {
   const rows = db.prepare('SELECT * FROM entries ORDER BY date DESC LIMIT 90').all()
   return { code: 200, body: { entries: rows.map(entryToView) } }
+}
+
+function handleDeleteEntry(date) {
+  const row = db.prepare('SELECT * FROM entries WHERE date = ?').get(date)
+  if (!row) return { code: 404, body: { error: 'no entry for that date' } }
+  db.prepare('DELETE FROM entries WHERE date = ?').run(date)
+  return { code: 200, body: { deleted: true, date } }
 }
 
 async function handlePatchEntry(req, date) {
@@ -321,6 +357,12 @@ async function handle(req, res) {
     return
   }
 
+  if (pathname === '/api/denominations' && method === 'GET') {
+    const r = handleGetDenominations()
+    sendJson(res, r.code, r.body)
+    return
+  }
+
   if (pathname === '/api/entry' && method === 'POST') {
     const r = await handlePostEntry(req)
     sendJson(res, r.code, r.body)
@@ -342,6 +384,13 @@ async function handle(req, res) {
   if (pathname.startsWith('/api/entry/') && method === 'PATCH') {
     const date = pathname.split('/').pop()
     const r = await handlePatchEntry(req, decodeURIComponent(date))
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  if (pathname.startsWith('/api/entry/') && method === 'DELETE') {
+    const date = pathname.split('/').pop()
+    const r = handleDeleteEntry(decodeURIComponent(date))
     sendJson(res, r.code, r.body)
     return
   }

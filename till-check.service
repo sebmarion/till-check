@@ -1,17 +1,24 @@
-# Till Check — systemd unit
-# Deploy: cp till-check.service /etc/systemd/system/ && systemctl enable --now till-check
+# /etc/systemd/system/till-check.service
+# Till Check — daily bistro cash reconciliation (Zeus)
 #
-# Single-user, low-traffic cash reconciliation service. Binds 127.0.0.1 only;
-# nginx proxies the public /till/ route. Data persists in data/till.sqlite.
+# Single-user, low-traffic service. Binds 127.0.0.1 only; nginx proxies the
+# public /till/ route. State persists in data/till.sqlite (gitignored).
+# Pattern: snow-monster.service (dynamic Node app, zero external deps).
+
+[Unit]
+Description=Till Check — daily bistro cash reconciliation (Zeus)
+After=network-online.target
+Wants=network-online.target
 
 [Service]
-Description=Till Check — daily bistro cash reconciliation
+Type=simple
 User=seb
 WorkingDirectory=/home/seb/projects/bistrot/till-check
-ExecStart=/home/seb/.local/bin/node /home/seb/projects/bistrot/till-check/server.mjs
+Environment=PATH=/home/seb/.local/bin:/usr/bin:/bin
 Environment=TILL_PORT=3401
 Environment=TILL_BIND=127.0.0.1
 Environment=TILL_DB=/home/seb/projects/bistrot/till-check/data/till.sqlite
+ExecStart=/home/seb/.local/bin/node /home/seb/projects/bistrot/till-check/server.mjs
 Restart=on-failure
 RestartSec=5
 # Hardening (does not break node:sqlite or the HTTP server)

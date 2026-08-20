@@ -15,6 +15,8 @@ import {
   eurosToCents,
   centsToEuros,
   reconcileDay,
+  denominationsToCents,
+  DENOMINATIONS,
   STATUS,
 } from './reconcile.mjs'
 
@@ -98,5 +100,42 @@ test('cent-precision: 0.01 short is a short, not a balanced float error', () => 
   const r = reconcileDay({ actual: '399.99', cashRemoved: '100' }, 50000)
   // expected = 500 - 100 = 400.00 ; actual 399.99 -> variance -0.01
   assert.equal(r.varianceCents, -1)
+  assert.equal(r.status, STATUS.SHORT)
+})
+
+test('DENOMINATIONS table is complete and in order', () => {
+  assert.equal(DENOMINATIONS.length, 8)
+  assert.equal(DENOMINATIONS[0].id, '50')
+  assert.equal(DENOMINATIONS[7].id, '0.2')
+  // Values in descending order
+  for (let i = 1; i < DENOMINATIONS.length; i++) {
+    assert.ok(DENOMINATIONS[i - 1].valueCents > DENOMINATIONS[i].valueCents)
+  }
+})
+
+test('denominationsToCents sums counts by denomination', () => {
+  const counts = { "50": 3, "20": 2, "10": 1, "1": 5, "0.5": 2, "0.2": 1 }
+  // 3*50 + 2*20 + 1*10 + 5*1 + 2*0.5 + 1*0.2 = 150+40+10+5+1+0.2 = 206.20
+  assert.equal(denominationsToCents(counts), 20620)
+})
+
+test('denominationsToCents ignores unknown and negative counts', () => {
+  const counts = { "50": 1, "99": 5, "2": -3 }  // 99 not in table, -3 negative
+  assert.equal(denominationsToCents(counts), 5000)  // only the €50 counts
+})
+
+test('reconcileDay with denominations uses derived total as actual', () => {
+  // Books say €100. Owner counts 2×€50 notes = €100. Balanced.
+  const r = reconcileDay({ denominations: { "50": 2 } }, 10000)
+  assert.equal(r.actualCents, 10000)
+  assert.equal(r.varianceCents, 0)
+  assert.equal(r.status, STATUS.BALANCED)
+})
+
+test('reconcileDay with denominations short', () => {
+  // Books say €100. Owner counts 1×€50 = €50. Short €50.
+  const r = reconcileDay({ denominations: { "50": 1 } }, 10000)
+  assert.equal(r.actualCents, 5000)
+  assert.equal(r.varianceCents, -5000)
   assert.equal(r.status, STATUS.SHORT)
 })
