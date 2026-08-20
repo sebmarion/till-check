@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Till Check — Concept Illustration</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0a0a0f;
+      color: #e2e8f0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 800px;
+      width: 100%;
+    }
+    h1 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 32px;
+      font-weight: 700;
+      color: #34d399;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      color: #64748b;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .card {
+      background: #111118;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .card h2 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 16px;
+    }
+    .flow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .flow-step {
+      flex: 1;
+      background: rgba(52, 211, 153, 0.1);
+      border: 1px solid rgba(52, 211, 153, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+    .flow-step .number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 24px;
+      font-weight: 700;
+      color: #34d399;
+      margin-bottom: 8px;
+    }
+    .flow-step .label {
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      color: #e2e8f0;
+      font-weight: 500;
+    }
+    .flow-arrow {
+      font-size: 24px;
+      color: #34d399;
+    }
+    .verdict {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .verdict-item {
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+    .verdict-item .emoji {
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+    .verdict-item .label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .verdict-item .amount {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+    .over { color: #fbbf24; }
+    .short { color: #fb7185; }
+    .balanced { color: #34d399; }
+    .footer {
+      text-align: center;
+      margin-top: 32px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #475569;
+    }
+    .footer span {
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>How Till Check Works</h1>
+    <p class="subtitle">Count the drawer → Get the verdict → Confirm the day → See the pattern</p>
+
+    <div class="card">
+      <h2>The Flow</h2>
+      <div class="flow">
+        <div class="flow-step">
+          <div class="number">1</div>
+          <div class="label">Count the drawer</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="number">2</div>
+          <div class="label">Get the verdict</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="number">3</div>
+          <div class="label">Confirm the day</div>
+        </div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-step">
+          <div class="number">4</div>
+          <div class="label">See the pattern</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>The Verdict</h2>
+      <div class="verdict">
+        <div class="verdict-item">
+          <div class="emoji">📈</div>
+          <div class="label">OVER</div>
+          <div class="amount over">+€12.50</div>
+        </div>
+        <div class="verdict-item">
+          <div class="emoji">⚖️</div>
+          <div class="label">BALANCED</div>
+          <div class="amount balanced">±€0.00</div>
+        </div>
+        <div class="verdict-item">
+          <div class="emoji">📉</div>
+          <div class="label">SHORT</div>
+          <div class="amount short">−€15.00</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>The Promise</h2>
+      <p style="font-family: 'Inter', sans-serif; font-size: 14px; color: #94a3b8; text-align: center; line-height: 1.6;">
+        No accounts. No login. No sync.<br>
+        <span style="color: #34d399;">One drawer, one owner, one machine.</span>
+      </p>
+    </div>
+
+    <div class="footer">
+      <span>MIT License</span> · Node.js + SQLite · No dependencies
+    </div>
+  </div>
+</body>
+</html>

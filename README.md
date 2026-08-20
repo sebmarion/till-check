@@ -5,16 +5,20 @@
 Till Check is a small reconciliation app for restaurant owners.
 You count your cash drawer at close. Till Check tells you what it should have been.
 
-The problem: A €15 "shortage" on a busy Friday night could be €12 of overchange plus a €3 coin error — or €15 that walked out the door with someone's pocket. The app doesn't tell you which. It tells you the number, and it remembers what your "correct" till looks like so the number means something.
+[![Till Check](docs-screenshot.png)](docs-screenshot.png)
 
-## How it works
+## The Problem
 
-1. Count the drawer (bill and coin denominations, one screen, done in a minute)
-2. Get the verdict: over, short, or balanced — with the amount in euros
-3. Confirm the day: once confirmed, it becomes your baseline; future counts are checked against your own history
-4. See the pattern: six months of entries, with gaps flagged so you can't forget a day and not know why the next day looks weird
+A €15 "shortage" on a busy Friday night could be €12 of overchange plus a €3 coin error — or €15 that walked out the door with someone's pocket. The app doesn't tell you which. It tells you the number, and it remembers what your "correct" till looks like so the number means something.
 
-No accounts, no login, no sync. One drawer, one owner, one machine.
+## How It Works
+
+1. **Count the drawer** — bill and coin denominations, one screen, done in a minute
+2. **Get the verdict** — over, short, or balanced, with the amount in euros
+3. **Confirm the day** — once confirmed, it becomes your baseline; future counts are checked against your own history
+4. **See the pattern** — six months of entries, with gaps flagged so you can't forget a day and not know why the next day looks weird
+
+[![Concept](docs-concept.png)](till-check-concept.html)
 
 ## Install
 
@@ -25,21 +29,15 @@ npm start
 
 Open http://localhost:3401 — that's it. No accounts, no login.
 
-## Documentation
-
-- [README](README.md) — this file
-- [Technical notes](#technical-notes) — how it works under the hood
-- [Trial report](output/till-personas/REPORT-10-PERSONAS.md) — what 10 owners found over 6 months
-
-## Technical notes
+## Technical Notes
 
 - Node.js + SQLite (no framework, one server file, one HTML page)
 - Runs on a Raspberry Pi Zero 2W behind nginx
 - Data lives in `data/till.sqlite` — one drawer, one owner, one machine
 - API: `GET /api/state`, `POST /api/entry`, `PATCH /api/entry/:date`, `POST /api/confirm`, `DELETE /api/entry/:date`
-- Tests: `node e2e.test.mjs` (38 tests, all passing)
+- Tests: `node e2e.test.mjs` (38 tests)
 
-## What owners want next
+## What Owners Want Next
 
 Asked four owners what they'd want the app to do that it doesn't today:
 
