@@ -206,10 +206,16 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
     <button id="confirmBtn" class="ghost hidden">Confirm day</button>
   </div>
 
-  <!-- History -->
+  <!-- History (collapsed by default; today/yesterday shown in Recent) -->
   <div id="historyCard" class="card hidden">
     <div class="label">Recent</div>
     <ul id="ledger" class="ledger"></ul>
+    <details id="historyMore" class="section-card hidden">
+      <summary><span class="section-title">Earlier history</span><span class="section-hint">Days before yesterday</span></summary>
+      <div class="section-body">
+        <ul id="ledgerOlder" class="ledger"></ul>
+      </div>
+    </details>
   </div>
 
   <!-- People management -->
@@ -713,83 +719,119 @@ async function loadStats() {
 function renderLedger(entries) {
   const card = document.getElementById('historyCard');
   const ul = document.getElementById('ledger');
+  const ulOlder = document.getElementById('ledgerOlder');
+  const moreCard = document.getElementById('historyMore');
   if (!entries.length) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
   ul.innerHTML = '';
+  ulOlder.innerHTML = '';
+
+  // Determine "recent" = today + yesterday. Older goes into the collapsed
+  // "Earlier history" section (hidden by default).
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const yest = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const recentDates = new Set([todayStr, yest]);
+
+  let recentCount = 0, olderCount = 0;
   for (const e of entries.slice(0, 30)) {
-    const li = document.createElement('li');
-    const row1 = document.createElement('div'); row1.className = 'row1';
-    const dateSpan = document.createElement('span'); dateSpan.className = 'date'; dateSpan.textContent = pretty(e.date);
-    const varSpan = document.createElement('span'); varSpan.className = 'var ' + e.status; varSpan.textContent = euroFmt(Number(e.variance));
-    row1.append(dateSpan, varSpan);
-    li.append(row1);
-
-    // Details: count, removed, added, card, expected
-    const details = document.createElement('div'); details.className = 'details';
-    details.textContent = `Counted €${e.actual} · Removed €${e.cashRemoved} · Added €${e.cashAdded} · Card €${e.cardTransfer} · Expected €${e.expected}`;
-    li.append(details);
-
-    // Confirmed marker + reconcile affordance. A confirmed day can be
-    // re-reconciled (count corrected) without deleting — the books baseline
-    // is re-derived from the corrected figure.
-    if (e.confirmed) {
-      const badge = document.createElement('div');
-      badge.className = 'confirmed-flag';
-      badge.textContent = '✓ confirmed';
-      li.append(badge);
+    const isRecent = recentDates.has(e.date);
+    const li = buildLedgerRow(e);
+    if (isRecent) {
+      ul.append(li);
+      recentCount++;
+    } else {
+      ulOlder.append(li);
+      olderCount++;
     }
+  }
 
-    // Denomination breakdown (if present)
-    if (e.denominations) {
-      const db = document.createElement('div'); db.className = 'denom-break';
-      const parts = Object.entries(e.denominations)
-        .filter(([id, n]) => n > 0)
-        .map(([id, n]) => `${n}×${denomLabel(id)}`)
-        .join(', ');
-      db.textContent = 'Counted: ' + parts;
-      li.append(db);
-    }
+  // Show/hide the "Earlier history" section based on whether there are
+  // older entries to display.
+  if (olderCount > 0) {
+    moreCard.classList.remove('hidden');
+  } else {
+    moreCard.classList.add('hidden');
+  }
 
-    // Declared note
-    if (e.declared) {
-      const dec = document.createElement('div'); dec.className = 'declared';
-      dec.textContent = '“' + e.declared + '”';
-      li.append(dec);
-    }
+  // If nothing recent, show the card but let the user expand "Earlier
+  // history" — or if there are no older entries either, hide the card.
+  if (recentCount === 0 && olderCount === 0) {
+    card.classList.add('hidden');
+  }
+}
 
-    // Delete button for this entry
-    const delBtn = document.createElement('button');
-    delBtn.className = 'ghost small danger';
-    delBtn.textContent = 'Delete day';
-    delBtn.addEventListener('click', async () => {
-      if (!confirm('Delete entry for ' + e.date + '?')) return;
+function buildLedgerRow(e) {
+  const li = document.createElement('li');
+  const row1 = document.createElement('div'); row1.className = 'row1';
+  const dateSpan = document.createElement('span'); dateSpan.className = 'date'; dateSpan.textContent = pretty(e.date);
+  const varSpan = document.createElement('span'); varSpan.className = 'var ' + e.status; varSpan.textContent = euroFmt(Number(e.variance));
+  row1.append(dateSpan, varSpan);
+  li.append(row1);
+
+  // Details: count, removed, added, card, expected
+  const details = document.createElement('div'); details.className = 'details';
+  details.textContent = `Counted €${e.actual} · Removed €${e.cashRemoved} · Added €${e.cashAdded} · Card €${e.cardTransfer} · Expected €${e.expected}`;
+  li.append(details);
+
+  // Confirmed marker + reconcile affordance. A confirmed day can be
+  // re-reconciled (count corrected) without deleting — the books baseline
+  // is re-derived from the corrected figure.
+  if (e.confirmed) {
+    const badge = document.createElement('div');
+    badge.className = 'confirmed-flag';
+    badge.textContent = '✓ confirmed';
+    li.append(badge);
+  }
+
+  // Denomination breakdown (if present)
+  if (e.denominations) {
+    const db = document.createElement('div'); db.className = 'denom-break';
+    const parts = Object.entries(e.denominations)
+      .filter(([id, n]) => n > 0)
+      .map(([id, n]) => `${n}×${denomLabel(id)}`)
+      .join(', ');
+    db.textContent = 'Counted: ' + parts;
+    li.append(db);
+  }
+
+  // Declared note
+  if (e.declared) {
+    const dec = document.createElement('div'); dec.className = 'declared';
+    dec.textContent = '“' + e.declared + '”';
+    li.append(dec);
+  }
+
+  // Delete button for this entry
+  const delBtn = document.createElement('button');
+  delBtn.className = 'ghost small danger';
+  delBtn.textContent = 'Delete day';
+  delBtn.addEventListener('click', async () => {
+    if (!confirm('Delete entry for ' + e.date + '?')) return;
+    try {
+      await req('DELETE', API.entryById(e.date));
+      await init();
+    } catch (err) { alert(err.message); }
+  });
+
+  // Reconcile button (confirmed days): correct the count without deleting.
+  if (e.confirmed) {
+    const reconBtn = document.createElement('button');
+    reconBtn.className = 'ghost small';
+    reconBtn.textContent = 'Reconcile';
+    reconBtn.addEventListener('click', async () => {
+      const raw = Number(e.actual);
+      const corrected = prompt('Corrected count for ' + e.date + ' (current ' + raw.toFixed(2) + ' €):', raw.toFixed(2));
+      if (corrected === null) return;
       try {
-        await req('DELETE', API.entryById(e.date));
+        await req('POST', API.reconcile, { date: e.date, actual: corrected });
         await init();
       } catch (err) { alert(err.message); }
     });
-
-    // Reconcile button (confirmed days): correct the count without deleting.
-    if (e.confirmed) {
-      const reconBtn = document.createElement('button');
-      reconBtn.className = 'ghost small';
-      reconBtn.textContent = 'Reconcile';
-      reconBtn.addEventListener('click', async () => {
-        const raw = Number(e.actual);
-        const corrected = prompt('Corrected count for ' + e.date + ' (current ' + raw.toFixed(2) + ' €):', raw.toFixed(2));
-        if (corrected === null) return;
-        try {
-          await req('POST', API.reconcile, { date: e.date, actual: corrected });
-          await init();
-        } catch (err) { alert(err.message); }
-      });
-      li.append(reconBtn);
-    }
-
-    li.append(delBtn);
-
-    ul.append(li);
+    li.append(reconBtn);
   }
+
+  li.append(delBtn);
+  return li;
 }
 
 document.getElementById('setupBtn').addEventListener('click', async () => {
