@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#f4f1ea">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f8f5b'/%3E%3Cpath d='M8 16h16M16 8v16' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
 <title>Till Check</title>
 <style>
 :root {
@@ -153,7 +154,7 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 <div class="wrap">
   <header class="topbar">
     <div>
-      <div class="eyebrow">Daily operations</div>
+      <div class="eyebrow">Cash drawer · today</div>
       <h1>Till Check</h1>
     </div>
     <div class="baseline-status"><span class="status-dot"></span><span>Baseline <strong id="baselineOut">—</strong></span></div>
@@ -179,7 +180,8 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 
   <!-- Daily entry -->
   <div id="entryCard" class="card hidden">
-    <div class="label">Today's count</div>
+    <div class="label">Count the drawer</div>
+    <div class="baseline-hint">Count each note and coin, then check the till.</div>
 
     <div class="denom-list" id="denomList"></div>
     <div class="denom-sum">
@@ -220,100 +222,7 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
     </details>
   </div>
 
-  <!-- People management -->
-  <details id="peopleCard" class="section-card">
-    <summary><span class="section-title">People</span><span class="section-hint">Staff and pay settings</span></summary>
-    <div class="section-body">
-    <div id="peopleList"></div>
-    <button id="addPersonBtn" class="ghost">+ Add person</button>
-    <div id="personForm" class="hidden">
-      <label>Name</label>
-      <input id="personName" type="text" placeholder="e.g. Maria">
-      <label>Pay schedule</label>
-      <select id="personSchedule">
-        <option value="weekly">Weekly</option>
-        <option value="hourly">Hourly</option>
-        <option value="monthly">Monthly</option>
-      </select>
-      <label>Pay method</label>
-      <select id="personMethod">
-        <option value="cash">Cash</option>
-        <option value="transfer">Transfer</option>
-        <option value="transfer_cash">Transfer + Cash</option>
-      </select>
-      <label>Hourly rate (for hourly workers)</label>
-      <input id="personRate" type="text" inputmode="decimal" placeholder="0.00">
-      <button id="savePersonBtn">Save person</button>
-      <button id="cancelPersonBtn" class="ghost">Cancel</button>
-    </div>
-    </div>
-  </details>
-
-  <!-- Payroll entry -->
-  <details id="payrollCard" class="section-card">
-    <summary><span class="section-title">Payroll</span><span class="section-hint">Record a payment</span></summary>
-    <div class="section-body">
-    <label>Person</label>
-    <select id="paymentPerson"></select>
-    <label>Amount</label>
-    <input id="paymentAmount" type="text" inputmode="decimal" placeholder="0.00">
-    <label>Pay method</label>
-    <select id="paymentMethod">
-      <option value="cash">Cash</option>
-      <option value="transfer">Transfer</option>
-      <option value="transfer_cash">Transfer + Cash</option>
-    </select>
-    <label>Note</label>
-    <input id="paymentNote" type="text" placeholder="e.g. Week of Aug 18">
-    <button id="savePaymentBtn">Record payment</button>
-    <div id="paymentsList"></div>
-    </div>
-  </details>
-
-  <!-- Costs -->
-  <details id="costsCard" class="section-card">
-    <summary><span class="section-title">Costs</span><span class="section-hint">Rent, utilities, other</span></summary>
-    <div class="section-body">
-    <label>Category</label>
-    <select id="costCategory">
-      <option value="rent">Rent</option>
-      <option value="utilities_electricity">Electricity</option>
-      <option value="utilities_water">Water</option>
-      <option value="internet">Internet</option>
-      <option value="other">Other</option>
-    </select>
-    <label>Label</label>
-    <input id="costLabel" type="text" placeholder="e.g. August rent">
-    <label>Amount</label>
-    <input id="costAmount" type="text" inputmode="decimal" placeholder="0.00">
-    <button id="saveCostBtn">Record cost</button>
-    <div id="costsList"></div>
-    </div>
-  </details>
-
-  <!-- Monthly closing -->
-  <details id="monthlyCard" class="section-card">
-    <summary><span class="section-title">Monthly closing</span><span class="section-hint">Review and close</span></summary>
-    <div class="section-body">
-    <div id="monthlySummary"></div>
-    <button id="closeMonthBtn">Close month</button>
-    <div id="closingResult"></div>
-    <div class="monthly-history">
-      <div class="label" style="margin-bottom:0.4rem">History</div>
-      <ul id="monthlyLedger" class="ledger"></ul>
-    </div>
-    </div>
-  </details>
-
-  <!-- Stats -->
-  <details id="statsCard" class="section-card">
-    <summary><span class="section-title">Stats</span><span class="section-hint">Till performance</span></summary>
-    <div class="section-body">
-    <div id="statsSummary"></div>
-    </div>
-  </details>
-
-  <footer>Till Check · daily ledger</footer>
+  <footer>Till Check · one drawer, one owner, one machine</footer>
 </div>
 
 <script>
@@ -331,15 +240,6 @@ const API = {
   history: PAGE_DIR + 'api/history',
   baseline: PAGE_DIR + 'api/baseline',
   denominations: PAGE_DIR + 'api/denominations',
-  people: PAGE_DIR + 'api/people',
-  peopleById: (id) => PAGE_DIR + 'api/people/' + id,
-  payments: PAGE_DIR + 'api/payments',
-  paymentsById: (id) => PAGE_DIR + 'api/payments/' + id,
-  costs: PAGE_DIR + 'api/costs',
-  costsById: (id) => PAGE_DIR + 'api/costs/' + id,
-  monthly: (ym) => PAGE_DIR + 'api/monthly/' + ym,
-  monthlyHistory: PAGE_DIR + 'api/monthly',
-  stats: PAGE_DIR + 'api/stats',
   entryById: (date) => PAGE_DIR + 'api/entry/' + date,
 };
 const euroFmt = (v) => {
@@ -348,7 +248,7 @@ const euroFmt = (v) => {
   return sign + '€' + Math.abs(n).toFixed(2);
 };
 const today = () => new Date().toISOString().slice(0, 10);
-const pretty = (d) => d ? d.slice(2, 4) + '/' + d.slice(5, 7) : d;
+const pretty = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) : d;
 
 async function req(method, url, body) {
   const res = await fetch(url, {
@@ -468,12 +368,6 @@ async function init() {
   document.getElementById('entryCard').classList.remove('hidden');
   await refresh();
   
-  // Load people, payments, costs, monthly, stats
-  await loadPeople();
-  await loadPayments();
-  await loadCosts();
-  await loadMonthly();
-  await loadStats();
 }
 
 async function refresh() {
@@ -517,219 +411,6 @@ function verdictLabel(status) {
   if (status === 'balanced') return 'Balanced — accounts match';
   if (status === 'short') return 'Short — cash missing or unaccounted';
   return 'Over — more cash than the books predict';
-}
-
-// --- People management ---
-async function loadPeople() {
-  try {
-    const res = await req('GET', API.people);
-    const list = document.getElementById('peopleList');
-    list.innerHTML = '';
-    for (const p of res.people) {
-      const div = document.createElement('div');
-      div.className = 'ledger';
-      const li = document.createElement('li');
-      const row = document.createElement('div');
-      row.className = 'row1';
-      const nameSpan = document.createElement('span');
-      nameSpan.textContent = p.name;
-      const metaSpan = document.createElement('span');
-      metaSpan.className = 'details';
-      metaSpan.textContent = p.paySchedule + ', ' + p.payMethod;
-      row.append(nameSpan, metaSpan);
-      li.append(row);
-      // Delete button
-      const delBtn = document.createElement('button');
-      delBtn.className = 'ghost small danger';
-      delBtn.textContent = 'Remove';
-      delBtn.addEventListener('click', async () => {
-        if (!confirm('Remove ' + p.name + '?')) return;
-        try {
-          await req('DELETE', API.peopleById(p.id));
-          await loadPeople();
-        } catch (e) { alert(e.message); }
-      });
-      li.append(delBtn);
-      list.appendChild(div);
-    }
-    // Populate payment person dropdown
-    const sel = document.getElementById('paymentPerson');
-    sel.innerHTML = '';
-    for (const p of res.people) {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = p.name;
-      sel.appendChild(opt);
-    }
-  } catch (e) { console.error('failed to load people', e); }
-}
-
-document.getElementById('addPersonBtn').addEventListener('click', () => {
-  document.getElementById('personForm').classList.remove('hidden');
-});
-
-document.getElementById('cancelPersonBtn').addEventListener('click', () => {
-  document.getElementById('personForm').classList.add('hidden');
-});
-
-document.getElementById('savePersonBtn').addEventListener('click', async () => {
-  const payload = {
-    name: document.getElementById('personName').value,
-    paySchedule: document.getElementById('personSchedule').value,
-    payMethod: document.getElementById('personMethod').value,
-    hourlyRate: document.getElementById('personRate').value,
-  };
-  try {
-    await req('POST', API.people, payload);
-    document.getElementById('personForm').classList.add('hidden');
-    await loadPeople();
-  } catch (e) { alert(e.message); }
-});
-
-// --- Payroll ---
-async function loadPayments() {
-  try {
-    const res = await req('GET', API.payments);
-    const list = document.getElementById('paymentsList');
-    list.innerHTML = '';
-    for (const p of res.payments.slice(0, 10)) {
-      const div = document.createElement('div');
-      div.className = 'ledger';
-      const li = document.createElement('li');
-      const row = document.createElement('div');
-      row.className = 'row1';
-      const textSpan = document.createElement('span');
-      textSpan.textContent = pretty(p.date) + ' — ' + p.personName + ': ' + euroFmt(Number(p.amount)) + ' (' + p.payMethod + ')';
-      const delBtn = document.createElement('button');
-      delBtn.className = 'ghost small danger';
-      delBtn.textContent = 'Delete';
-      delBtn.addEventListener('click', async () => {
-        if (!confirm('Delete this payment?')) return;
-        try {
-          await req('DELETE', API.paymentsById(p.id));
-          await loadPayments();
-        } catch (e) { alert(e.message); }
-      });
-      row.append(textSpan, delBtn);
-      li.append(row);
-      div.appendChild(li);
-      list.appendChild(div);
-    }
-  } catch (e) { console.error('failed to load payments', e); }
-}
-
-document.getElementById('savePaymentBtn').addEventListener('click', async () => {
-  const payload = {
-    personId: Number(document.getElementById('paymentPerson').value),
-    amount: document.getElementById('paymentAmount').value,
-    payMethod: document.getElementById('paymentMethod').value,
-    note: document.getElementById('paymentNote').value,
-  };
-  try {
-    await req('POST', API.payments, payload);
-    document.getElementById('paymentAmount').value = '';
-    document.getElementById('paymentNote').value = '';
-    await loadPayments();
-  } catch (e) { alert(e.message); }
-});
-
-// --- Costs ---
-async function loadCosts() {
-  try {
-    const res = await req('GET', API.costs);
-    const list = document.getElementById('costsList');
-    list.innerHTML = '';
-    for (const c of res.costs.slice(0, 10)) {
-      const div = document.createElement('div');
-      div.className = 'ledger';
-      const li = document.createElement('li');
-      const row = document.createElement('div');
-      row.className = 'row1';
-      const textSpan = document.createElement('span');
-      textSpan.textContent = pretty(c.date) + ' — ' + c.category + ': ' + euroFmt(Number(c.amount)) + (c.label ? ' (' + c.label + ')' : '');
-      const delBtn = document.createElement('button');
-      delBtn.className = 'ghost small danger';
-      delBtn.textContent = 'Delete';
-      delBtn.addEventListener('click', async () => {
-        if (!confirm('Delete this cost?')) return;
-        try {
-          await req('DELETE', API.costsById(c.id));
-          await loadCosts();
-        } catch (e) { alert(e.message); }
-      });
-      row.append(textSpan, delBtn);
-      li.append(row);
-      div.appendChild(li);
-      list.appendChild(div);
-    }
-  } catch (e) { console.error('failed to load costs', e); }
-}
-
-document.getElementById('saveCostBtn').addEventListener('click', async () => {
-  const payload = {
-    category: document.getElementById('costCategory').value,
-    label: document.getElementById('costLabel').value,
-    amount: document.getElementById('costAmount').value,
-  };
-  try {
-    await req('POST', API.costs, payload);
-    document.getElementById('costLabel').value = '';
-    document.getElementById('costAmount').value = '';
-    await loadCosts();
-  } catch (e) { alert(e.message); }
-});
-
-// --- Monthly closing ---
-function currentMonthKey() {
-  return new Date().toISOString().slice(0, 7); // YYYY-MM
-}
-
-async function loadMonthly() {
-  try {
-    const ym = currentMonthKey();
-    const res = await req('GET', API.monthly(ym));
-    const summary = document.getElementById('monthlySummary');
-    if (res.closed) {
-      summary.innerHTML = `<div class="ledger"><li>Closed: Total ${euroFmt(Number(res.total))}, Payroll ${euroFmt(Number(res.payroll))}, Costs ${euroFmt(Number(res.costs))}, Net ${euroFmt(Number(res.net))}</li></div>`;
-    } else {
-      summary.innerHTML = `<div class="ledger"><li>Open: ${res.dailyCount} days, Avg variance ${euroFmt(Number(res.avgVariance))}</li></div>`;
-    }
-    
-    // Load monthly history
-    const historyRes = await req('GET', API.monthlyHistory);
-    const ledger = document.getElementById('monthlyLedger');
-    ledger.innerHTML = '';
-    for (const m of historyRes.months) {
-      const li = document.createElement('li');
-      li.textContent = `${m.yearMonth}: Total ${euroFmt(Number(m.total))}, Payroll ${euroFmt(Number(m.payroll))}, Costs ${euroFmt(Number(m.costs))}, Net ${euroFmt(Number(m.net))} (${m.dailyCount} days)`;
-      ledger.appendChild(li);
-    }
-  } catch (e) {
-    console.error('loadMonthly failed', e);
-  }
-}
-
-document.getElementById('closeMonthBtn').addEventListener('click', async () => {
-  const ym = currentMonthKey();
-  try {
-    await req('POST', API.monthly(ym));
-    await loadMonthly();
-    alert('Month closed.');
-  } catch (e) { alert(e.message); }
-});
-
-// --- Stats ---
-async function loadStats() {
-  try {
-    const res = await req('GET', API.stats);
-    const summary = document.getElementById('statsSummary');
-    summary.innerHTML = `<div class="ledger">
-      <li>Entries: ${res.totalEntries}</li>
-      <li>Total counted: ${euroFmt(Number(res.totalActual))}</li>
-      <li>Total variance: ${euroFmt(Number(res.totalVariance))}</li>
-      <li>Balanced: ${res.balanced}, Short: ${res.short}, Over: ${res.over}</li>
-    </div>`;
-  } catch (e) { console.error('failed to load stats', e); }
 }
 
 function renderLedger(entries) {

@@ -1,0 +1,14 @@
+{
+  "name": "till-check",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A focused cash-drawer reconciliation app for restaurant owners.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test reconcile.test.mjs"
+  }
+}
