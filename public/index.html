@@ -71,6 +71,7 @@ button {
   background: var(--accent); color: #fff; cursor: pointer; margin-top: 16px;
 }
 button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+button.ghost.small { width: auto; font-size: 12px; padding: 4px 8px; margin-top: 6px; }
 button:active { transform: translateY(1px); }
 
 /* Denomination counter */
@@ -273,11 +274,15 @@ const API = {
   baseline: PAGE_DIR + 'api/baseline',
   denominations: PAGE_DIR + 'api/denominations',
   people: PAGE_DIR + 'api/people',
+  peopleById: (id) => PAGE_DIR + 'api/people/' + id,
   payments: PAGE_DIR + 'api/payments',
+  paymentsById: (id) => PAGE_DIR + 'api/payments/' + id,
   costs: PAGE_DIR + 'api/costs',
+  costsById: (id) => PAGE_DIR + 'api/costs/' + id,
   monthly: (ym) => PAGE_DIR + 'api/monthly/' + ym,
   monthlyHistory: PAGE_DIR + 'api/monthly',
   stats: PAGE_DIR + 'api/stats',
+  entryById: (date) => PAGE_DIR + 'api/entry/' + date,
 };
 const euroFmt = (v) => {
   const n = Number(v);
@@ -448,7 +453,28 @@ async function loadPeople() {
     for (const p of res.people) {
       const div = document.createElement('div');
       div.className = 'ledger';
-      div.innerHTML = `<li><span>${p.name}</span> — ${p.paySchedule}, ${p.payMethod}</li>`;
+      const li = document.createElement('li');
+      const row = document.createElement('div');
+      row.className = 'row1';
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = p.name;
+      const metaSpan = document.createElement('span');
+      metaSpan.className = 'details';
+      metaSpan.textContent = p.paySchedule + ', ' + p.payMethod;
+      row.append(nameSpan, metaSpan);
+      li.append(row);
+      // Delete button
+      const delBtn = document.createElement('button');
+      delBtn.className = 'ghost small';
+      delBtn.textContent = 'Remove';
+      delBtn.addEventListener('click', async () => {
+        if (!confirm('Remove ' + p.name + '?')) return;
+        try {
+          await req('DELETE', API.peopleById(p.id));
+          await loadPeople();
+        } catch (e) { alert(e.message); }
+      });
+      li.append(delBtn);
       list.appendChild(div);
     }
     // Populate payment person dropdown
@@ -494,7 +520,24 @@ async function loadPayments() {
     for (const p of res.payments.slice(0, 10)) {
       const div = document.createElement('div');
       div.className = 'ledger';
-      div.innerHTML = `<li>${pretty(p.date)} — ${p.personName}: ${euroFmt(Number(p.amount))} (${p.payMethod})</li>`;
+      const li = document.createElement('li');
+      const row = document.createElement('div');
+      row.className = 'row1';
+      const textSpan = document.createElement('span');
+      textSpan.textContent = pretty(p.date) + ' — ' + p.personName + ': ' + euroFmt(Number(p.amount)) + ' (' + p.payMethod + ')';
+      const delBtn = document.createElement('button');
+      delBtn.className = 'ghost small';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', async () => {
+        if (!confirm('Delete this payment?')) return;
+        try {
+          await req('DELETE', API.paymentsById(p.id));
+          await loadPayments();
+        } catch (e) { alert(e.message); }
+      });
+      row.append(textSpan, delBtn);
+      li.append(row);
+      div.appendChild(li);
       list.appendChild(div);
     }
   } catch (e) { console.error('failed to load payments', e); }
@@ -524,7 +567,24 @@ async function loadCosts() {
     for (const c of res.costs.slice(0, 10)) {
       const div = document.createElement('div');
       div.className = 'ledger';
-      div.innerHTML = `<li>${pretty(c.date)} — ${c.category}: ${euroFmt(Number(c.amount))}</li>`;
+      const li = document.createElement('li');
+      const row = document.createElement('div');
+      row.className = 'row1';
+      const textSpan = document.createElement('span');
+      textSpan.textContent = pretty(c.date) + ' — ' + c.category + ': ' + euroFmt(Number(c.amount)) + (c.label ? ' (' + c.label + ')' : '');
+      const delBtn = document.createElement('button');
+      delBtn.className = 'ghost small';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', async () => {
+        if (!confirm('Delete this cost?')) return;
+        try {
+          await req('DELETE', API.costsById(c.id));
+          await loadCosts();
+        } catch (e) { alert(e.message); }
+      });
+      row.append(textSpan, delBtn);
+      li.append(row);
+      div.appendChild(li);
       list.appendChild(div);
     }
   } catch (e) { console.error('failed to load costs', e); }
@@ -633,6 +693,19 @@ function renderLedger(entries) {
       dec.textContent = '“' + e.declared + '”';
       li.append(dec);
     }
+
+    // Delete button for this entry
+    const delBtn = document.createElement('button');
+    delBtn.className = 'ghost small';
+    delBtn.textContent = 'Delete day';
+    delBtn.addEventListener('click', async () => {
+      if (!confirm('Delete entry for ' + e.date + '?')) return;
+      try {
+        await req('DELETE', API.entryById(e.date));
+        await init();
+      } catch (err) { alert(err.message); }
+    });
+    li.append(delBtn);
 
     ul.append(li);
   }

@@ -164,7 +164,19 @@ function upsertEntry(entry) {
          expected_cents = @expected_cents,
          variance_cents = @variance_cents, status = @status, updated_at = @updated_at
        WHERE id = @id`,
-    ).run({ ...entry, id: existing.id })
+    ).run({
+      id: existing.id,
+      actual_cents: entry.actual_cents,
+      cash_removed_cents: entry.cash_removed_cents,
+      cash_added_cents: entry.cash_added_cents,
+      card_transfer_cents: entry.card_transfer_cents,
+      declared_note: entry.declared_note,
+      denominations: entry.denominations,
+      expected_cents: entry.expected_cents,
+      variance_cents: entry.variance_cents,
+      status: entry.status,
+      updated_at: entry.updated_at,
+    })
   } else {
     db.prepare(
       `INSERT INTO entries (date, actual_cents, cash_removed_cents, cash_added_cents,
@@ -339,6 +351,19 @@ function handleGetHistory() {
 function handleDeleteEntry(date) {
   const row = db.prepare('SELECT * FROM entries WHERE date = ?').get(date)
   if (!row) return { code: 404, body: { error: 'no entry for that date' } }
+  const state = getState()
+  // If this was the entry that last set the books baseline (confirmed),
+  // revert the baseline to the previous entry's actual (or the original
+  // baseline if none). Keeps the running books consistent after deletion.
+  if (row.confirmed_at && state && state.baseline_date === date) {
+    const prev = db.prepare(
+      'SELECT actual_cents FROM entries WHERE date < ? ORDER BY date DESC LIMIT 1'
+    ).get(date)
+    const newBalance = prev ? prev.actual_cents : state.baseline_cents
+    db.prepare(
+      'UPDATE state SET books_balance_cents = ?, baseline_date = ?, updated_at = ? WHERE id = 1'
+    ).run(newBalance, prev ? prev.date : state.baseline_date, nowIso())
+  }
   db.prepare('DELETE FROM entries WHERE date = ?').run(date)
   return { code: 200, body: { deleted: true, date } }
 }
@@ -355,6 +380,12 @@ async function handlePatchEntry(req, date) {
   }
   const state = getState()
   if (!state) return { code: 409, body: { error: 'no baseline set' } }
+  // Denominations: preserve existing unless explicitly overridden.
+  let denomObj = null
+  try { denomObj = row.denominations ? JSON.parse(row.denominations) : null } catch { denomObj = null }
+  if (body.denominations !== undefined) {
+    denomObj = body.denominations && typeof body.denominations === 'object' ? body.denominations : null
+  }
   const result = reconcileDay(
     {
       actual: body.actual !== undefined ? body.actual : row.actual_cents,
@@ -362,6 +393,7 @@ async function handlePatchEntry(req, date) {
       cashAdded: body.cashAdded ?? row.cash_added_cents,
       cardTransfer: body.cardTransfer ?? row.card_transfer_cents,
       declared: body.declared ?? row.declared_note,
+      denominations: denomObj,
     },
     state.booksBalanceCents,
   )
@@ -373,6 +405,7 @@ async function handlePatchEntry(req, date) {
     cash_added_cents: result.addedCents,
     card_transfer_cents: result.cardCents,
     declared_note: result.declared,
+    denominations: denomObj ? JSON.stringify(denomObj) : '',
     expected_cents: result.expectedCents,
     variance_cents: result.varianceCents,
     status: result.status,
