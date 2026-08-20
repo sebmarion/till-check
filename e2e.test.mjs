@@ -24,39 +24,65 @@ async function req(method, path, body) {
   return { status: res.status, data }
 }
 
-// Generate a unique test date to avoid conflicts with existing entries
+async function currentBooksBalance() {
+  const { data } = await req('GET', '/state')
+  return Number(data.booksBalance || 0)
+}
+
+// The live service shares one mutable ledger. Queue test bodies so one test
+// cannot change the books baseline while another is calculating its expected
+// variance.
+let testQueue = Promise.resolve()
+function serialTest(name, fn) {
+  test(name, async () => {
+    const previous = testQueue
+    let release
+    testQueue = new Promise((resolve) => { release = resolve })
+    await previous
+    try {
+      return await fn()
+    } finally {
+      release()
+    }
+  })
+}
+
+// Generate a unique test date to avoid conflicts with existing entries and
+// between concurrently scheduled node:test cases.
+let testDateOffset = 30
 function testDate() {
   const d = new Date()
-  d.setDate(d.getDate() + 30)  // 30 days in the future
+  d.setDate(d.getDate() + testDateOffset++)
   return d.toISOString().slice(0, 10)
 }
 
 // --- State tests ---
-test('GET /health returns ok', async () => {
+serialTest('GET /health returns ok', async () => {
   const res = await fetch(`http://127.0.0.1:${process.env.TILL_TEST_PORT || 80}/till/health`)
   const data = await res.json()
   assert.equal(res.status, 200)
   assert.ok(data.ok === true || data.ok === 'true')
 })
 
-test('GET /state returns state', async () => {
+serialTest('GET /state returns state', async () => {
   const { status, data } = await req('GET', '/state')
   assert.equal(status, 200)
   assert.ok('hasBaseline' in data)
 })
 
-test('GET /denominations returns denom list', async () => {
+serialTest('GET /denominations returns denom list', async () => {
   const { status, data } = await req('GET', '/denominations')
   assert.equal(status, 200)
   assert.ok(data.denominations.length >= 1)
 })
 
 // --- Entry tests ---
-test('POST /entry creates a balanced entry', async () => {
+serialTest('POST /entry creates a balanced entry', async () => {
   const today = testDate()
+  const balance = await currentBooksBalance()
   const { status, data } = await req('POST', '/entry', {
     date: today,
-    actual: '500',
+    actual: String(balance),
     cashRemoved: 0,
     cashAdded: 0,
     cardTransfer: 0,
@@ -64,31 +90,31 @@ test('POST /entry creates a balanced entry', async () => {
   })
   assert.equal(status, 200)
   assert.ok('status' in data)
-  assert.equal(Number(data.actual), 500)
+  assert.equal(Number(data.actual), balance)
 })
 
-test('POST /entry creates a short entry', async () => {
+serialTest('POST /entry creates a short entry', async () => {
   const today = testDate()
-  console.log(`DEBUG: Creating short entry for date ${today}`)
+  const balance = await currentBooksBalance()
   const { status, data } = await req('POST', '/entry', {
     date: today,
-    actual: '400',
+    actual: String(balance - 100),
     cashRemoved: 0,
     cashAdded: 0,
     cardTransfer: 0,
     declared: '',
   })
-  console.log(`DEBUG: Status ${status}, Data: ${JSON.stringify(data).slice(0, 200)}`)
   assert.equal(status, 200, `Expected 200, got ${status}: ${JSON.stringify(data)}`)
   assert.equal(data.status, 'short')
   assert.equal(Number(data.variance), -100)
 })
 
-test('POST /entry creates an over entry', async () => {
+serialTest('POST /entry creates an over entry', async () => {
   const today = testDate()
+  const balance = await currentBooksBalance()
   const { status, data } = await req('POST', '/entry', {
     date: today,
-    actual: '600',
+    actual: String(balance + 100),
     cashRemoved: 0,
     cashAdded: 0,
     cardTransfer: 0,
@@ -99,7 +125,7 @@ test('POST /entry creates an over entry', async () => {
   assert.equal(Number(data.variance), 100)
 })
 
-test('POST /entry with denominations derives actual from denom', async () => {
+serialTest('POST /entry with denominations derives actual from denom', async () => {
   const today = testDate()
   const { status, data } = await req('POST', '/entry', {
     date: today,
@@ -114,7 +140,7 @@ test('POST /entry with denominations derives actual from denom', async () => {
   assert.equal(Number(data.denominations['50']), 4)
 })
 
-test('POST /entry with invalid JSON returns 400', async () => {
+serialTest('POST /entry with invalid JSON returns 400', async () => {
   const res = await fetch(BASE + '/entry', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -123,7 +149,7 @@ test('POST /entry with invalid JSON returns 400', async () => {
   assert.equal(res.status, 400)
 })
 
-test('POST /entry with negative actual works', async () => {
+serialTest('POST /entry with negative actual works', async () => {
   const today = testDate()
   const { status, data } = await req('POST', '/entry', {
     date: today,
@@ -136,7 +162,7 @@ test('POST /entry with negative actual works', async () => {
   assert.equal(status, 200)
 })
 
-test('POST /entry with zero values works', async () => {
+serialTest('POST /entry with zero values works', async () => {
   const today = testDate()
   const { status, data } = await req('POST', '/entry', {
     date: today,
@@ -150,27 +176,37 @@ test('POST /entry with zero values works', async () => {
 })
 
 // --- Confirm tests ---
-test('POST /confirm confirms the entry', async () => {
+serialTest('POST /confirm confirms the entry', async () => {
   const today = testDate()
+  const balance = await currentBooksBalance()
+  const created = await req('POST', '/entry', {
+    date: today,
+    actual: String(balance),
+    cashRemoved: 0,
+    cashAdded: 0,
+    cardTransfer: 0,
+    declared: '',
+  })
+  assert.equal(created.status, 200)
   const { status, data } = await req('POST', '/confirm', { date: today })
   assert.equal(status, 200)
   assert.ok('confirmed' in data || 'booksBalance' in data)
 })
 
-test('POST /confirm for non-existent date returns 404', async () => {
+serialTest('POST /confirm for non-existent date returns 404', async () => {
   const { status } = await req('POST', '/confirm', { date: '1999-01-01' })
   assert.equal(status, 404)
 })
 
 // --- History tests ---
-test('GET /history returns entries', async () => {
+serialTest('GET /history returns entries', async () => {
   const { status, data } = await req('GET', '/history')
   assert.equal(status, 200)
   assert.ok('entries' in data)
   assert.ok(data.entries.length >= 1)
 })
 
-test('GET /history entries have correct structure', async () => {
+serialTest('GET /history entries have correct structure', async () => {
   const { status, data } = await req('GET', '/history')
   assert.equal(status, 200)
   const entry = data.entries[0]
@@ -181,8 +217,18 @@ test('GET /history entries have correct structure', async () => {
 })
 
 // --- Entry PATCH/DELETE tests ---
-test('PATCH /entry/:date updates the entry', async () => {
+serialTest('PATCH /entry/:date updates the entry', async () => {
   const today = testDate()
+  const balance = await currentBooksBalance()
+  const created = await req('POST', '/entry', {
+    date: today,
+    actual: String(balance),
+    cashRemoved: 0,
+    cashAdded: 0,
+    cardTransfer: 0,
+    declared: '',
+  })
+  assert.equal(created.status, 200)
   const { status, data } = await req('PATCH', `/entry/${today}`, {
     actual: '550',
     cashRemoved: 0,
@@ -194,19 +240,29 @@ test('PATCH /entry/:date updates the entry', async () => {
   assert.equal(Number(data.actual), 550)
 })
 
-test('DELETE /entry/:date deletes the entry', async () => {
+serialTest('DELETE /entry/:date deletes the entry', async () => {
   const today = testDate()
+  const balance = await currentBooksBalance()
+  const created = await req('POST', '/entry', {
+    date: today,
+    actual: String(balance),
+    cashRemoved: 0,
+    cashAdded: 0,
+    cardTransfer: 0,
+    declared: '',
+  })
+  assert.equal(created.status, 200)
   const { status } = await req('DELETE', `/entry/${today}`)
   assert.equal(status, 200)
 })
 
-test('DELETE /entry/:date for non-existent date returns 404', async () => {
+serialTest('DELETE /entry/:date for non-existent date returns 404', async () => {
   const { status } = await req('DELETE', '/entry/1999-01-01')
   assert.equal(status, 404)
 })
 
 // --- People tests ---
-test('POST /people creates a person', async () => {
+serialTest('POST /people creates a person', async () => {
   const { status, data } = await req('POST', '/people', {
     name: 'Test Person ' + Date.now(),
     paySchedule: 'weekly',
@@ -217,14 +273,14 @@ test('POST /people creates a person', async () => {
   assert.ok(data.id > 0)
 })
 
-test('GET /people returns people list', async () => {
+serialTest('GET /people returns people list', async () => {
   const { status, data } = await req('GET', '/people')
   assert.equal(status, 200)
   assert.ok(Array.isArray(data.people))
   assert.ok(data.people.length >= 1)
 })
 
-test('PATCH /people/:id updates a person', async () => {
+serialTest('PATCH /people/:id updates a person', async () => {
   const { status, data } = await req('GET', '/people')
   assert.equal(status, 200)
   if (data.people.length === 0) {
@@ -239,7 +295,7 @@ test('PATCH /people/:id updates a person', async () => {
   assert.equal(updated.paySchedule, 'hourly')
 })
 
-test('DELETE /people/:id soft-deletes a person', async () => {
+serialTest('DELETE /people/:id soft-deletes a person', async () => {
   const { status, data } = await req('GET', '/people')
   assert.equal(status, 200)
   if (data.people.length === 0) {
@@ -250,13 +306,13 @@ test('DELETE /people/:id soft-deletes a person', async () => {
   assert.equal(s2, 200)
 })
 
-test('POST /people with missing name returns 400', async () => {
+serialTest('POST /people with missing name returns 400', async () => {
   const { status } = await req('POST', '/people', { paySchedule: 'weekly' })
   assert.equal(status, 400)
 })
 
 // --- Payment tests ---
-test('POST /payments creates a payment', async () => {
+serialTest('POST /payments creates a payment', async () => {
   const { data: peopleData } = await req('GET', '/people')
   let personId = peopleData.people[0]?.id
   if (!personId) {
@@ -274,13 +330,13 @@ test('POST /payments creates a payment', async () => {
   assert.equal(Number(data.amount), 100)
 })
 
-test('GET /payments returns payments list', async () => {
+serialTest('GET /payments returns payments list', async () => {
   const { status, data } = await req('GET', '/payments')
   assert.equal(status, 200)
   assert.ok(Array.isArray(data.payments))
 })
 
-test('DELETE /payments/:id deletes a payment', async () => {
+serialTest('DELETE /payments/:id deletes a payment', async () => {
   const { status, data } = await req('GET', '/payments')
   assert.equal(status, 200)
   if (data.payments.length === 0) {
@@ -292,7 +348,7 @@ test('DELETE /payments/:id deletes a payment', async () => {
 })
 
 // --- Cost tests ---
-test('POST /costs creates a cost', async () => {
+serialTest('POST /costs creates a cost', async () => {
   const { status, data } = await req('POST', '/costs', {
     date: new Date().toISOString().slice(0, 10),
     category: 'rent',
@@ -304,14 +360,14 @@ test('POST /costs creates a cost', async () => {
   assert.equal(data.category, 'rent')
 })
 
-test('GET /costs returns costs list', async () => {
+serialTest('GET /costs returns costs list', async () => {
   const { status, data } = await req('GET', '/costs')
   assert.equal(status, 200)
   assert.ok(Array.isArray(data.costs))
   assert.ok(data.costs.length >= 1)
 })
 
-test('DELETE /costs/:id deletes a cost', async () => {
+serialTest('DELETE /costs/:id deletes a cost', async () => {
   const { status, data } = await req('GET', '/costs')
   assert.equal(status, 200)
   if (data.costs.length === 0) {
@@ -323,28 +379,28 @@ test('DELETE /costs/:id deletes a cost', async () => {
 })
 
 // --- Monthly closing tests ---
-test('GET /monthly/:ym returns monthly summary', async () => {
+serialTest('GET /monthly/:ym returns monthly summary', async () => {
   const ym = new Date().toISOString().slice(0, 7)
   const { status, data } = await req('GET', `/monthly/${ym}`)
   assert.equal(status, 200)
   assert.ok('closed' in data)
 })
 
-test('POST /monthly/:ym closes the month', async () => {
+serialTest('POST /monthly/:ym closes the month', async () => {
   const ym = new Date().toISOString().slice(0, 7)
   const { status, data } = await req('POST', `/monthly/${ym}`)
   assert.equal(status, 200)
   assert.ok(data)
 })
 
-test('GET /monthly returns history', async () => {
+serialTest('GET /monthly returns history', async () => {
   const { status, data } = await req('GET', '/monthly')
   assert.equal(status, 200)
   assert.ok(Array.isArray(data.months))
 })
 
 // --- Stats tests ---
-test('GET /stats returns stats with defaults', async () => {
+serialTest('GET /stats returns stats with defaults', async () => {
   const { status, data } = await req('GET', '/stats')
   assert.equal(status, 200)
   assert.ok('totalEntries' in data)
@@ -353,7 +409,7 @@ test('GET /stats returns stats with defaults', async () => {
   assert.ok('costs' in data)
 })
 
-test('GET /stats?from&to returns filtered stats', async () => {
+serialTest('GET /stats?from&to returns filtered stats', async () => {
   const ym = new Date().toISOString().slice(0, 7)
   const { status, data } = await req('GET', `/stats?from=${ym}-01&to=${ym}-31`)
   assert.equal(status, 200)

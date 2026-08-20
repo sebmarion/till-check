@@ -26,12 +26,18 @@ body {
   font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background: var(--bg);
   color: var(--ink);
-  padding: 16px;
+  padding: 12px 16px;
   padding-bottom: 32px;
   -webkit-font-smoothing: antialiased;
 }
 .wrap { max-width: 520px; margin: 0 auto; }
-h1 { font-size: 20px; font-weight: 600; margin: 4px 0 16px; letter-spacing: 0.2px; }
+.topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin: 4px 0 16px; }
+.eyebrow { font-size: 11px; line-height: 1; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 5px; }
+h1 { font-size: 22px; line-height: 1.1; font-weight: 650; margin: 0; letter-spacing: -0.2px; }
+.baseline-status { display: inline-flex; align-items: center; gap: 7px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12px; white-space: nowrap; background: rgba(255,255,255,0.55); }
+.baseline-status strong { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 650; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+.status-dot.ready { background: var(--green); }
 .card {
   background: var(--card);
   border: 1px solid var(--line);
@@ -65,13 +71,16 @@ input {
 }
 input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-textarea { width: 100%; font: inherit; font-size: 15px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; resize: vertical; min-height: 44px; }
+textarea, select { width: 100%; font: inherit; font-size: 15px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; resize: vertical; min-height: 44px; background: #fff; color: var(--ink); }
+select { resize: none; }
+textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 button {
   width: 100%; font-size: 16px; font-weight: 600; padding: 14px; border: 0; border-radius: 12px;
   background: var(--accent); color: #fff; cursor: pointer; margin-top: 16px;
 }
 button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
 button.ghost.small { width: auto; font-size: 12px; padding: 4px 8px; margin-top: 6px; }
+button.ghost.danger { color: var(--red); border-color: #e8c2be; }
 button:active { transform: translateY(1px); }
 
 /* Denomination counter */
@@ -110,13 +119,40 @@ button:active { transform: translateY(1px); }
 .ledger .declared { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
 
 .baseline-hint { font-size: 14px; color: var(--muted); margin-top: 8px; }
+.section-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
+.section-card > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; padding: 14px 16px; cursor: pointer; list-style: none; }
+.section-card > summary::-webkit-details-marker { display: none; }
+.section-card > summary::after { content: '+'; color: var(--muted); font-size: 21px; font-weight: 400; line-height: 1; }
+.section-card[open] > summary::after { content: '−'; }
+.section-card[open] > summary { border-bottom: 1px solid var(--line); }
+.section-title { font-size: 16px; font-weight: 600; }
+.section-hint { color: var(--muted); font-size: 12px; margin-left: auto; }
+.section-body { padding: 0 16px 16px; }
+.section-body > .label:first-child { margin-top: 15px; }
+.section-body .card { border: 0; box-shadow: none; padding: 0; margin: 0; }
+.summary-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; padding: 14px 0 2px; }
+.summary-item { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.summary-item .value { display: block; font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.summary-item .caption { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.section-body .ledger { margin-top: 8px; }
 .hidden { display: none !important; }
 footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
+@media (max-width: 380px) {
+  body { padding-left: 12px; padding-right: 12px; }
+  .baseline-status { padding-left: 7px; padding-right: 7px; }
+  .section-hint { display: none; }
+}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Till Check</h1>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">Daily operations</div>
+      <h1>Till Check</h1>
+    </div>
+    <div class="baseline-status"><span class="status-dot"></span><span>Baseline <strong id="baselineOut">—</strong></span></div>
+  </header>
 
   <!-- Baseline (first run only) -->
   <div id="setup" class="card hidden">
@@ -174,8 +210,9 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
   </div>
 
   <!-- People management -->
-  <div id="peopleCard" class="card">
-    <div class="label">People</div>
+  <details id="peopleCard" class="section-card">
+    <summary><span class="section-title">People</span><span class="section-hint">Staff and pay settings</span></summary>
+    <div class="section-body">
     <div id="peopleList"></div>
     <button id="addPersonBtn" class="ghost">+ Add person</button>
     <div id="personForm" class="hidden">
@@ -198,11 +235,13 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
       <button id="savePersonBtn">Save person</button>
       <button id="cancelPersonBtn" class="ghost">Cancel</button>
     </div>
-  </div>
+    </div>
+  </details>
 
   <!-- Payroll entry -->
-  <div id="payrollCard" class="card">
-    <div class="label">Payroll</div>
+  <details id="payrollCard" class="section-card">
+    <summary><span class="section-title">Payroll</span><span class="section-hint">Record a payment</span></summary>
+    <div class="section-body">
     <label>Person</label>
     <select id="paymentPerson"></select>
     <label>Amount</label>
@@ -217,11 +256,13 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
     <input id="paymentNote" type="text" placeholder="e.g. Week of Aug 18">
     <button id="savePaymentBtn">Record payment</button>
     <div id="paymentsList"></div>
-  </div>
+    </div>
+  </details>
 
   <!-- Costs -->
-  <div id="costsCard" class="card">
-    <div class="label">Costs</div>
+  <details id="costsCard" class="section-card">
+    <summary><span class="section-title">Costs</span><span class="section-hint">Rent, utilities, other</span></summary>
+    <div class="section-body">
     <label>Category</label>
     <select id="costCategory">
       <option value="rent">Rent</option>
@@ -236,27 +277,32 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
     <input id="costAmount" type="text" inputmode="decimal" placeholder="0.00">
     <button id="saveCostBtn">Record cost</button>
     <div id="costsList"></div>
-  </div>
+    </div>
+  </details>
 
   <!-- Monthly closing -->
-  <div id="monthlyCard" class="card">
-    <div class="label">Monthly closing</div>
+  <details id="monthlyCard" class="section-card">
+    <summary><span class="section-title">Monthly closing</span><span class="section-hint">Review and close</span></summary>
+    <div class="section-body">
     <div id="monthlySummary"></div>
     <button id="closeMonthBtn">Close month</button>
     <div id="closingResult"></div>
-    <div style="margin-top:0.6rem">
+    <div class="monthly-history">
       <div class="label" style="margin-bottom:0.4rem">History</div>
       <ul id="monthlyLedger" class="ledger"></ul>
     </div>
-  </div>
+    </div>
+  </details>
 
   <!-- Stats -->
-  <div id="statsCard" class="card">
-    <div class="label">Stats</div>
+  <details id="statsCard" class="section-card">
+    <summary><span class="section-title">Stats</span><span class="section-hint">Till performance</span></summary>
+    <div class="section-body">
     <div id="statsSummary"></div>
-  </div>
+    </div>
+  </details>
 
-  <footer>Till Check · books baseline <span id="baselineOut"></span></footer>
+  <footer>Till Check · daily ledger</footer>
 </div>
 
 <script>
@@ -386,6 +432,8 @@ async function init() {
 
   const state = await req('GET', API.state);
   const baselineOut = document.getElementById('baselineOut');
+  document.querySelector('.status-dot').classList.toggle('ready', !!state.hasBaseline);
+  baselineOut.textContent = state.hasBaseline ? euroFmt(Number(state.booksBalance) || 0) : '—';
   if (!state.hasBaseline) {
     document.getElementById('setup').classList.remove('hidden');
     return;
@@ -404,6 +452,7 @@ async function init() {
 
 async function refresh() {
   const state = await req('GET', API.state);
+  document.querySelector('.status-dot').classList.toggle('ready', !!state.hasBaseline);
   baselineOut.textContent = euroFmt(Number(state.booksBalance) || 0);
   // Pre-fill the denomination inputs with the expected balance (so the owner
   // starts from "what should be there" and only adjusts).
@@ -465,7 +514,7 @@ async function loadPeople() {
       li.append(row);
       // Delete button
       const delBtn = document.createElement('button');
-      delBtn.className = 'ghost small';
+      delBtn.className = 'ghost small danger';
       delBtn.textContent = 'Remove';
       delBtn.addEventListener('click', async () => {
         if (!confirm('Remove ' + p.name + '?')) return;
@@ -526,7 +575,7 @@ async function loadPayments() {
       const textSpan = document.createElement('span');
       textSpan.textContent = pretty(p.date) + ' — ' + p.personName + ': ' + euroFmt(Number(p.amount)) + ' (' + p.payMethod + ')';
       const delBtn = document.createElement('button');
-      delBtn.className = 'ghost small';
+      delBtn.className = 'ghost small danger';
       delBtn.textContent = 'Delete';
       delBtn.addEventListener('click', async () => {
         if (!confirm('Delete this payment?')) return;
@@ -573,7 +622,7 @@ async function loadCosts() {
       const textSpan = document.createElement('span');
       textSpan.textContent = pretty(c.date) + ' — ' + c.category + ': ' + euroFmt(Number(c.amount)) + (c.label ? ' (' + c.label + ')' : '');
       const delBtn = document.createElement('button');
-      delBtn.className = 'ghost small';
+      delBtn.className = 'ghost small danger';
       delBtn.textContent = 'Delete';
       delBtn.addEventListener('click', async () => {
         if (!confirm('Delete this cost?')) return;
@@ -696,7 +745,7 @@ function renderLedger(entries) {
 
     // Delete button for this entry
     const delBtn = document.createElement('button');
-    delBtn.className = 'ghost small';
+    delBtn.className = 'ghost small danger';
     delBtn.textContent = 'Delete day';
     delBtn.addEventListener('click', async () => {
       if (!confirm('Delete entry for ' + e.date + '?')) return;
@@ -715,9 +764,7 @@ document.getElementById('setupBtn').addEventListener('click', async () => {
   const raw = document.getElementById('setupAmount').value;
   try {
     await req('POST', API.baseline, { actual: raw });
-    document.getElementById('setup').classList.add('hidden');
-    document.getElementById('entryCard').classList.remove('hidden');
-    alert('Baseline set. Start counting each day.');
+    await init();
   } catch (e) { alert(e.message); }
 });
 
