@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f4f1ea">
+<title>Till Check</title>
+<style>
+:root {
+  --bg: #f4f1ea;
+  --card: #ffffff;
+  --ink: #1f2421;
+  --muted: #5f6b64;
+  --line: #e4e0d6;
+  --green: #2f8f5b;
+  --green-bg: #e7f5ec;
+  --amber: #b07d1e;
+  --amber-bg: #fbf0d9;
+  --red: #b23b30;
+  --red-bg: #f8e3e0;
+  --accent: #1f2421;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  padding: 16px;
+  padding-bottom: 32px;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 520px; margin: 0 auto; }
+h1 { font-size: 20px; font-weight: 600; margin: 4px 0 16px; letter-spacing: 0.2px; }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+}
+.label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 10px; }
+
+/* Verdict — decision front and center */
+.verdict { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; margin-bottom: 14px; }
+.verdict .badge { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; flex: none; }
+.verdict .body { flex: 1; }
+.verdict .amount { font-size: 26px; font-weight: 650; line-height: 1.1; }
+.verdict .sub { font-size: 13px; color: var(--muted); }
+.verdict.balanced { background: var(--green-bg); }
+.verdict.balanced .amount { color: var(--green); }
+.verdict.short { background: var(--red-bg); }
+.verdict.short .amount { color: var(--red); }
+.verdict.over { background: var(--amber-bg); }
+.verdict.over .amount { color: var(--amber); }
+.verdict .badge.balanced { background: var(--green); color: #fff; }
+.verdict .badge.short { background: var(--red); color: #fff; }
+.verdict .badge.over { background: var(--amber); color: #fff; }
+
+label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
+input {
+  width: 100%; font-size: 17px; padding: 12px; border: 1px solid var(--line);
+  border-radius: 10px; background: #fff; color: var(--ink);
+}
+input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+textarea { width: 100%; font: inherit; font-size: 15px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; resize: vertical; min-height: 44px; }
+button {
+  width: 100%; font-size: 16px; font-weight: 600; padding: 14px; border: 0; border-radius: 12px;
+  background: var(--accent); color: #fff; cursor: pointer; margin-top: 16px;
+}
+button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
+button:active { transform: translateY(1px); }
+
+/* Ledger — rows, not cards */
+.ledger { list-style: none; margin: 0; padding: 0; }
+.ledger li {
+  display: grid; grid-template-columns: 70px 1fr auto; gap: 8px; align-items: center;
+  padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 15px;
+}
+.ledger li:last-child { border-bottom: 0; }
+.ledger .date { color: var(--muted); font-variant-numeric: tabular-nums; }
+.ledger .var { font-variant-numeric: tabular-nums; font-weight: 600; }
+.ledger .var.short { color: var(--red); }
+.ledger .var.over { color: var(--amber); }
+.ledger .var.balanced { color: var(--green); }
+.ledger .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* Baseline setup */
+.baseline-hint { font-size: 14px; color: var(--muted); margin-top: 8px; }
+.hidden { display: none !important; }
+footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Till Check</h1>
+
+  <!-- Baseline (first run only) -->
+  <div id="setup" class="card hidden">
+    <div class="label">Starting point</div>
+    <label>How much cash is in the till right now?</label>
+    <input id="setupAmount" type="text" inputmode="decimal" placeholder="e.g. 500" autocomplete="off">
+    <button id="setupBtn">Set starting point</button>
+    <div class="baseline-hint">Enter this once. It becomes your running baseline.</div>
+  </div>
+
+  <!-- Verdict -->
+  <div id="verdict" class="verdict balanced hidden">
+    <div class="badge balanced" id="vBadge">✓</div>
+    <div class="body">
+      <div class="amount" id="vAmount">€0.00</div>
+      <div class="sub" id="vSub">Balanced — accounts match</div>
+    </div>
+  </div>
+
+  <!-- Daily entry -->
+  <div id="entryCard" class="card hidden">
+    <div class="label">Today's count</div>
+
+    <label>Cash in the till</label>
+    <input id="actual" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+
+    <div class="row2">
+      <div>
+        <label>Removed</label>
+        <input id="removed" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+      </div>
+      <div>
+        <label>Added</label>
+        <input id="added" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+      </div>
+    </div>
+
+    <label>Card transfer (bank)</label>
+    <input id="card" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+
+    <label>Declared (cash the books don't know about)</label>
+    <textarea id="declared" placeholder="e.g. lost €10, found €3 in old float"></textarea>
+
+    <button id="checkBtn">Check the till</button>
+    <button id="confirmBtn" class="ghost hidden">Confirm day</button>
+  </div>
+
+  <!-- History -->
+  <div id="historyCard" class="card hidden">
+    <div class="label">Recent</div>
+    <ul id="ledger" class="ledger"></ul>
+  </div>
+
+  <footer>Till Check · books baseline <span id="baselineOut"></span></footer>
+</div>
+
+<script>
+const API = {
+  state: '/api/state',
+  entry: '/api/entry',
+  confirm: '/api/confirm',
+  history: '/api/history',
+  baseline: '/api/baseline',
+};
+const euroFmt = (v) => {
+  const n = Number(v);
+  const sign = n < 0 ? '−' : '';
+  return sign + '€' + Math.abs(n).toFixed(2);
+};
+const today = () => new Date().toISOString().slice(0, 10);
+const pretty = (d) => d ? d.slice(2, 4) + '/' + d.slice(5, 7) : d;
+
+async function req(method, url, body) {
+  const res = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(data.error || res.status), { status: res.status });
+  return data;
+}
+
+function setVerdict(status, varianceCents, label) {
+  const el = document.getElementById('verdict');
+  el.classList.remove('hidden');
+  el.className = 'verdict ' + status;
+  const badge = document.getElementById('vBadge');
+  badge.textContent = status === 'balanced' ? '✓' : status === 'short' ? '−' : '+';
+  badge.className = 'badge ' + status;
+  document.getElementById('vAmount').textContent = euroFmt(varianceCents / 100);
+  document.getElementById('vSub').textContent = label;
+}
+
+async function init() {
+  const state = await req('GET', API.state);
+  const baselineOut = document.getElementById('baselineOut');
+  if (!state.hasBaseline) {
+    document.getElementById('setup').classList.remove('hidden');
+    return;
+  }
+  baselineOut.textContent = euroFmt(Number(state.booksBalance) || 0);
+  document.getElementById('entryCard').classList.remove('hidden');
+  await refresh();
+}
+
+async function refresh() {
+  const state = await req('GET', API.state);
+  baselineOut.textContent = euroFmt(Number(state.booksBalance) || 0);
+  // Load today's entry if present, else show neutral verdict.
+  let todayEntry = null;
+  try {
+    const hist = await req('GET', API.history);
+    todayEntry = hist.entries.find((e) => e.date === state.today) || null;
+    renderLedger(hist.entries);
+  } catch (e) { /* history optional on refresh */ }
+  if (todayEntry) {
+    setVerdict(todayEntry.status, Number(todayEntry.variance) * 100,
+      verdictLabel(todayEntry.status));
+    document.getElementById('confirmBtn').classList.remove('hidden');
+  }
+}
+
+function verdictLabel(status) {
+  if (status === 'balanced') return 'Balanced — accounts match';
+  if (status === 'short') return 'Short — cash missing or unaccounted';
+  return 'Over — more cash than the books predict';
+}
+
+function renderLedger(entries) {
+  const card = document.getElementById('historyCard');
+  const ul = document.getElementById('ledger');
+  if (!entries.length) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  ul.innerHTML = '';
+  for (const e of entries.slice(0, 30)) {
+    const li = document.createElement('li');
+    const span = document.createElement('span'); span.className = 'date'; span.textContent = pretty(e.date);
+    const mid = document.createElement('span'); mid.className = 'var ' + e.status; mid.textContent = euroFmt(Number(e.variance));
+    li.append(span, mid);
+    ul.append(li);
+  }
+}
+
+document.getElementById('setupBtn').addEventListener('click', async () => {
+  const raw = document.getElementById('setupAmount').value;
+  try {
+    await req('POST', API.baseline, { actual: raw });
+    document.getElementById('setup').classList.add('hidden');
+    document.getElementById('entryCard').classList.remove('hidden');
+    alert('Baseline set. Start counting each day.');
+  } catch (e) { alert(e.message); }
+});
+
+document.getElementById('checkBtn').addEventListener('click', async () => {
+  const payload = {
+    date: today(),
+    actual: document.getElementById('actual').value,
+    cashRemoved: document.getElementById('removed').value,
+    cashAdded: document.getElementById('added').value,
+    cardTransfer: document.getElementById('card').value,
+    declared: document.getElementById('declared').value,
+  };
+  try {
+    const entry = await req('POST', API.entry, payload);
+    setVerdict(entry.status, Number(entry.variance) * 100, verdictLabel(entry.status));
+    document.getElementById('confirmBtn').classList.remove('hidden');
+    await refresh();
+  } catch (e) { alert(e.message); }
+});
+
+document.getElementById('confirmBtn').addEventListener('click', async () => {
+  try {
+    await req('POST', API.confirm, { date: today() });
+    alert('Day confirmed. Books updated to your count.');
+    await init();
+  } catch (e) { alert(e.message); }
+});
+
+init().catch((e) => console.error('init failed', e));
+</script>
+</body>
+</html>
