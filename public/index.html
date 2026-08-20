@@ -117,6 +117,9 @@ button:active { transform: translateY(1px); }
 .ledger .details { font-size: 13px; color: var(--muted); margin-top: 6px; }
 .ledger .denom-break { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
 .ledger .declared { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
+.confirmed-flag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--green); margin-top: 6px; }
+.ledger li { display: flex; flex-direction: column; }
+.ledger li > .row1 { width: 100%; }
 
 .baseline-hint { font-size: 14px; color: var(--muted); margin-top: 8px; }
 .section-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
@@ -316,6 +319,7 @@ const API = {
   state: PAGE_DIR + 'api/state',
   entry: PAGE_DIR + 'api/entry',
   confirm: PAGE_DIR + 'api/confirm',
+  reconcile: PAGE_DIR + 'api/reconcile',
   history: PAGE_DIR + 'api/history',
   baseline: PAGE_DIR + 'api/baseline',
   denominations: PAGE_DIR + 'api/denominations',
@@ -725,6 +729,16 @@ function renderLedger(entries) {
     details.textContent = `Counted €${e.actual} · Removed €${e.cashRemoved} · Added €${e.cashAdded} · Card €${e.cardTransfer} · Expected €${e.expected}`;
     li.append(details);
 
+    // Confirmed marker + reconcile affordance. A confirmed day can be
+    // re-reconciled (count corrected) without deleting — the books baseline
+    // is re-derived from the corrected figure.
+    if (e.confirmed) {
+      const badge = document.createElement('div');
+      badge.className = 'confirmed-flag';
+      badge.textContent = '✓ confirmed';
+      li.append(badge);
+    }
+
     // Denomination breakdown (if present)
     if (e.denominations) {
       const db = document.createElement('div'); db.className = 'denom-break';
@@ -754,6 +768,24 @@ function renderLedger(entries) {
         await init();
       } catch (err) { alert(err.message); }
     });
+
+    // Reconcile button (confirmed days): correct the count without deleting.
+    if (e.confirmed) {
+      const reconBtn = document.createElement('button');
+      reconBtn.className = 'ghost small';
+      reconBtn.textContent = 'Reconcile';
+      reconBtn.addEventListener('click', async () => {
+        const raw = Number(e.actual);
+        const corrected = prompt('Corrected count for ' + e.date + ' (current ' + raw.toFixed(2) + ' €):', raw.toFixed(2));
+        if (corrected === null) return;
+        try {
+          await req('POST', API.reconcile, { date: e.date, actual: corrected });
+          await init();
+        } catch (err) { alert(err.message); }
+      });
+      li.append(reconBtn);
+    }
+
     li.append(delBtn);
 
     ul.append(li);

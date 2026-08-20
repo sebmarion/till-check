@@ -198,6 +198,63 @@ serialTest('POST /confirm for non-existent date returns 404', async () => {
   assert.equal(status, 404)
 })
 
+// --- Reconcile tests ---
+serialTest('POST /reconcile corrects a confirmed day and re-derives baseline', async () => {
+  const today = testDate()
+  const balance = await currentBooksBalance()
+  // Create an entry matching current balance, then confirm it (sets baseline to actual).
+  const created = await req('POST', '/entry', {
+    date: today, actual: String(balance), cashRemoved: 0, cashAdded: 0, cardTransfer: 0, declared: '',
+  })
+  assert.equal(created.status, 200)
+  const confirmed = await req('POST', '/confirm', { date: today })
+  assert.equal(confirmed.status, 200)
+  // Now reconcile with a corrected (higher) count — baseline should follow.
+  const corrected = String(balance + 50)
+  const rec = await req('POST', '/reconcile', { date: today, actual: corrected })
+  assert.equal(rec.status, 200, `reconcile failed: ${JSON.stringify(rec.data)}`)
+  assert.equal(rec.data.reconciled, true)
+  assert.equal(Number(rec.data.actual), balance + 50)
+  assert.equal(Number(rec.data.booksBalance), balance + 50)
+  // Baseline in state should now equal the corrected actual.
+  const after = await currentBooksBalance()
+  assert.equal(after, balance + 50)
+})
+
+serialTest('POST /reconcile on an unconfirmed day refreshes reconciliation', async () => {
+  const today = testDate()
+  const balance = await currentBooksBalance()
+  // Create an unconfirmed entry with a variance.
+  const created = await req('POST', '/entry', {
+    date: today, actual: String(balance + 75), cashRemoved: 0, cashAdded: 0, cardTransfer: 0, declared: '',
+  })
+  assert.equal(created.status, 200)
+  // Reconcile without changing actual (just re-run reconciliation).
+  const rec = await req('POST', '/reconcile', { date: today })
+  assert.equal(rec.status, 200)
+  assert.equal(rec.data.reconciled, true)
+  assert.equal(Number(rec.data.variance), 75)
+})
+
+serialTest('POST /reconcile for non-existent date returns 404', async () => {
+  const { status } = await req('POST', '/reconcile', { date: '1999-01-01', actual: '0' })
+  assert.equal(status, 404)
+})
+
+serialTest('POST /reconcile without date returns 400', async () => {
+  const { status } = await req('POST', '/reconcile', {})
+  assert.equal(status, 400)
+})
+
+serialTest('POST /reconcile with invalid JSON returns 400', async () => {
+  const res = await fetch(BASE + '/reconcile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: 'not json',
+  })
+  assert.equal(res.status, 400)
+})
+
 // --- History tests ---
 serialTest('GET /history returns entries', async () => {
   const { status, data } = await req('GET', '/history')

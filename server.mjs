@@ -343,6 +343,101 @@ async function handlePostConfirm(req) {
   return { code: 200, body: { confirmed: true, date, booksBalance: centsToEuros(row.actual_cents) } }
 }
 
+// Reconcile a day: correct its count and let the books accept the correction.
+// This is the "confirmed was wrong" path — instead of deleting the entry and
+// re-entering, the operator corrects the actual (and/or the moves) and the
+// books baseline is re-derived from the corrected figure. If the entry being
+// reconciled is the one that last set the baseline, the baseline is updated
+// to the corrected actual; otherwise only the entry's reconciliation is
+// refreshed against the current books balance.
+async function handlePostReconcile(req) {
+  const raw = await readBody(req)
+  let body
+  try {
+    body = JSON.parse(raw || '{}')
+  } catch {
+    return { code: 400, body: { error: 'invalid JSON body' } }
+  }
+  const state = getState()
+  if (!state) {
+    return { code: 409, body: { error: 'no baseline set' } }
+  }
+  const date = body.date
+  if (!date) return { code: 400, body: { error: 'date is required' } }
+  const row = db.prepare('SELECT * FROM entries WHERE date = ?').get(date)
+  if (!row) {
+    return { code: 404, body: { error: 'no entry for that date' } }
+  }
+
+  // Reconcile the corrected day against the books balance that existed BEFORE
+  // this entry was the last confirmed one. If this entry is currently the
+  // baseline source, the "expected" baseline is the prior confirmed actual
+  // (or the original baseline). This mirrors handleDeleteEntry's revert so
+  // the books stay consistent in both directions.
+  const stateRow = db
+    .prepare('SELECT books_balance_cents, baseline_cents, baseline_date FROM state WHERE id = 1')
+    .get()
+  let baseCents = stateRow.books_balance_cents
+  let priorBaselineDate = stateRow.baseline_date
+  if (stateRow.baseline_date === date) {
+    const prev = db
+      .prepare('SELECT actual_cents FROM entries WHERE date < ? ORDER BY date DESC LIMIT 1')
+      .get(date)
+    baseCents = prev ? prev.actual_cents : stateRow.baseline_cents
+    priorBaselineDate = prev ? prev.date : stateRow.baseline_date
+  }
+
+  const declared = body.declared !== undefined ? body.declared : row.declared_note
+  const result = reconcileDay(
+    {
+      actual: body.actual !== undefined ? body.actual : Number(row.actual_cents) / 100,
+      cashRemoved: body.cashRemoved !== undefined ? body.cashRemoved : Number(row.cash_removed_cents) / 100,
+      cashAdded: body.cashAdded !== undefined ? body.cashAdded : Number(row.cash_added_cents) / 100,
+      cardTransfer: body.cardTransfer !== undefined ? body.cardTransfer : Number(row.card_transfer_cents) / 100,
+      declared,
+    },
+    baseCents,
+  )
+  const entry = {
+    id: row.id,
+    date,
+    actual_cents: result.actualCents,
+    cash_removed_cents: result.removedCents,
+    cash_added_cents: result.addedCents,
+    card_transfer_cents: result.cardCents,
+    declared_note: result.declared,
+    denominations: row.denominations || '',
+    expected_cents: result.expectedCents,
+    variance_cents: result.varianceCents,
+    status: result.status,
+    created_at: row.created_at,
+    updated_at: nowIso(),
+  }
+  upsertEntry(entry)
+
+  // If this entry is (or remains) the baseline source, fold the corrected
+  // actual into the books so the running balance reflects the reconciliation.
+  if (stateRow.baseline_date === date) {
+    db.prepare(
+      'UPDATE state SET books_balance_cents = ?, baseline_date = ?, updated_at = ? WHERE id = 1'
+    ).run(result.actualCents, date, nowIso())
+  }
+
+  return {
+    code: 200,
+    body: {
+      reconciled: true,
+      date,
+      actual: centsToEuros(result.actualCents),
+      expected: centsToEuros(result.expectedCents),
+      variance: centsToEuros(result.varianceCents),
+      status: result.status,
+      booksBalance: centsToEuros(stateRow.baseline_date === date ? result.actualCents : stateRow.books_balance_cents),
+      baselineDate: stateRow.baseline_date === date ? date : priorBaselineDate,
+    },
+  }
+}
+
 function handleGetHistory() {
   const rows = db.prepare('SELECT * FROM entries ORDER BY date DESC LIMIT 90').all()
   return { code: 200, body: { entries: rows.map(entryToView) } }
@@ -737,6 +832,12 @@ async function handle(req, res) {
 
   if (pathname === '/api/confirm' && method === 'POST') {
     const r = await handlePostConfirm(req)
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  if (pathname === '/api/reconcile' && method === 'POST') {
+    const r = await handlePostReconcile(req)
     sendJson(res, r.code, r.body)
     return
   }
