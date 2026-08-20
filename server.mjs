@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usrbin/env node
 // Till Check — single-file, zero-dependency server.
 //
 // - Node stdlib only (node:http, node:sqlite, node:fs). No framework, no deps.
@@ -156,7 +156,7 @@ function parseAmount(raw) {
 }
 
 // ---------------------------------------------------------------------------
-// API handlers
+// API handlers (pure; return { code, body })
 // ---------------------------------------------------------------------------
 
 function handleGetState() {
@@ -294,24 +294,9 @@ async function handlePatchEntry(req, date) {
   return { code: 200, body: entryToView({ ...entry, confirmed_at: row.confirmed_at }) }
 }
 
-function handleGetPage() {
-  const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf-8')
-  res_write_html(null, html)
-}
-
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
-
-let server
-
-function res_write_html(res, html) {
-  res.writeHead(200, {
-    'Content-Type': 'text/html; charset=utf-8',
-    ...SECURITY_HEADERS,
-  })
-  res.end(html)
-}
 
 async function handle(req, res) {
   const url = new URL(req.url, 'http://127.0.0.1')
@@ -332,7 +317,7 @@ async function handle(req, res) {
 
   if (pathname === '/api/state' && method === 'GET') {
     const s = handleGetState()
-    sendJson(res, s.hasBaseline ? 200 : 200, s)
+    sendJson(res, 200, s)
     return
   }
 
@@ -387,7 +372,7 @@ async function handle(req, res) {
   sendJson(res, 404, { error: 'not found', path: pathname })
 }
 
-server = http.createServer((req, res) => {
+const server = http.createServer((req, res) => {
   handle(req, res).catch((err) => {
     console.error('request error:', err)
     if (!res.headersSent) {
