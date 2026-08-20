@@ -153,12 +153,21 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 </div>
 
 <script>
+// Base for API calls: relative to this page's own directory, so the app
+// works whether it is served at the root (/) or behind a prefix (/till/).
+// The page lives at <base>/  (index.html), so <base>/api/... is correct.
+const PAGE_DIR = (function () {
+  // location.pathname is like "/till/" or "/" — strip any trailing segment.
+  const p = location.pathname.replace(/[^/]*$/, '');
+  // Ensure a trailing slash so "api/state" resolves to <dir>/api/state.
+  return p.endsWith('/') ? p : p + '/';
+})();
 const API = {
-  state: '/api/state',
-  entry: '/api/entry',
-  confirm: '/api/confirm',
-  history: '/api/history',
-  baseline: '/api/baseline',
+  state: PAGE_DIR + 'api/state',
+  entry: PAGE_DIR + 'api/entry',
+  confirm: PAGE_DIR + 'api/confirm',
+  history: PAGE_DIR + 'api/history',
+  baseline: PAGE_DIR + 'api/baseline',
 };
 const euroFmt = (v) => {
   const n = Number(v);
