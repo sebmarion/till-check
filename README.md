@@ -79,8 +79,13 @@ We asked four owners what they thought after reading the description:
 - All four understood immediately what it's for (drawer reconciliation)
 - All four would use it
 - The "it remembers what normal looks like" / "baseline" concept is what makes them trust it
-- The gaps flag ("you can't forget a day and not know why the next day looks weird") is seen as smart
-- Nobody asked for more features — they asked for it to *tell them what to do* when it's short
+- Honesty about limits builds trust: "it doesn't tell you which" (overchange vs. pocket) is seen as a feature, not a flaw
+- "No accounts, no login, no sync" — my drawer is my drawer, nobody needs it in the cloud
+
+**What they'd want next (not in the app today):**
+- **Miquel:** Let me note the *reason* for a variance ("overchange on table 12") so six months later I know if it's a coin thing or a real problem. And if the same shortage repeats three nights with the same shift, *warn* me — "this isn't bad luck, this is a pattern"
+- **Sara:** Show *why* the number changed ("you gave €10 more in change than yesterday," "5 fewer coffees than your usual Tuesday"), and work offline in the kitchen where signal is dead
+- **Pau:** Tell me what to do when it's short — "check your €10 bills again" — and let me send the number to my accountant with one tap
 
 ## Technical notes
 
