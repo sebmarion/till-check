@@ -1,0 +1,344 @@
+{
+  "personaId": "jordi-pescaderia",
+  "name": "Jordi",
+  "background": "Jordi, 55, pescaderia in Port Olímpic, 90 covers, 30 years. Quality above all, price secondary but tracked. Expects: \"If a fish supplier goes up 10%, I want to know before I order, not after.\"",
+  "profile": {
+    "techComfortable": false,
+    "qualityFocused": true,
+    "isMobile": false,
+    "firstTimer": false,
+    "lowTech": false,
+    "multiLocation": false,
+    "powerUser": true,
+    "marginSensitive": true,
+    "auditNeed": false
+  },
+  "stats": {
+    "entries": 90,
+    "confirmed": 70,
+    "payments": 0,
+    "costs": 0,
+    "closings": 0
+  },
+  "totals": {
+    "reconciles": 0,
+    "deletes": 1,
+    "forgotten": 8,
+    "unconfirmed": 41,
+    "double": 0
+  },
+  "friction": [
+    {
+      "type": "unconfirmed",
+      "day": 4,
+      "date": "2026-02-25",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 9,
+      "date": "2026-03-02",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 10,
+      "date": "2026-03-03",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 12,
+      "date": "2026-03-05",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 16,
+      "date": "2026-03-09",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 19,
+      "date": "2026-03-12",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 22,
+      "date": "2026-03-15",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 23,
+      "date": "2026-03-16",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 28,
+      "date": "2026-03-21",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 30,
+      "date": "2026-03-23",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 33,
+      "date": "2026-03-26",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 34,
+      "date": "2026-03-27",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 36,
+      "date": "2026-03-29",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 40,
+      "date": "2026-04-02",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 42,
+      "date": "2026-04-04",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 47,
+      "date": "2026-04-09",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 48,
+      "date": "2026-04-10",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 49,
+      "date": "2026-04-11",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 54,
+      "date": "2026-04-16",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 66,
+      "date": "2026-04-28",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 69,
+      "date": "2026-05-01",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 71,
+      "date": "2026-05-03",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 75,
+      "date": "2026-05-07",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 77,
+      "date": "2026-05-09",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 81,
+      "date": "2026-05-13",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 85,
+      "date": "2026-05-17",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 87,
+      "date": "2026-05-19",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 88,
+      "date": "2026-05-20",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 89,
+      "date": "2026-05-21",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 91,
+      "date": "2026-05-23",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 98,
+      "date": "2026-05-30",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 99,
+      "date": "2026-05-31",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 106,
+      "date": "2026-06-07",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 110,
+      "date": "2026-06-11",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 111,
+      "date": "2026-06-12",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 118,
+      "date": "2026-06-19",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 121,
+      "date": "2026-06-22",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 123,
+      "date": "2026-06-24",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 125,
+      "date": "2026-06-26",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 127,
+      "date": "2026-06-28",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 129,
+      "date": "2026-06-30",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 133,
+      "date": "2026-07-04",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 138,
+      "date": "2026-07-09",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 139,
+      "date": "2026-07-10",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 141,
+      "date": "2026-07-12",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 143,
+      "date": "2026-07-14",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 160,
+      "date": "2026-07-31",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 162,
+      "date": "2026-08-02",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 164,
+      "date": "2026-08-04",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 166,
+      "date": "2026-08-06",
+      "note": "Day left unconfirmed"
+    }
+  ],
+  "uiNotes": [
+    "page loaded: content present (595 chars)",
+    "denom inputs: 8",
+    "verdict: \"+ | €40.00 | Over — more cash than the books predict · baseline €0.00\"",
+    "FRICTION: owner sees a VARIANCE — +",
+    "confirmed",
+    "reconcile buttons: 26 | delete buttons: 30",
+    "screenshot: till-jordi-pescaderia.png"
+  ],
+  "finalEntries": 90,
+  "finalConfirmed": 70,
+  "timeMs": 3993
+}

@@ -1,0 +1,242 @@
+{
+  "personaId": "laia-barc",
+  "name": "Laia",
+  "background": "Laia, 36, cocktail bar in Darsana, 50 seats, 7 years. High-margin drinks, ingredient costs matter less than presentation and service speed. Expects: \"I don't care if my gin is 2€ cheaper if it tastes worse.\"",
+  "profile": {
+    "techComfortable": false,
+    "qualityFocused": false,
+    "isMobile": false,
+    "firstTimer": false,
+    "lowTech": false,
+    "multiLocation": false,
+    "powerUser": false,
+    "marginSensitive": true,
+    "auditNeed": false
+  },
+  "stats": {
+    "entries": 90,
+    "confirmed": 81,
+    "payments": 0,
+    "costs": 0,
+    "closings": 0
+  },
+  "totals": {
+    "reconciles": 1,
+    "deletes": 3,
+    "forgotten": 8,
+    "unconfirmed": 21,
+    "double": 0
+  },
+  "friction": [
+    {
+      "type": "unconfirmed",
+      "day": 9,
+      "date": "2026-03-02",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 29,
+      "date": "2026-03-22",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 33,
+      "date": "2026-03-26",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "reconcile",
+      "day": 39,
+      "date": "2026-04-01",
+      "note": "Corrected via reconcile"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 45,
+      "date": "2026-04-07",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 46,
+      "date": "2026-04-08",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 48,
+      "date": "2026-04-10",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 51,
+      "date": "2026-04-13",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 57,
+      "date": "2026-04-19",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 59,
+      "date": "2026-04-21",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 64,
+      "date": "2026-04-26",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 69,
+      "date": "2026-05-01",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 70,
+      "date": "2026-05-02",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 72,
+      "date": "2026-05-04",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 76,
+      "date": "2026-05-08",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 77,
+      "date": "2026-05-09",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 84,
+      "date": "2026-05-16",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 86,
+      "date": "2026-05-18",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 104,
+      "date": "2026-06-05",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 110,
+      "date": "2026-06-11",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 111,
+      "date": "2026-06-12",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 112,
+      "date": "2026-06-13",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 120,
+      "date": "2026-06-21",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 132,
+      "date": "2026-07-03",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 136,
+      "date": "2026-07-07",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 144,
+      "date": "2026-07-15",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 148,
+      "date": "2026-07-19",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 149,
+      "date": "2026-07-20",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 164,
+      "date": "2026-08-04",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 166,
+      "date": "2026-08-06",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 172,
+      "date": "2026-08-12",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 174,
+      "date": "2026-08-14",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 179,
+      "date": "2026-08-19",
+      "note": "Day left unconfirmed"
+    }
+  ],
+  "uiNotes": [
+    "page loaded: content present (595 chars)",
+    "denom inputs: 8",
+    "verdict: \"+ | €40.00 | Over — more cash than the books predict · baseline €0.00\"",
+    "FRICTION: owner sees a VARIANCE — +",
+    "confirmed",
+    "reconcile buttons: 24 | delete buttons: 30",
+    "screenshot: till-laia-barc.png"
+  ],
+  "finalEntries": 90,
+  "finalConfirmed": 81,
+  "timeMs": 4153
+}

@@ -87,13 +87,13 @@ button:active { transform: translateY(1px); }
 .denom-list { list-style: none; margin: 0 0 12px; padding: 0; }
 .denom-row {
   display: grid; grid-template-columns: 72px 1fr 56px; gap: 10px; align-items: center;
-  padding: 8px 0; border-bottom: 1px solid var(--line);
+  padding: 10px 0; border-bottom: 1px solid var(--line);
 }
 .denom-row:last-child { border-bottom: 0; }
 .denom-label { font-size: 15px; font-weight: 500; }
 .denom-input {
-  width: 100%; font-size: 17px; padding: 8px 10px; border: 1px solid var(--line);
-  border-radius: 8px; background: #fff; text-align: center;
+  width: 100%; font-size: 17px; padding: 12px 10px; border: 1px solid var(--line);
+  border-radius: 8px; background: #fff; text-align: center; min-height: 44px;
 }
 .denom-total { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
 .denom-sum {
@@ -118,6 +118,8 @@ button:active { transform: translateY(1px); }
 .ledger .denom-break { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
 .ledger .declared { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
 .confirmed-flag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--green); margin-top: 6px; }
+.gap-flag { font-size: 11px; color: var(--amber); margin-top: 6px; }
+.unconfirmed-flag { font-size: 11px; color: var(--amber); margin-top: 6px; }
 .ledger li { display: flex; flex-direction: column; }
 .ledger li > .row1 { width: 100%; }
 
@@ -360,8 +362,9 @@ async function req(method, url, body) {
 }
 
 let DENOMS = [];
+let editingDate = null; // When set, the check button PATCHes this date instead of POSTing today.
 
-function setVerdict(status, varianceCents, label) {
+function setVerdict(status, varianceCents, label, booksBalance) {
   const el = document.getElementById('verdict');
   el.classList.remove('hidden');
   el.className = 'verdict ' + status;
@@ -369,7 +372,13 @@ function setVerdict(status, varianceCents, label) {
   badge.textContent = status === 'balanced' ? '✓' : status === 'short' ? '−' : '+';
   badge.className = 'badge ' + status;
   document.getElementById('vAmount').textContent = euroFmt(varianceCents / 100);
-  document.getElementById('vSub').textContent = label;
+  // Variance context: if the variance is large (>€10) and we know the
+  // baseline, show it so the owner understands where the number comes from.
+  let sub = label;
+  if (Math.abs(varianceCents) > 1000 && booksBalance !== undefined) {
+    sub += '  ·  baseline ' + euroFmt(booksBalance);
+  }
+  document.getElementById('vSub').textContent = sub;
 }
 
 function denomLabel(id) {
@@ -445,8 +454,15 @@ async function init() {
   document.querySelector('.status-dot').classList.toggle('ready', !!state.hasBaseline);
   baselineOut.textContent = state.hasBaseline ? euroFmt(Number(state.booksBalance) || 0) : '—';
   if (!state.hasBaseline) {
-    document.getElementById('setup').classList.remove('hidden');
-    return;
+    // If the owner already has a count for today, skip the setup card —
+    // the server auto-seeds the baseline from that count (neutral verdict).
+    if (state.hasTodayEntry) {
+      document.getElementById('entryCard').classList.remove('hidden')
+      await refresh()
+    } else {
+      document.getElementById('setup').classList.remove('hidden')
+    }
+    return
   }
   baselineOut.textContent = euroFmt(Number(state.booksBalance) || 0);
   document.getElementById('entryCard').classList.remove('hidden');
@@ -476,7 +492,7 @@ async function refresh() {
   } catch (e) { /* history optional on refresh */ }
   if (todayEntry) {
     setVerdict(todayEntry.status, Number(todayEntry.variance) * 100,
-      verdictLabel(todayEntry.status));
+      verdictLabel(todayEntry.status), state.booksBalance);
     document.getElementById('confirmBtn').classList.remove('hidden');
   }
 }
@@ -733,9 +749,11 @@ function renderLedger(entries) {
   const recentDates = new Set([todayStr, yest]);
 
   let recentCount = 0, olderCount = 0;
+  let prevEntry = null;
   for (const e of entries.slice(0, 30)) {
     const isRecent = recentDates.has(e.date);
-    const li = buildLedgerRow(e);
+    const li = buildLedgerRow(e, prevEntry);
+    prevEntry = e;
     if (isRecent) {
       ul.append(li);
       recentCount++;
@@ -760,13 +778,37 @@ function renderLedger(entries) {
   }
 }
 
-function buildLedgerRow(e) {
+function buildLedgerRow(e, prevEntry) {
   const li = document.createElement('li');
   const row1 = document.createElement('div'); row1.className = 'row1';
   const dateSpan = document.createElement('span'); dateSpan.className = 'date'; dateSpan.textContent = pretty(e.date);
   const varSpan = document.createElement('span'); varSpan.className = 'var ' + e.status; varSpan.textContent = euroFmt(Number(e.variance));
   row1.append(dateSpan, varSpan);
   li.append(row1);
+
+  // Gap detection: if the previous entry (older) is more than 24h before
+  // this entry (newer), flag the gap. The operator may have missed a day.
+  if (prevEntry) {
+    const gapDays = Math.abs((new Date(e.date) - new Date(prevEntry.date)) / 86400000);
+    if (gapDays > 1.5) {
+      const gap = document.createElement('div');
+      gap.className = 'gap-flag';
+      gap.textContent = '⚠ ' + Math.round(gapDays) + '-day gap';
+      li.append(gap);
+    }
+  }
+
+  // Unconfirmed nudge: if this entry is not confirmed and is not today,
+  // the baseline hasn't been updated. Nudge the operator.
+  if (!e.confirmed) {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (e.date !== todayStr) {
+      const nudge = document.createElement('div');
+      nudge.className = 'unconfirmed-flag';
+      nudge.textContent = '⚠ not confirmed';
+      li.append(nudge);
+    }
+  }
 
   // Details: count, removed, added, card, expected
   const details = document.createElement('div'); details.className = 'details';
@@ -800,6 +842,36 @@ function buildLedgerRow(e) {
     dec.textContent = '“' + e.declared + '”';
     li.append(dec);
   }
+
+  // Edit button: pre-fill the entry form with this day's data.
+  const editBtn = document.createElement('button');
+  editBtn.className = 'ghost small';
+  editBtn.textContent = 'Edit';
+  editBtn.addEventListener('click', () => {
+    // Pre-fill the denomination inputs from the entry's denominations.
+    if (e.denominations) {
+      for (const d of DENOMS) {
+        const inp = document.querySelector(`[data-denom="${d.id}"]`);
+        if (inp) inp.value = e.denominations[d.id] || '';
+      }
+      updateDenomTotal();
+    }
+    // Pre-fill the other fields.
+    const removed = document.getElementById('removed');
+    if (removed) removed.value = Number(e.cashRemoved).toFixed(2);
+    const added = document.getElementById('added');
+    if (added) added.value = Number(e.cashAdded).toFixed(2);
+    const card = document.getElementById('card');
+    if (card) card.value = Number(e.cardTransfer).toFixed(2);
+    const declared = document.getElementById('declared');
+    if (declared) declared.value = e.declared || '';
+    // Show the entry card and scroll to it.
+    document.getElementById('entryCard').classList.remove('hidden');
+    document.getElementById('entryCard').scrollIntoView({ behavior: 'smooth' });
+    // Mark that we're editing so the check button knows to PATCH, not POST.
+    editingDate = e.date;
+  });
+  li.append(editBtn);
 
   // Delete button for this entry
   const delBtn = document.createElement('button');
@@ -846,7 +918,6 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
   const counts = getDenomCounts();
   const hasDenomInput = Object.values(counts).some((n) => n > 0);
   const payload = {
-    date: today(),
     actual: hasDenomInput ? null : '0',  // When denominations are used, actual is derived
     cashRemoved: document.getElementById('removed').value,
     cashAdded: document.getElementById('added').value,
@@ -855,8 +926,17 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     denominations: hasDenomInput ? counts : null,
   };
   try {
-    const entry = await req('POST', API.entry, payload);
-    setVerdict(entry.status, Number(entry.variance) * 100, verdictLabel(entry.status));
+    let entry;
+    if (editingDate) {
+      // Editing a past entry: PATCH that date instead of POSTing today.
+      entry = await req('PATCH', API.entryById(editingDate), payload);
+      editingDate = null; // Reset after save.
+    } else {
+      payload.date = today();
+      entry = await req('POST', API.entry, payload);
+    }
+    setVerdict(entry.status, Number(entry.variance) * 100, verdictLabel(entry.status),
+      Number(entry.expected) - Number(entry.variance));
     document.getElementById('confirmBtn').classList.remove('hidden');
     await refresh();
   } catch (e) { alert(e.message); }

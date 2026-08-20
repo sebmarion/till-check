@@ -1,0 +1,194 @@
+{
+  "personaId": "carles-parrilla",
+  "name": "Carles",
+  "background": "Carles, 52, parrilla in El Raval, 100 covers, 25 years. Traditionalist but curious. Orders from 6+ suppliers monthly. Expects: \"Don't break what's working. If you find savings, great — but don't surprise me.\"",
+  "profile": {
+    "techComfortable": false,
+    "qualityFocused": false,
+    "isMobile": false,
+    "firstTimer": false,
+    "lowTech": false,
+    "multiLocation": false,
+    "powerUser": true,
+    "marginSensitive": true,
+    "auditNeed": false
+  },
+  "stats": {
+    "entries": 90,
+    "confirmed": 84,
+    "payments": 0,
+    "costs": 0,
+    "closings": 0
+  },
+  "totals": {
+    "reconciles": 1,
+    "deletes": 0,
+    "forgotten": 6,
+    "unconfirmed": 18,
+    "double": 0
+  },
+  "friction": [
+    {
+      "type": "unconfirmed",
+      "day": 0,
+      "date": "2026-02-21",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 2,
+      "date": "2026-02-23",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 15,
+      "date": "2026-03-08",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 23,
+      "date": "2026-03-16",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 27,
+      "date": "2026-03-20",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 43,
+      "date": "2026-04-05",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 48,
+      "date": "2026-04-10",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 51,
+      "date": "2026-04-13",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 57,
+      "date": "2026-04-19",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 59,
+      "date": "2026-04-21",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 68,
+      "date": "2026-04-30",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "reconcile",
+      "day": 68,
+      "date": "2026-04-30",
+      "note": "Corrected via reconcile"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 69,
+      "date": "2026-05-01",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 75,
+      "date": "2026-05-07",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 84,
+      "date": "2026-05-16",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 95,
+      "date": "2026-05-27",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 108,
+      "date": "2026-06-09",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 117,
+      "date": "2026-06-18",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 121,
+      "date": "2026-06-22",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 131,
+      "date": "2026-07-02",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 149,
+      "date": "2026-07-20",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 151,
+      "date": "2026-07-22",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 152,
+      "date": "2026-07-23",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 157,
+      "date": "2026-07-28",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 169,
+      "date": "2026-08-09",
+      "note": "Count skipped; app shows stale value next day"
+    }
+  ],
+  "uiNotes": [
+    "page loaded: content present (595 chars)",
+    "denom inputs: 8",
+    "verdict: \"+ | €40.00 | Over — more cash than the books predict · baseline €0.00\"",
+    "FRICTION: owner sees a VARIANCE — +",
+    "confirmed",
+    "reconcile buttons: 30 | delete buttons: 30",
+    "screenshot: till-carles-parrilla.png"
+  ],
+  "finalEntries": 90,
+  "finalConfirmed": 84,
+  "timeMs": 4211
+}

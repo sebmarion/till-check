@@ -11,7 +11,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-const BASE = `http://127.0.0.1:${process.env.TILL_TEST_PORT || 80}/till/api`
+const BASE = `http://127.0.0.1:${process.env.TILL_TEST_PORT || 80}${process.env.TILL_TEST_PORT ? '' : '/till'}/api`
 
 async function req(method, path, body) {
   const opts = {
@@ -58,7 +58,10 @@ function testDate() {
 
 // --- State tests ---
 serialTest('GET /health returns ok', async () => {
-  const res = await fetch(`http://127.0.0.1:${process.env.TILL_TEST_PORT || 80}/till/health`)
+  const healthUrl = process.env.TILL_TEST_PORT
+    ? `http://127.0.0.1:${process.env.TILL_TEST_PORT}/health`
+    : `http://127.0.0.1:80/till/health`
+  const res = await fetch(healthUrl)
   const data = await res.json()
   assert.equal(res.status, 200)
   assert.ok(data.ok === true || data.ok === 'true')

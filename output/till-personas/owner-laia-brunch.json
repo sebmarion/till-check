@@ -1,0 +1,278 @@
+{
+  "personaId": "laia-brunch",
+  "name": "Laia",
+  "background": "Laia, 29, brunch spot in Eixample, 35 covers, 18 months. Mobile-first, orders from phone between services. Impatient with multi-step flows. Expects: \"I want to see savings before I spend 5 minutes clicking around.\"",
+  "profile": {
+    "techComfortable": false,
+    "qualityFocused": false,
+    "isMobile": true,
+    "firstTimer": false,
+    "lowTech": false,
+    "multiLocation": false,
+    "powerUser": false,
+    "marginSensitive": true,
+    "auditNeed": false
+  },
+  "stats": {
+    "entries": 90,
+    "confirmed": 72,
+    "payments": 0,
+    "costs": 0,
+    "closings": 0
+  },
+  "totals": {
+    "reconciles": 1,
+    "deletes": 2,
+    "forgotten": 8,
+    "unconfirmed": 28,
+    "double": 0
+  },
+  "friction": [
+    {
+      "type": "forgotten-day",
+      "day": 4,
+      "date": "2026-02-25",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "reconcile",
+      "day": 7,
+      "date": "2026-02-28",
+      "note": "Corrected via reconcile"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 16,
+      "date": "2026-03-09",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 18,
+      "date": "2026-03-11",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 19,
+      "date": "2026-03-12",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 24,
+      "date": "2026-03-17",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 26,
+      "date": "2026-03-19",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 37,
+      "date": "2026-03-30",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 38,
+      "date": "2026-03-31",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 41,
+      "date": "2026-04-03",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 42,
+      "date": "2026-04-04",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 42,
+      "date": "2026-04-04",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 43,
+      "date": "2026-04-05",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 49,
+      "date": "2026-04-11",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 55,
+      "date": "2026-04-17",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 68,
+      "date": "2026-04-30",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 83,
+      "date": "2026-05-15",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 84,
+      "date": "2026-05-16",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 91,
+      "date": "2026-05-23",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 98,
+      "date": "2026-05-30",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 103,
+      "date": "2026-06-04",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 108,
+      "date": "2026-06-09",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 112,
+      "date": "2026-06-13",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 118,
+      "date": "2026-06-19",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 122,
+      "date": "2026-06-23",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 127,
+      "date": "2026-06-28",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 128,
+      "date": "2026-06-29",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 129,
+      "date": "2026-06-30",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 137,
+      "date": "2026-07-08",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 146,
+      "date": "2026-07-17",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 151,
+      "date": "2026-07-22",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 155,
+      "date": "2026-07-26",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 163,
+      "date": "2026-08-03",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 168,
+      "date": "2026-08-08",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 170,
+      "date": "2026-08-10",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 172,
+      "date": "2026-08-12",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 174,
+      "date": "2026-08-14",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 175,
+      "date": "2026-08-15",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 179,
+      "date": "2026-08-19",
+      "note": "Day left unconfirmed"
+    }
+  ],
+  "uiNotes": [
+    "page loaded: content present (589 chars)",
+    "denom inputs: 8",
+    "verdict: \"+ | €40.00 | Over — more cash than the books predict · baseline €0.00\"",
+    "FRICTION: owner sees a VARIANCE — +",
+    "confirmed",
+    "reconcile buttons: 27 | delete buttons: 30",
+    "screenshot: till-laia-brunch.png"
+  ],
+  "finalEntries": 90,
+  "finalConfirmed": 72,
+  "timeMs": 4094
+}

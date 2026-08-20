@@ -1,0 +1,272 @@
+{
+  "personaId": "nuria-baker",
+  "name": "Núria",
+  "background": "Núria, 45, artisan bakery in El Raval, 120 loaves/day + café, 12 years. Morning-shift operator, orders from phone at 6am. Expects: \"I need to set up my order before the day starts. No surprises.\"",
+  "profile": {
+    "techComfortable": false,
+    "qualityFocused": true,
+    "isMobile": true,
+    "firstTimer": false,
+    "lowTech": false,
+    "multiLocation": false,
+    "powerUser": true,
+    "marginSensitive": false,
+    "auditNeed": false
+  },
+  "stats": {
+    "entries": 90,
+    "confirmed": 72,
+    "payments": 0,
+    "costs": 0,
+    "closings": 0
+  },
+  "totals": {
+    "reconciles": 2,
+    "deletes": 3,
+    "forgotten": 5,
+    "unconfirmed": 28,
+    "double": 0
+  },
+  "friction": [
+    {
+      "type": "unconfirmed",
+      "day": 13,
+      "date": "2026-03-06",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 31,
+      "date": "2026-03-24",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 35,
+      "date": "2026-03-28",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 39,
+      "date": "2026-04-01",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 40,
+      "date": "2026-04-02",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 41,
+      "date": "2026-04-03",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 42,
+      "date": "2026-04-04",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 45,
+      "date": "2026-04-07",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 56,
+      "date": "2026-04-18",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "reconcile",
+      "day": 58,
+      "date": "2026-04-20",
+      "note": "Corrected via reconcile"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 62,
+      "date": "2026-04-24",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 64,
+      "date": "2026-04-26",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 66,
+      "date": "2026-04-28",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 72,
+      "date": "2026-05-04",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 78,
+      "date": "2026-05-10",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 79,
+      "date": "2026-05-11",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 83,
+      "date": "2026-05-15",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 101,
+      "date": "2026-06-02",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 105,
+      "date": "2026-06-06",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 109,
+      "date": "2026-06-10",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 120,
+      "date": "2026-06-21",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 124,
+      "date": "2026-06-25",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 127,
+      "date": "2026-06-28",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 129,
+      "date": "2026-06-30",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 133,
+      "date": "2026-07-04",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 141,
+      "date": "2026-07-12",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 143,
+      "date": "2026-07-14",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "reconcile",
+      "day": 145,
+      "date": "2026-07-16",
+      "note": "Corrected via reconcile"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 146,
+      "date": "2026-07-17",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 148,
+      "date": "2026-07-19",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 148,
+      "date": "2026-07-19",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 150,
+      "date": "2026-07-21",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 151,
+      "date": "2026-07-22",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 152,
+      "date": "2026-07-23",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 156,
+      "date": "2026-07-27",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 161,
+      "date": "2026-08-01",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 172,
+      "date": "2026-08-12",
+      "note": "Day left unconfirmed"
+    },
+    {
+      "type": "unconfirmed",
+      "day": 176,
+      "date": "2026-08-16",
+      "note": "Day left unconfirmed"
+    }
+  ],
+  "uiNotes": [
+    "page loaded: content present (595 chars)",
+    "denom inputs: 8",
+    "verdict: \"+ | €40.00 | Over — more cash than the books predict · baseline €0.00\"",
+    "FRICTION: owner sees a VARIANCE — +",
+    "confirmed",
+    "reconcile buttons: 30 | delete buttons: 30",
+    "screenshot: till-nuria-baker.png"
+  ],
+  "finalEntries": 90,
+  "finalConfirmed": 72,
+  "timeMs": 4247
+}

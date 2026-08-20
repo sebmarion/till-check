@@ -38,6 +38,12 @@
   .metric.good .metric-value { color: var(--green); }
   .metric.bad .metric-value { color: var(--red); }
   .metric.neutral .metric-value { color: var(--blue); }
+  .live-banner { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 15px 17px; margin: 0 0 30px; border: 1px solid #2b664e; border-radius: 12px; background: #14251f; }
+  .live-banner-mark { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 10px; background: #1c503d; color: var(--green); font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+  .live-banner strong { display: block; font-size: 14px; }
+  .live-banner p { color: #a7c7b6; font-size: 12px; margin: 3px 0 0; }
+  .live-banner-status { display: flex; align-items: center; gap: 7px; color: var(--green); font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .port { display: inline-flex; align-items: center; min-height: 20px; padding: 0 6px; border: 1px solid #344967; border-radius: 5px; color: var(--blue); background: #172235; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
   .section-title { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; margin: 0 0 12px; }
   .projects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
   .project { border: 1px solid var(--line); border-radius: 15px; background: var(--panel); overflow: hidden; }
@@ -93,6 +99,8 @@
     .shell { padding: 25px 15px 45px; }
     .masthead { display: block; }
     .host { margin-top: 17px; }
+    .live-banner { grid-template-columns: auto minmax(0, 1fr); }
+    .live-banner-status { grid-column: 2; }
     .summary { grid-template-columns: repeat(2, 1fr); }
     .projects { grid-template-columns: 1fr; }
     .project.platform { grid-column: auto; }
@@ -110,7 +118,7 @@
     <div>
       <div class="eyebrow">Zeus workspace</div>
       <h1>Everything in one place.</h1>
-      <p class="intro">A project-first view of the services, sites, and tools running on this machine. Start what you need; stop what you don't.</p>
+      <p class="intro">A project-first view of the services, sites, and tools running on this machine. Save a file in a checkout and see it live on Zeus.</p>
     </div>
     <div class="host">
       <div class="host-label">Host</div>
@@ -125,6 +133,12 @@
     <div class="metric bad"><span id="metric-stopped" class="metric-value">—</span><span class="metric-label">stopped / unavailable</span></div>
   </section>
 
+  <section class="live-banner" aria-label="Live development mode">
+    <div class="live-banner-mark">LIVE</div>
+    <div><strong>Live development on Zeus</strong><p>Project URLs read directly from their source checkouts. Save a file and refresh—no build, commit, or deployment step. Entry ports stay fixed.</p></div>
+    <div class="live-banner-status"><span class="dot good"></span> fixed ports</div>
+  </section>
+
   <h2 class="section-title">Projects</h2>
   <section class="projects">
     <article class="project" data-project-card="comandero">
@@ -134,11 +148,11 @@
       </header>
       <div class="service-list">
         <div class="service" data-service="comandero-app">
-          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:comandero-app">Operations app</span></div><p class="service-detail">Orders, products, and day-to-day management<span class="local-dir">/home/seb/projects/comandero/app</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:comandero-app">Operations app</span></div><p class="service-detail">Orders, products, and day-to-day management<span class="local-dir">/home/seb/projects/comandero/app</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span><span class="port">fixed :3202</span></div></div>
           <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="http://zeus.tailfad2e3.ts.net:3202/">Open</a><button class="power start" data-control="comandero-app" data-action="start" disabled>Start</button><button class="power stop" data-control="comandero-app" data-action="stop" disabled>Stop</button></div>
         </div>
         <div class="service" data-service="comandero-www">
-          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:comandero-www">Comandero website</span></div><p class="service-detail">Public product and restaurant-facing site<span class="local-dir">/home/seb/projects/comandero/www</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:comandero-www">Comandero website</span></div><p class="service-detail">Public product and restaurant-facing site<span class="local-dir">/home/seb/projects/comandero/www</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span><span class="port">fixed :3201</span></div></div>
           <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="http://zeus.tailfad2e3.ts.net:3201/es">Open</a><button class="power start" data-control="comandero-www" data-action="start" disabled>Start</button><button class="power stop" data-control="comandero-www" data-action="stop" disabled>Stop</button></div>
         </div>
       </div>
@@ -157,11 +171,11 @@
       </header>
       <div class="service-list">
         <div class="service" data-service="snow">
-          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:snow">Accounting dashboard</span></div><p class="service-detail">Invoices, accounting review, and exports<span class="local-dir">/home/seb/projects/snow-monster-accounting</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:snow">Accounting dashboard</span></div><p class="service-detail">Invoices, accounting review, and exports<span class="local-dir">/home/seb/projects/snow-monster-accounting</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span><span class="port">fixed :8790</span></div></div>
           <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/accounting/">Open</a><button class="power start" data-control="snow-monster" data-action="start" disabled>Start</button><button class="power stop" data-control="snow-monster" data-action="stop" disabled>Stop</button></div>
         </div>
         <div class="service" data-service="snowmonster-web">
-          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:snowmonster-web">Snow Monster website</span></div><p class="service-detail">Public Snow Monster web presence · on-demand preview<span class="local-dir">/home/seb/projects/snowmonster/www_snowmonster_es</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:snowmonster-web">Snow Monster website</span></div><p class="service-detail">Public Snow Monster web presence · live development<span class="local-dir">/home/seb/projects/snowmonster/www_snowmonster_es</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span><span class="port">fixed :3302</span></div></div>
           <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/snowmonster/">Open</a><button class="power start" data-control="snowmonster-web" data-action="start" disabled>Start</button><button class="power stop" data-control="snowmonster-web" data-action="stop" disabled>Stop</button></div>
         </div>
       </div>
@@ -178,7 +192,7 @@
       </header>
       <div class="service-list">
         <div class="service" data-service="orchestrero">
-          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:orchestrero">Orchestrero control plane</span></div><p class="service-detail">Coordinate work across agents and tools<span class="local-dir">/home/seb/projects/Orchestrero</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:orchestrero">Orchestrero control plane</span></div><p class="service-detail">Coordinate work across agents and tools<span class="local-dir">/home/seb/projects/Orchestrero</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span><span class="port">fixed :3310</span></div></div>
           <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/orchestrero/">Open</a><button class="power start" data-control="orchestrero" data-action="start" disabled>Start</button><button class="power stop" data-control="orchestrero" data-action="stop" disabled>Stop</button></div>
         </div>
       </div>
@@ -192,15 +206,15 @@
       </header>
       <div class="service-list">
         <div class="service" data-service="qr">
-          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:qr">Menu bistrot</span></div><p class="service-detail">QR-accessible digital menu<span class="local-dir">/home/seb/projects/bistrot/QR_menu_v2</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:qr">Menu bistrot</span></div><p class="service-detail">QR-accessible digital menu<span class="local-dir">/home/seb/projects/bistrot/QR_menu_v2</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span><span class="port">fixed :3301</span></div></div>
           <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/qr/">Open</a><button class="power start" data-control="qr-menu" data-action="start" disabled>Start</button><button class="power stop" data-control="qr-menu" data-action="stop" disabled>Stop</button></div>
         </div>
         <div class="service" data-service="bistrot-web">
-          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:bistrot-web">Bistrot Barcelona website</span></div><p class="service-detail">Public restaurant website · on-demand preview<span class="local-dir">/home/seb/projects/bistrot/www_bistrotbcn_com</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:bistrot-web">Bistrot Barcelona website</span></div><p class="service-detail">Public restaurant website · live development<span class="local-dir">/home/seb/projects/bistrot/www_bistrotbcn_com</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span><span class="port">fixed :3303</span></div></div>
           <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/bistrot/">Open</a><button class="power start" data-control="bistrot-web" data-action="start" disabled>Start</button><button class="power stop" data-control="bistrot-web" data-action="stop" disabled>Stop</button></div>
         </div>
         <div class="service" data-service="till">
-          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:till">Till Check</span></div><p class="service-detail">Daily bistro cash reconciliation<span class="local-dir">/home/seb/projects/bistrot/till-check</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:till">Till Check</span></div><p class="service-detail">Daily bistro cash reconciliation<span class="local-dir">/home/seb/projects/bistrot/till-check</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span><span class="port">fixed :3401</span></div></div>
           <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/till/">Open</a><button class="power start" data-control="till-check" data-action="start" disabled>Start</button><button class="power stop" data-control="till-check" data-action="stop" disabled>Stop</button></div>
         </div>
       </div>
@@ -235,7 +249,7 @@
       </header>
       <div class="service-list">
         <div class="service" data-service="activity-tracker">
-          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:activity-tracker">Engineering activity tracker</span></div><p class="service-detail">Private GitHub activity and delivery dashboard · on-demand preview<span class="local-dir">/home/seb/projects/Set Piece/Activity Tracker</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span></div></div>
+          <div class="service-main"><div class="service-name"><span class="dot wait" data-dot></span><span class="title-text" data-title-id="service:activity-tracker">Engineering activity tracker</span></div><p class="service-detail">Private GitHub activity and delivery dashboard · live development<span class="local-dir">/home/seb/projects/Set Piece/Activity Tracker</span></p><div class="service-meta"><span class="health wait" data-health>checking…</span><span class="health" data-unit-state>checking…</span><span class="port">fixed :3304</span></div></div>
           <div class="service-actions"><a class="open" target="_blank" rel="noopener" href="/activity/">Open</a><button class="power start" data-control="activity-tracker" data-action="start" disabled>Start</button><button class="power stop" data-control="activity-tracker" data-action="stop" disabled>Stop</button></div>
         </div>
       </div>

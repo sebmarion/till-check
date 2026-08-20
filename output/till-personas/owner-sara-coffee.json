@@ -1,0 +1,74 @@
+{
+  "personaId": "sara-coffee",
+  "name": "Sara",
+  "background": "Sara, 28, specialty coffee in El Born, 60 seats, 2 years. Mobile-first, tech-comfortable, will switch tools if it's better. Expects: \"Don't make me think about my supplier list. Show me the deal.\"",
+  "profile": {
+    "techComfortable": true,
+    "qualityFocused": false,
+    "isMobile": true,
+    "firstTimer": false,
+    "lowTech": false,
+    "multiLocation": false,
+    "powerUser": false,
+    "marginSensitive": false,
+    "auditNeed": false
+  },
+  "stats": {
+    "entries": 90,
+    "confirmed": 90,
+    "payments": 0,
+    "costs": 0,
+    "closings": 0
+  },
+  "totals": {
+    "reconciles": 1,
+    "deletes": 1,
+    "forgotten": 3,
+    "unconfirmed": 0,
+    "double": 0
+  },
+  "friction": [
+    {
+      "type": "forgotten-day",
+      "day": 29,
+      "date": "2026-03-22",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 50,
+      "date": "2026-04-12",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 94,
+      "date": "2026-05-26",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "reconcile",
+      "day": 147,
+      "date": "2026-07-18",
+      "note": "Corrected via reconcile"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 174,
+      "date": "2026-08-14",
+      "note": "Count skipped; app shows stale value next day"
+    }
+  ],
+  "uiNotes": [
+    "page loaded: content present (595 chars)",
+    "denom inputs: 8",
+    "verdict: \"+ | €40.00 | Over — more cash than the books predict · baseline €0.00\"",
+    "FRICTION: owner sees a VARIANCE — +",
+    "confirmed",
+    "reconcile buttons: 30 | delete buttons: 30",
+    "screenshot: till-sara-coffee.png"
+  ],
+  "finalEntries": 90,
+  "finalConfirmed": 90,
+  "timeMs": 4314
+}

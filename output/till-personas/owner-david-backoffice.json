@@ -1,0 +1,110 @@
+{
+  "personaId": "david-backoffice",
+  "name": "David",
+  "background": "David, 47, back-office manager for two neighborhood restaurants in Les Corts, combined 100 covers, 8 years. Manages all supplier relationships digitally from a desktop. Expects: \"If the tool's wrong on something, I want to find out before my suppliers do.\"",
+  "profile": {
+    "techComfortable": true,
+    "qualityFocused": false,
+    "isMobile": false,
+    "firstTimer": false,
+    "lowTech": false,
+    "multiLocation": true,
+    "powerUser": false,
+    "marginSensitive": false,
+    "auditNeed": true
+  },
+  "stats": {
+    "entries": 90,
+    "confirmed": 90,
+    "payments": 0,
+    "costs": 0,
+    "closings": 0
+  },
+  "totals": {
+    "reconciles": 0,
+    "deletes": 2,
+    "forgotten": 9,
+    "unconfirmed": 0,
+    "double": 0
+  },
+  "friction": [
+    {
+      "type": "delete-rerenter",
+      "day": 5,
+      "date": "2026-02-26",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 14,
+      "date": "2026-03-07",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 30,
+      "date": "2026-03-23",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 32,
+      "date": "2026-03-25",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 90,
+      "date": "2026-05-22",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 92,
+      "date": "2026-05-24",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 96,
+      "date": "2026-05-28",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 105,
+      "date": "2026-06-06",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 125,
+      "date": "2026-06-26",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 152,
+      "date": "2026-07-23",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 155,
+      "date": "2026-07-26",
+      "note": "Count skipped; app shows stale value next day"
+    }
+  ],
+  "uiNotes": [
+    "page loaded: content present (595 chars)",
+    "denom inputs: 8",
+    "verdict: \"+ | €40.00 | Over — more cash than the books predict · baseline €0.00\"",
+    "FRICTION: owner sees a VARIANCE — +",
+    "confirmed",
+    "reconcile buttons: 23 | delete buttons: 30",
+    "screenshot: till-david-backoffice.png"
+  ],
+  "finalEntries": 90,
+  "finalConfirmed": 90,
+  "timeMs": 4260
+}

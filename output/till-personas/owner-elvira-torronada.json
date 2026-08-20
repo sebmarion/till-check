@@ -1,0 +1,110 @@
+{
+  "personaId": "elvira-torronada",
+  "name": "Elvira",
+  "background": "Elvira, 60, torronada (small eatery) in Ciutat Vella, 50 covers, 22 years. First month using digital tools. Skeptical of \"optimization\" language. Expects: \"Show me what changed and why, in plain Spanish.\"",
+  "profile": {
+    "techComfortable": true,
+    "qualityFocused": false,
+    "isMobile": false,
+    "firstTimer": true,
+    "lowTech": false,
+    "multiLocation": false,
+    "powerUser": true,
+    "marginSensitive": false,
+    "auditNeed": false
+  },
+  "stats": {
+    "entries": 90,
+    "confirmed": 90,
+    "payments": 0,
+    "costs": 0,
+    "closings": 0
+  },
+  "totals": {
+    "reconciles": 0,
+    "deletes": 2,
+    "forgotten": 9,
+    "unconfirmed": 0,
+    "double": 0
+  },
+  "friction": [
+    {
+      "type": "forgotten-day",
+      "day": 7,
+      "date": "2026-02-28",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 11,
+      "date": "2026-03-04",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 23,
+      "date": "2026-03-16",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 36,
+      "date": "2026-03-29",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 38,
+      "date": "2026-03-31",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 45,
+      "date": "2026-04-07",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 47,
+      "date": "2026-04-09",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 69,
+      "date": "2026-05-01",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 107,
+      "date": "2026-06-08",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 114,
+      "date": "2026-06-15",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 127,
+      "date": "2026-06-28",
+      "note": "Count skipped; app shows stale value next day"
+    }
+  ],
+  "uiNotes": [
+    "page loaded: content present (595 chars)",
+    "denom inputs: 8",
+    "verdict: \"+ | €40.00 | Over — more cash than the books predict · baseline €0.00\"",
+    "FRICTION: owner sees a VARIANCE — +",
+    "confirmed",
+    "reconcile buttons: 27 | delete buttons: 30",
+    "screenshot: till-elvira-torronada.png"
+  ],
+  "finalEntries": 90,
+  "finalConfirmed": 90,
+  "timeMs": 4349
+}

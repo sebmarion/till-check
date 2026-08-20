@@ -1,0 +1,104 @@
+{
+  "personaId": "alex-gastropub",
+  "name": "Alex",
+  "background": "Alex, 38, gastropub in Poble Nou, 60 covers, 3 years. Tech-comfortable, uses multiple food apps. Willing to experiment but hates dead ends. Expects: \"If the tool says it saved me money, show me the math.\"",
+  "profile": {
+    "techComfortable": true,
+    "qualityFocused": false,
+    "isMobile": false,
+    "firstTimer": false,
+    "lowTech": false,
+    "multiLocation": false,
+    "powerUser": false,
+    "marginSensitive": false,
+    "auditNeed": false
+  },
+  "stats": {
+    "entries": 90,
+    "confirmed": 90,
+    "payments": 0,
+    "costs": 0,
+    "closings": 0
+  },
+  "totals": {
+    "reconciles": 0,
+    "deletes": 1,
+    "forgotten": 9,
+    "unconfirmed": 0,
+    "double": 0
+  },
+  "friction": [
+    {
+      "type": "forgotten-day",
+      "day": 3,
+      "date": "2026-02-24",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 12,
+      "date": "2026-03-05",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 15,
+      "date": "2026-03-08",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 41,
+      "date": "2026-04-03",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 76,
+      "date": "2026-05-08",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 94,
+      "date": "2026-05-26",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 100,
+      "date": "2026-06-01",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 143,
+      "date": "2026-07-14",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 150,
+      "date": "2026-07-21",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 177,
+      "date": "2026-08-17",
+      "note": "Count skipped; app shows stale value next day"
+    }
+  ],
+  "uiNotes": [
+    "page loaded: content present (595 chars)",
+    "denom inputs: 8",
+    "verdict: \"+ | €40.00 | Over — more cash than the books predict · baseline €0.00\"",
+    "FRICTION: owner sees a VARIANCE — +",
+    "confirmed",
+    "reconcile buttons: 26 | delete buttons: 30",
+    "screenshot: till-alex-gastropub.png"
+  ],
+  "finalEntries": 90,
+  "finalConfirmed": 90,
+  "timeMs": 4395
+}

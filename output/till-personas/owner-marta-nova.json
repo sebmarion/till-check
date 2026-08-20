@@ -1,0 +1,92 @@
+{
+  "personaId": "marta-nova",
+  "name": "Marta",
+  "background": "Marta, 30, new bistró opening in El Raval, 60 covers, first month using digital ordering tools. Overwhelmed by options, needs hand-holding. Expects: \"Don't show me every feature at once. Show me what I need right now.\"",
+  "profile": {
+    "techComfortable": true,
+    "qualityFocused": false,
+    "isMobile": false,
+    "firstTimer": true,
+    "lowTech": false,
+    "multiLocation": false,
+    "powerUser": true,
+    "marginSensitive": false,
+    "auditNeed": false
+  },
+  "stats": {
+    "entries": 90,
+    "confirmed": 90,
+    "payments": 0,
+    "costs": 0,
+    "closings": 0
+  },
+  "totals": {
+    "reconciles": 0,
+    "deletes": 1,
+    "forgotten": 7,
+    "unconfirmed": 0,
+    "double": 0
+  },
+  "friction": [
+    {
+      "type": "forgotten-day",
+      "day": 5,
+      "date": "2026-02-26",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 20,
+      "date": "2026-03-13",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "delete-rerenter",
+      "day": 27,
+      "date": "2026-03-20",
+      "note": "Deleted and re-entered"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 36,
+      "date": "2026-03-29",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 37,
+      "date": "2026-03-30",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 61,
+      "date": "2026-04-23",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 116,
+      "date": "2026-06-17",
+      "note": "Count skipped; app shows stale value next day"
+    },
+    {
+      "type": "forgotten-day",
+      "day": 145,
+      "date": "2026-07-16",
+      "note": "Count skipped; app shows stale value next day"
+    }
+  ],
+  "uiNotes": [
+    "page loaded: content present (595 chars)",
+    "denom inputs: 8",
+    "verdict: \"+ | €40.00 | Over — more cash than the books predict · baseline €0.00\"",
+    "FRICTION: owner sees a VARIANCE — +",
+    "confirmed",
+    "reconcile buttons: 30 | delete buttons: 30",
+    "screenshot: till-marta-nova.png"
+  ],
+  "finalEntries": 90,
+  "finalConfirmed": 90,
+  "timeMs": 4202
+}

@@ -240,6 +240,15 @@ function handleGetState() {
   const state = getState()
   const today = todayKey()
   const todayRow = db.prepare('SELECT * FROM entries WHERE date = ?').get(today)
+  // Auto-seed: if the operator has a count for today but no baseline yet,
+  // reconcile against a €0 baseline so the verdict is neutral (balanced).
+  // The owner skips the setup card entirely — the first count IS the start.
+  if (!state && todayRow) {
+    db.prepare(
+      'INSERT INTO state (id, books_balance_cents, baseline_cents, baseline_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET books_balance_cents = excluded.books_balance_cents, baseline_date = excluded.baseline_date, updated_at = excluded.updated_at',
+    ).run(todayRow.actual_cents, 0, today, nowIso(), nowIso())
+    return handleGetState()
+  }
   return {
     hasBaseline: state !== null,
     booksBalance: state ? centsToEuros(state.booksBalanceCents) : null,
@@ -261,18 +270,16 @@ async function handlePostEntry(req) {
   } catch {
     return { code: 400, body: { error: 'invalid JSON body' } }
   }
-  const state = getState()
-  if (!state) {
-    return { code: 409, body: { error: 'no baseline set' } }
-  }
   const today = body.date || todayKey()
   const declared = typeof body.declared === 'string' ? body.declared : ''
-  // Denominations: a map like { "50": 3, "20": 2, "1": 5 } (counts per denomination).
-  // When present, the total is derived from denominations (overrides `actual`).
   const denominations =
     body.denominations && typeof body.denominations === 'object'
       ? body.denominations
       : null
+  const state = getState()
+  // If no baseline exists (first run), seed it from this entry's count so
+  // the verdict is neutral (balanced). The owner skips the setup card.
+  const effectiveState = state || { booksBalanceCents: 0 }
   const result = reconcileDay(
     {
       actual: body.actual,
@@ -282,7 +289,7 @@ async function handlePostEntry(req) {
       declared,
       denominations,
     },
-    state.booksBalanceCents,
+    effectiveState.booksBalanceCents,
   )
   const entry = {
     date: today,
@@ -299,6 +306,12 @@ async function handlePostEntry(req) {
     updated_at: nowIso(),
   }
   upsertEntry(entry)
+  // Seed the baseline on first run if it doesn't exist yet.
+  if (!state) {
+    db.prepare(
+      'INSERT INTO state (id, books_balance_cents, baseline_cents, baseline_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET books_balance_cents = excluded.books_balance_cents, baseline_date = excluded.baseline_date, updated_at = excluded.updated_at',
+    ).run(result.actualCents, 0, today, nowIso(), nowIso())
+  }
   return { code: 200, body: entryToView(entry) }
 }
 
