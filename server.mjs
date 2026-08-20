@@ -77,6 +77,59 @@ function ensureColumn(table, column, definition) {
 }
 ensureColumn('entries', 'denominations', "TEXT NOT NULL DEFAULT ''")
 
+// --- Payroll, costs, and monthly closings tables (Phase 1) ---
+db.exec(`
+CREATE TABLE IF NOT EXISTS people (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  pay_schedule TEXT NOT NULL DEFAULT 'weekly',
+  pay_method TEXT NOT NULL DEFAULT 'cash',
+  hourly_rate_cents INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_people_active ON people(active);
+
+CREATE TABLE IF NOT EXISTS payments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL,
+  person_id INTEGER NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  pay_method TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(date DESC);
+CREATE INDEX IF NOT EXISTS idx_payments_person ON payments(person_id);
+
+CREATE TABLE IF NOT EXISTS costs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL,
+  category TEXT NOT NULL,
+  label TEXT NOT NULL DEFAULT '',
+  amount_cents INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_costs_date ON costs(date DESC);
+CREATE INDEX IF NOT EXISTS idx_costs_category ON costs(category);
+
+CREATE TABLE IF NOT EXISTS monthly_closings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  year_month TEXT NOT NULL UNIQUE,
+  total_cents INTEGER NOT NULL,
+  payroll_cents INTEGER NOT NULL,
+  costs_cents INTEGER NOT NULL,
+  net_cents INTEGER NOT NULL,
+  daily_count INTEGER NOT NULL,
+  avg_variance_cents INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+`)
+
 function nowIso() {
   return new Date().toISOString()
 }
@@ -331,6 +384,286 @@ async function handlePatchEntry(req, date) {
 }
 
 // ---------------------------------------------------------------------------
+// Payroll, costs, monthly closings, and stats handlers (Phase 1)
+// ---------------------------------------------------------------------------
+
+function personToView(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    paySchedule: row.pay_schedule,
+    payMethod: row.pay_method,
+    hourlyRate: centsToEuros(row.hourly_rate_cents),
+    active: !!row.active,
+    createdAt: row.created_at,
+  }
+}
+
+function paymentToView(row, personName) {
+  return {
+    id: row.id,
+    date: row.date,
+    personId: row.person_id,
+    personName: personName || `person ${row.person_id}`,
+    amount: centsToEuros(row.amount_cents),
+    payMethod: row.pay_method,
+    note: row.note,
+    createdAt: row.created_at,
+  }
+}
+
+function costToView(row) {
+  return {
+    id: row.id,
+    date: row.date,
+    category: row.category,
+    label: row.label,
+    amount: centsToEuros(row.amount_cents),
+    createdAt: row.created_at,
+  }
+}
+
+function handleGetPeople() {
+  const rows = db.prepare('SELECT * FROM people WHERE active = 1 ORDER BY name').all()
+  return { code: 200, body: { people: rows.map(personToView) } }
+}
+
+async function handlePostPeople(req) {
+  const raw = await readBody(req)
+  let body
+  try {
+    body = JSON.parse(raw || '{}')
+  } catch {
+    return { code: 400, body: { error: 'invalid JSON body' } }
+  }
+  const name = (body.name || '').trim()
+  if (!name) return { code: 400, body: { error: 'name is required' } }
+  const paySchedule = ['weekly', 'hourly', 'monthly'].includes(body.paySchedule) ? body.paySchedule : 'weekly'
+  const payMethod = ['cash', 'transfer', 'transfer_cash'].includes(body.payMethod) ? body.payMethod : 'cash'
+  const hourlyRateCents = parseAmount(body.hourlyRate || 0)
+  const result = db.prepare(
+    'INSERT INTO people (name, pay_schedule, pay_method, hourly_rate_cents, active, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)'
+  ).run(name, paySchedule, payMethod, hourlyRateCents, nowIso(), nowIso())
+  const row = db.prepare('SELECT * FROM people WHERE id = ?').get(result.lastInsertRowid)
+  return { code: 201, body: personToView(row) }
+}
+
+function handlePatchPeople(id) {
+  const row = db.prepare('SELECT * FROM people WHERE id = ?').get(id)
+  if (!row) return { code: 404, body: { error: 'person not found' } }
+  return { code: 200, body: personToView(row) }
+}
+
+async function handlePatchPeopleBody(req, id) {
+  const row = db.prepare('SELECT * FROM people WHERE id = ?').get(id)
+  if (!row) return { code: 404, body: { error: 'person not found' } }
+  const raw = await readBody(req)
+  let body
+  try {
+    body = JSON.parse(raw || '{}')
+  } catch {
+    return { code: 400, body: { error: 'invalid JSON body' } }
+  }
+  const name = body.name !== undefined ? body.name.trim() : row.name
+  const paySchedule = body.paySchedule !== undefined ? body.paySchedule : row.pay_schedule
+  const payMethod = body.payMethod !== undefined ? body.payMethod : row.pay_method
+  const hourlyRateCents = body.hourlyRate !== undefined ? parseAmount(body.hourlyRate) : row.hourly_rate_cents
+  db.prepare(
+    'UPDATE people SET name = ?, pay_schedule = ?, pay_method = ?, hourly_rate_cents = ?, updated_at = ? WHERE id = ?'
+  ).run(name, paySchedule, payMethod, hourlyRateCents, nowIso(), id)
+  const updated = db.prepare('SELECT * FROM people WHERE id = ?').get(id)
+  return { code: 200, body: personToView(updated) }
+}
+
+async function handleDeletePeople(req, id) {
+  const row = db.prepare('SELECT * FROM people WHERE id = ?').get(id)
+  if (!row) return { code: 404, body: { error: 'person not found' } }
+  db.prepare('UPDATE people SET active = 0, updated_at = ? WHERE id = ?').run(nowIso(), id)
+  return { code: 200, body: { deleted: true, id } }
+}
+
+function handleGetPayments() {
+  const rows = db.prepare(
+    'SELECT p.*, pe.name AS person_name FROM payments p LEFT JOIN people pe ON p.person_id = pe.id ORDER BY p.date DESC LIMIT 100'
+  ).all()
+  return { code: 200, body: { payments: rows.map(r => paymentToView(r, r.person_name)) } }
+}
+
+async function handlePostPayment(req) {
+  const raw = await readBody(req)
+  let body
+  try {
+    body = JSON.parse(raw || '{}')
+  } catch {
+    return { code: 400, body: { error: 'invalid JSON body' } }
+  }
+  const date = body.date || todayKey()
+  const personId = body.personId
+  const person = db.prepare('SELECT * FROM people WHERE id = ? AND active = 1').get(personId)
+  if (!person) return { code: 404, body: { error: 'person not found' } }
+  const amountCents = parseAmount(body.amount || 0)
+  const payMethod = body.payMethod || person.pay_method
+  const note = body.note || ''
+  const result = db.prepare(
+    'INSERT INTO payments (date, person_id, amount_cents, pay_method, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(date, personId, amountCents, payMethod, note, nowIso(), nowIso())
+  const row = db.prepare('SELECT * FROM payments WHERE id = ?').get(result.lastInsertRowid)
+  return { code: 201, body: paymentToView(row, person.name) }
+}
+
+function handleDeletePayment(id) {
+  const row = db.prepare('SELECT * FROM payments WHERE id = ?').get(id)
+  if (!row) return { code: 404, body: { error: 'payment not found' } }
+  db.prepare('DELETE FROM payments WHERE id = ?').run(id)
+  return { code: 200, body: { deleted: true, id } }
+}
+
+function handleGetCosts() {
+  const rows = db.prepare('SELECT * FROM costs ORDER BY date DESC LIMIT 100').all()
+  return { code: 200, body: { costs: rows.map(costToView) } }
+}
+
+async function handlePostCost(req) {
+  const raw = await readBody(req)
+  let body
+  try {
+    body = JSON.parse(raw || '{}')
+  } catch {
+    return { code: 400, body: { error: 'invalid JSON body' } }
+  }
+  const date = body.date || todayKey()
+  const category = body.category || 'other'
+  const label = body.label || ''
+  const amountCents = parseAmount(body.amount || 0)
+  const result = db.prepare(
+    'INSERT INTO costs (date, category, label, amount_cents, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(date, category, label, amountCents, nowIso(), nowIso())
+  const row = db.prepare('SELECT * FROM costs WHERE id = ?').get(result.lastInsertRowid)
+  return { code: 201, body: costToView(row) }
+}
+
+function handleDeleteCost(id) {
+  const row = db.prepare('SELECT * FROM costs WHERE id = ?').get(id)
+  if (!row) return { code: 404, body: { error: 'cost not found' } }
+  db.prepare('DELETE FROM costs WHERE id = ?').run(id)
+  return { code: 200, body: { deleted: true, id } }
+}
+
+function handleGetMonthly(yearMonth) {
+  // Compute monthly closing for a given month (YYYY-MM)
+  if (!/^\d{4}-\d{2}$/.test(yearMonth)) return { code: 400, body: { error: 'invalid year_month' } }
+  const startMonth = `${yearMonth}-01`
+  const endMonth = `${yearMonth}-31`
+  // Sum daily entries
+  const daily = db.prepare(
+    'SELECT COALESCE(SUM(actual_cents), 0) as total, COUNT(*) as count, COALESCE(AVG(variance_cents), 0) as avg_var FROM entries WHERE date >= ? AND date <= ?'
+  ).get(startMonth, endMonth)
+  const totalCents = Number(daily.total) || 0
+  const avgVarianceCents = Math.round(Number(daily.avg_var) || 0)
+  const dailyCount = Number(daily.count) || 0
+  
+  // Sum payroll
+  const payroll = db.prepare('SELECT COALESCE(SUM(amount_cents), 0) as total FROM payments WHERE date >= ? AND date <= ?').get(startMonth, endMonth)
+  const payrollCents = Number(payroll.total) || 0
+  
+  // Sum costs
+  const costs = db.prepare('SELECT COALESCE(SUM(amount_cents), 0) as total FROM costs WHERE date >= ? AND date <= ?').get(startMonth, endMonth)
+  const costsCents = Number(costs.total) || 0
+  
+  const netCents = totalCents - payrollCents - costsCents
+  
+  // Check if already closed
+  const existing = db.prepare('SELECT * FROM monthly_closings WHERE year_month = ?').get(yearMonth)
+  
+  return { code: 200, body: {
+    yearMonth,
+    total: centsToEuros(totalCents),
+    payroll: centsToEuros(payrollCents),
+    costs: centsToEuros(costsCents),
+    net: centsToEuros(netCents),
+    dailyCount,
+    avgVariance: centsToEuros(avgVarianceCents),
+    closed: !!existing,
+  } }
+}
+
+function handleGetMonthlyHistory() {
+  const rows = db.prepare('SELECT * FROM monthly_closings ORDER BY year_month DESC').all()
+  return { code: 200, body: { months: rows.map(row => ({
+    yearMonth: row.year_month,
+    total: centsToEuros(row.total_cents),
+    payroll: centsToEuros(row.payroll_cents),
+    costs: centsToEuros(row.costs_cents),
+    net: centsToEuros(row.net_cents),
+    dailyCount: row.daily_count,
+    avgVariance: centsToEuros(row.avg_variance_cents),
+    closedAt: row.updated_at,
+  })) } }
+}
+
+async function handlePostMonthly(req, yearMonth) {
+  if (!/^\d{4}-\d{2}$/.test(yearMonth)) return { code: 400, body: { error: 'invalid year_month' } }
+  const startMonth = `${yearMonth}-01`
+  const endMonth = `${yearMonth}-31`
+  const daily = db.prepare(
+    'SELECT COALESCE(SUM(actual_cents), 0) as total, COUNT(*) as count, COALESCE(AVG(variance_cents), 0) as avg_var FROM entries WHERE date >= ? AND date <= ?'
+  ).get(startMonth, endMonth)
+  const payroll = db.prepare(
+    'SELECT COALESCE(SUM(amount_cents), 0) as total FROM payments WHERE date >= ? AND date <= ?'
+  ).get(startMonth, endMonth)
+  const costs = db.prepare(
+    'SELECT COALESCE(SUM(amount_cents), 0) as total FROM costs WHERE date >= ? AND date <= ?'
+  ).get(startMonth, endMonth)
+  const totalCents = daily.total || 0
+  const payrollCents = payroll.total || 0
+  const costsCents = costs.total || 0
+  const netCents = totalCents - payrollCents - costsCents
+  const avgVarianceCents = Math.round(daily.avg_var || 0)
+  db.prepare(
+    'INSERT INTO monthly_closings (year_month, total_cents, payroll_cents, costs_cents, net_cents, daily_count, avg_variance_cents, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(year_month) DO UPDATE SET total_cents = excluded.total_cents, payroll_cents = excluded.payroll_cents, costs_cents = excluded.costs_cents, net_cents = excluded.net_cents, daily_count = excluded.daily_count, avg_variance_cents = excluded.avg_variance_cents, updated_at = excluded.updated_at'
+  ).run(yearMonth, totalCents, payrollCents, costsCents, netCents, daily.count || 0, avgVarianceCents, nowIso(), nowIso())
+  return { code: 200, body: { closed: true, yearMonth } }
+}
+
+function handleGetStats(req) {
+  const url = new URL(req.url, 'http://127.0.0.1')
+  // Default: current month if no params provided
+  const now = new Date()
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const from = url.searchParams.get('from') || `${currentMonth}-01`
+  const to = url.searchParams.get('to') || `${now.toISOString().slice(0, 10)}`
+  const rows = db.prepare(
+    'SELECT * FROM entries WHERE date >= ? AND date <= ? ORDER BY date'
+  ).all(from, to)
+  const totalEntries = rows.length
+  const totalActual = rows.reduce((sum, r) => sum + r.actual_cents, 0)
+  const totalVariance = rows.reduce((sum, r) => sum + r.variance_cents, 0)
+  const balancedCount = rows.filter(r => r.status === 'balanced').length
+  const shortCount = rows.filter(r => r.status === 'short').length
+  const overCount = rows.filter(r => r.status === 'over').length
+  
+  // Payroll and costs breakdown for the period
+  const payments = db.prepare('SELECT COALESCE(SUM(amount_cents), 0) as total FROM payments WHERE date >= ? AND date <= ?').get(from, to)
+  const costs = db.prepare('SELECT COALESCE(SUM(amount_cents), 0) as total FROM costs WHERE date >= ? AND date <= ?').get(from, to)
+  
+  return {
+    code: 200,
+    body: {
+      from, to,
+      totalEntries,
+      totalActual: centsToEuros(totalActual),
+      totalVariance: centsToEuros(totalVariance),
+      balanced: balancedCount,
+      short: shortCount,
+      over: overCount,
+      payroll: centsToEuros(payments.total),
+      costs: centsToEuros(costs.total),
+      net: centsToEuros(totalActual - payments.total - costs.total),
+    },
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
 
@@ -415,6 +748,100 @@ async function handle(req, res) {
       'INSERT INTO state (id, books_balance_cents, baseline_cents, baseline_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?, ?)',
     ).run(cents, cents, baselineDate, nowIso(), nowIso())
     sendJson(res, 200, { ok: true, booksBalance: centsToEuros(cents), baselineDate })
+    return
+  }
+
+  // --- Payroll routes ---
+  if (pathname === '/api/people' && method === 'GET') {
+    const r = handleGetPeople()
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  if (pathname === '/api/people' && method === 'POST') {
+    const r = await handlePostPeople(req)
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  if (pathname.startsWith('/api/people/') && method === 'PATCH') {
+    const id = pathname.split('/').pop()
+    const r = await handlePatchPeopleBody(req, Number(id))
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  if (pathname.startsWith('/api/people/') && method === 'DELETE') {
+    const id = pathname.split('/').pop()
+    const r = await handleDeletePeople(req, Number(id))
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  if (pathname === '/api/payments' && method === 'GET') {
+    const r = handleGetPayments()
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  if (pathname === '/api/payments' && method === 'POST') {
+    const r = await handlePostPayment(req)
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  if (pathname.startsWith('/api/payments/') && method === 'DELETE') {
+    const id = pathname.split('/').pop()
+    const r = handleDeletePayment(Number(id))
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  // --- Costs routes ---
+  if (pathname === '/api/costs' && method === 'GET') {
+    const r = handleGetCosts()
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  if (pathname === '/api/costs' && method === 'POST') {
+    const r = await handlePostCost(req)
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  if (pathname.startsWith('/api/costs/') && method === 'DELETE') {
+    const id = pathname.split('/').pop()
+    const r = handleDeleteCost(Number(id))
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  // --- Monthly closings routes ---
+  if (pathname === '/api/monthly' && method === 'GET') {
+    // Get history
+    const r = handleGetMonthlyHistory()
+    sendJson(res, r.code, r.body)
+    return
+  }
+  if (pathname.startsWith('/api/monthly/') && method === 'GET') {
+    const yearMonth = pathname.split('/').pop()
+    const r = handleGetMonthly(decodeURIComponent(yearMonth))
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  if (pathname.startsWith('/api/monthly/') && method === 'POST') {
+    const yearMonth = pathname.split('/').pop()
+    const r = await handlePostMonthly(req, decodeURIComponent(yearMonth))
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  // --- Stats routes ---
+  if (pathname === '/api/stats' && method === 'GET') {
+    const r = handleGetStats(req)
+    sendJson(res, r.code, r.body)
     return
   }
 

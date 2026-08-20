@@ -172,6 +172,89 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
     <ul id="ledger" class="ledger"></ul>
   </div>
 
+  <!-- People management -->
+  <div id="peopleCard" class="card">
+    <div class="label">People</div>
+    <div id="peopleList"></div>
+    <button id="addPersonBtn" class="ghost">+ Add person</button>
+    <div id="personForm" class="hidden">
+      <label>Name</label>
+      <input id="personName" type="text" placeholder="e.g. Maria">
+      <label>Pay schedule</label>
+      <select id="personSchedule">
+        <option value="weekly">Weekly</option>
+        <option value="hourly">Hourly</option>
+        <option value="monthly">Monthly</option>
+      </select>
+      <label>Pay method</label>
+      <select id="personMethod">
+        <option value="cash">Cash</option>
+        <option value="transfer">Transfer</option>
+        <option value="transfer_cash">Transfer + Cash</option>
+      </select>
+      <label>Hourly rate (for hourly workers)</label>
+      <input id="personRate" type="text" inputmode="decimal" placeholder="0.00">
+      <button id="savePersonBtn">Save person</button>
+      <button id="cancelPersonBtn" class="ghost">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Payroll entry -->
+  <div id="payrollCard" class="card">
+    <div class="label">Payroll</div>
+    <label>Person</label>
+    <select id="paymentPerson"></select>
+    <label>Amount</label>
+    <input id="paymentAmount" type="text" inputmode="decimal" placeholder="0.00">
+    <label>Pay method</label>
+    <select id="paymentMethod">
+      <option value="cash">Cash</option>
+      <option value="transfer">Transfer</option>
+      <option value="transfer_cash">Transfer + Cash</option>
+    </select>
+    <label>Note</label>
+    <input id="paymentNote" type="text" placeholder="e.g. Week of Aug 18">
+    <button id="savePaymentBtn">Record payment</button>
+    <div id="paymentsList"></div>
+  </div>
+
+  <!-- Costs -->
+  <div id="costsCard" class="card">
+    <div class="label">Costs</div>
+    <label>Category</label>
+    <select id="costCategory">
+      <option value="rent">Rent</option>
+      <option value="utilities_electricity">Electricity</option>
+      <option value="utilities_water">Water</option>
+      <option value="internet">Internet</option>
+      <option value="other">Other</option>
+    </select>
+    <label>Label</label>
+    <input id="costLabel" type="text" placeholder="e.g. August rent">
+    <label>Amount</label>
+    <input id="costAmount" type="text" inputmode="decimal" placeholder="0.00">
+    <button id="saveCostBtn">Record cost</button>
+    <div id="costsList"></div>
+  </div>
+
+  <!-- Monthly closing -->
+  <div id="monthlyCard" class="card">
+    <div class="label">Monthly closing</div>
+    <div id="monthlySummary"></div>
+    <button id="closeMonthBtn">Close month</button>
+    <div id="closingResult"></div>
+    <div style="margin-top:0.6rem">
+      <div class="label" style="margin-bottom:0.4rem">History</div>
+      <ul id="monthlyLedger" class="ledger"></ul>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div id="statsCard" class="card">
+    <div class="label">Stats</div>
+    <div id="statsSummary"></div>
+  </div>
+
   <footer>Till Check · books baseline <span id="baselineOut"></span></footer>
 </div>
 
@@ -189,6 +272,12 @@ const API = {
   history: PAGE_DIR + 'api/history',
   baseline: PAGE_DIR + 'api/baseline',
   denominations: PAGE_DIR + 'api/denominations',
+  people: PAGE_DIR + 'api/people',
+  payments: PAGE_DIR + 'api/payments',
+  costs: PAGE_DIR + 'api/costs',
+  monthly: (ym) => PAGE_DIR + 'api/monthly/' + ym,
+  monthlyHistory: PAGE_DIR + 'api/monthly',
+  stats: PAGE_DIR + 'api/stats',
 };
 const euroFmt = (v) => {
   const n = Number(v);
@@ -299,6 +388,13 @@ async function init() {
   baselineOut.textContent = euroFmt(Number(state.booksBalance) || 0);
   document.getElementById('entryCard').classList.remove('hidden');
   await refresh();
+  
+  // Load people, payments, costs, monthly, stats
+  await loadPeople();
+  await loadPayments();
+  await loadCosts();
+  await loadMonthly();
+  await loadStats();
 }
 
 async function refresh() {
@@ -341,6 +437,164 @@ function verdictLabel(status) {
   if (status === 'balanced') return 'Balanced — accounts match';
   if (status === 'short') return 'Short — cash missing or unaccounted';
   return 'Over — more cash than the books predict';
+}
+
+// --- People management ---
+async function loadPeople() {
+  try {
+    const res = await req('GET', API.people);
+    const list = document.getElementById('peopleList');
+    list.innerHTML = '';
+    for (const p of res.people) {
+      const div = document.createElement('div');
+      div.className = 'ledger';
+      div.innerHTML = `<li><span>${p.name}</span> — ${p.paySchedule}, ${p.payMethod}</li>`;
+      list.appendChild(div);
+    }
+    // Populate payment person dropdown
+    const sel = document.getElementById('paymentPerson');
+    sel.innerHTML = '';
+    for (const p of res.people) {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    }
+  } catch (e) { console.error('failed to load people', e); }
+}
+
+document.getElementById('addPersonBtn').addEventListener('click', () => {
+  document.getElementById('personForm').classList.remove('hidden');
+});
+
+document.getElementById('cancelPersonBtn').addEventListener('click', () => {
+  document.getElementById('personForm').classList.add('hidden');
+});
+
+document.getElementById('savePersonBtn').addEventListener('click', async () => {
+  const payload = {
+    name: document.getElementById('personName').value,
+    paySchedule: document.getElementById('personSchedule').value,
+    payMethod: document.getElementById('personMethod').value,
+    hourlyRate: document.getElementById('personRate').value,
+  };
+  try {
+    await req('POST', API.people, payload);
+    document.getElementById('personForm').classList.add('hidden');
+    await loadPeople();
+  } catch (e) { alert(e.message); }
+});
+
+// --- Payroll ---
+async function loadPayments() {
+  try {
+    const res = await req('GET', API.payments);
+    const list = document.getElementById('paymentsList');
+    list.innerHTML = '';
+    for (const p of res.payments.slice(0, 10)) {
+      const div = document.createElement('div');
+      div.className = 'ledger';
+      div.innerHTML = `<li>${pretty(p.date)} — ${p.personName}: ${euroFmt(Number(p.amount))} (${p.payMethod})</li>`;
+      list.appendChild(div);
+    }
+  } catch (e) { console.error('failed to load payments', e); }
+}
+
+document.getElementById('savePaymentBtn').addEventListener('click', async () => {
+  const payload = {
+    personId: Number(document.getElementById('paymentPerson').value),
+    amount: document.getElementById('paymentAmount').value,
+    payMethod: document.getElementById('paymentMethod').value,
+    note: document.getElementById('paymentNote').value,
+  };
+  try {
+    await req('POST', API.payments, payload);
+    document.getElementById('paymentAmount').value = '';
+    document.getElementById('paymentNote').value = '';
+    await loadPayments();
+  } catch (e) { alert(e.message); }
+});
+
+// --- Costs ---
+async function loadCosts() {
+  try {
+    const res = await req('GET', API.costs);
+    const list = document.getElementById('costsList');
+    list.innerHTML = '';
+    for (const c of res.costs.slice(0, 10)) {
+      const div = document.createElement('div');
+      div.className = 'ledger';
+      div.innerHTML = `<li>${pretty(c.date)} — ${c.category}: ${euroFmt(Number(c.amount))}</li>`;
+      list.appendChild(div);
+    }
+  } catch (e) { console.error('failed to load costs', e); }
+}
+
+document.getElementById('saveCostBtn').addEventListener('click', async () => {
+  const payload = {
+    category: document.getElementById('costCategory').value,
+    label: document.getElementById('costLabel').value,
+    amount: document.getElementById('costAmount').value,
+  };
+  try {
+    await req('POST', API.costs, payload);
+    document.getElementById('costLabel').value = '';
+    document.getElementById('costAmount').value = '';
+    await loadCosts();
+  } catch (e) { alert(e.message); }
+});
+
+// --- Monthly closing ---
+function currentMonthKey() {
+  return new Date().toISOString().slice(0, 7); // YYYY-MM
+}
+
+async function loadMonthly() {
+  try {
+    const ym = currentMonthKey();
+    const res = await req('GET', API.monthly(ym));
+    const summary = document.getElementById('monthlySummary');
+    if (res.closed) {
+      summary.innerHTML = `<div class="ledger"><li>Closed: Total ${euroFmt(Number(res.total))}, Payroll ${euroFmt(Number(res.payroll))}, Costs ${euroFmt(Number(res.costs))}, Net ${euroFmt(Number(res.net))}</li></div>`;
+    } else {
+      summary.innerHTML = `<div class="ledger"><li>Open: ${res.dailyCount} days, Avg variance ${euroFmt(Number(res.avgVariance))}</li></div>`;
+    }
+    
+    // Load monthly history
+    const historyRes = await req('GET', API.monthlyHistory);
+    const ledger = document.getElementById('monthlyLedger');
+    ledger.innerHTML = '';
+    for (const m of historyRes.months) {
+      const li = document.createElement('li');
+      li.textContent = `${m.yearMonth}: Total ${euroFmt(Number(m.total))}, Payroll ${euroFmt(Number(m.payroll))}, Costs ${euroFmt(Number(m.costs))}, Net ${euroFmt(Number(m.net))} (${m.dailyCount} days)`;
+      ledger.appendChild(li);
+    }
+  } catch (e) {
+    console.error('loadMonthly failed', e);
+  }
+}
+
+document.getElementById('closeMonthBtn').addEventListener('click', async () => {
+  const ym = currentMonthKey();
+  try {
+    await req('POST', API.monthly(ym));
+    await loadMonthly();
+    alert('Month closed.');
+  } catch (e) { alert(e.message); }
+});
+
+// --- Stats ---
+async function loadStats() {
+  try {
+    const res = await req('GET', API.stats);
+    const summary = document.getElementById('statsSummary');
+    summary.innerHTML = `<div class="ledger">
+      <li>Entries: ${res.totalEntries}</li>
+      <li>Total counted: ${euroFmt(Number(res.totalActual))}</li>
+      <li>Total variance: ${euroFmt(Number(res.totalVariance))}</li>
+      <li>Balanced: ${res.balanced}, Short: ${res.short}, Over: ${res.over}</li>
+    </div>`;
+  } catch (e) { console.error('failed to load stats', e); }
 }
 
 function renderLedger(entries) {
