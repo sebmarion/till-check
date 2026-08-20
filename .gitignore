@@ -1,0 +1,10 @@
+# Runtime state (personal financial data — never commit)
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Node
+node_modules/
+npm-debug.log*
+.DS_Store
