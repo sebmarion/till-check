@@ -323,14 +323,15 @@ serialTest('DELETE /entry/:date for non-existent date returns 404', async () => 
 })
 
 serialTest('POST /entry treats a till expense as accounted cash removed', async () => {
-  const opened = await req('POST', '/opening', {
-    opening: '500',
-    date: '2026-08-01',
-  })
-  assert.equal(opened.status, 200)
+  const day1 = testDate()
+  const day2 = testDate()
+
+  const seeded = await req('POST', '/entry', { date: day1, actual: '500' })
+  assert.equal(seeded.status, 200)
+  await req('POST', '/confirm', { date: day1 })
 
   const { status, data } = await req('POST', '/entry', {
-    date: '2026-08-02',
+    date: day2,
     actual: '480',
     expense: '20',
     declared: 'bags of ice',
@@ -363,20 +364,28 @@ serialTest('POST /entry updates the same dated expense without duplicating the d
 })
 
 serialTest('POST /entry uses the previous confirmed opening for a backdated day', async () => {
-  await req('POST', '/opening', { opening: '500', date: '2026-08-01' })
+  const day1 = testDate()
+  const day2 = testDate()
+  const day3 = testDate()
+  const day4 = testDate()
 
   await req('POST', '/entry', {
-    date: '2026-08-02', actual: '450', expense: '50',
+    date: day1, actual: '500',
   })
-  await req('POST', '/confirm', { date: '2026-08-02' })
+  await req('POST', '/confirm', { date: day1 })
 
   await req('POST', '/entry', {
-    date: '2026-08-04', actual: '400', expense: '50',
+    date: day2, actual: '450', expense: '50',
   })
-  await req('POST', '/confirm', { date: '2026-08-04' })
+  await req('POST', '/confirm', { date: day2 })
+
+  await req('POST', '/entry', {
+    date: day4, actual: '400', expense: '50',
+  })
+  await req('POST', '/confirm', { date: day4 })
 
   const { status, data } = await req('POST', '/entry', {
-    date: '2026-08-03', actual: '430', expense: '20',
+    date: day3, actual: '430', expense: '20',
   })
 
   assert.equal(status, 200)
@@ -386,27 +395,77 @@ serialTest('POST /entry uses the previous confirmed opening for a backdated day'
 })
 
 serialTest('POST /confirm keeps a newer carried opening when confirming a backdated day', async () => {
-  await req('POST', '/opening', { opening: '500', date: '2026-08-01' })
+  const day1 = testDate()
+  const day2 = testDate()
+  const day3 = testDate()
+  const day4 = testDate()
+
+  await req('POST', '/entry', { date: day1, actual: '500' })
+  await req('POST', '/confirm', { date: day1 })
 
   await req('POST', '/entry', {
-    date: '2026-08-02', actual: '450', expense: '50',
+    date: day2, actual: '450', expense: '50',
   })
-  await req('POST', '/confirm', { date: '2026-08-02' })
+  await req('POST', '/confirm', { date: day2 })
 
   await req('POST', '/entry', {
-    date: '2026-08-04', actual: '400', expense: '50',
+    date: day4, actual: '400', expense: '50',
   })
-  await req('POST', '/confirm', { date: '2026-08-04' })
+  await req('POST', '/confirm', { date: day4 })
 
   await req('POST', '/entry', {
-    date: '2026-08-03', actual: '430', expense: '20',
+    date: day3, actual: '430', expense: '20',
   })
-  const confirmed = await req('POST', '/confirm', { date: '2026-08-03' })
+  const confirmed = await req('POST', '/confirm', { date: day3 })
   const state = await req('GET', '/state')
 
   assert.equal(confirmed.status, 200)
-  assert.equal(state.data.openingDate, '2026-08-04')
+  assert.equal(state.data.openingDate, day4)
   assert.equal(Number(state.data.openingCash), 400)
+})
+
+serialTest('PATCH /entry/:date preserves stored amounts when only the note changes', async () => {
+  const day1 = testDate()
+  const day2 = testDate()
+
+  await req('POST', '/entry', { date: day1, actual: '500' })
+  await req('POST', '/confirm', { date: day1 })
+
+  await req('POST', '/entry', {
+    date: day2, actual: '480', expense: '20', declared: '',
+  })
+
+  // Edit the note only — every amount field is omitted. Stored cents must
+  // round-trip unchanged instead of being reinterpreted as euros.
+  const patched = await req('PATCH', `/entry/${day2}`, { declared: 'ice run' })
+  const history = await req('GET', '/history')
+  const entry = history.data.entries.find((e) => e.date === day2)
+
+  assert.equal(patched.status, 200)
+  assert.equal(patched.data.status, 'balanced')
+  assert.equal(Number(patched.data.actual), 480)
+  assert.equal(Number(patched.data.expense), 20)
+  assert.equal(entry.declared, 'ice run')
+})
+
+serialTest('DELETE /entry/:date falls back to the newest confirmed day for the opening', async () => {
+  const day1 = testDate()
+  const day2 = testDate()
+  const day3 = testDate()
+
+  await req('POST', '/entry', { date: day1, actual: '500' })
+  await req('POST', '/confirm', { date: day1 })
+  await req('POST', '/entry', { date: day2, actual: '450' })
+  await req('POST', '/confirm', { date: day2 })
+  // Unconfirmed newer day must not be picked up when day2 is deleted.
+  await req('POST', '/entry', { date: day3, actual: '999' })
+
+  const deleted = await req('DELETE', `/entry/${day2}`)
+  const state = await req('GET', '/state')
+
+  assert.equal(deleted.status, 200)
+  assert.equal(state.data.openingDate, day1)
+  assert.equal(Number(state.data.openingCash), 500)
 })
 
 serialTest('UI uses a selectable reconciliation date for checking and confirming', () => {
