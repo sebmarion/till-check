@@ -29,7 +29,7 @@ It does not pretend to know *why* money is missing. It gives you a reliable numb
   <img src="docs-history.png" alt="Till Check history showing daily variance" width="380">
 </p>
 
-No account. No cloud. No setup ceremony.
+No account. No cloud. One starting value.
 
 ## Run it
 
@@ -42,7 +42,7 @@ npm start
 
 Open <http://localhost:3401>.
 
-## Test it
+## Run the reconciliation tests
 
 ```bash
 npm test
@@ -50,12 +50,12 @@ npm test
 
 ## Technology
 
-Node.js, SQLite, and a single mobile-first web page.
+Till Check is a small Node.js server with a SQLite file and one mobile-first HTML page. It uses Node's standard library, including `node:http` and `node:sqlite`—there are no runtime packages and no frontend build step.
 
 - Money is stored as integer cents.
 - The database stays on the machine running Till Check.
 - The server binds to `127.0.0.1` by default.
-- The API supports the web page and can sit behind nginx.
+- `TILL_PORT`, `TILL_BIND`, and `TILL_DB` can change the port, bind address, and database path.
 
 ## License
 

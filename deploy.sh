@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy Till Check to Zeus: systemd service + nginx /till/ routing + homepage card.
+# Deploy Till Check to Zeus: systemd service + nginx/Tailscale routing + homepage card.
 # Run: sudo -n bash /home/seb/projects/bistrot/till-check/deploy.sh
 #
 # Idempotent: safe to re-run. Backs up nginx config before editing.
@@ -10,18 +10,18 @@ NGINX_CONF=/etc/nginx/conf.d/zeus-home.conf
 NGINX_BACKUP=/etc/nginx/conf.d/zeus-home.conf.bak-till-$(date +%Y%m%dT%H%M%SZ)
 TS_DOMAIN=zeus.tailfad2e3.ts.net
 
-echo "== [1/5] install systemd service =="
-if [ -f /etc/systemd/system/till-check.service ]; then
-  echo "   service already present"
+echo "== [1/6] install/update systemd service =="
+if cmp -s "$PROJ/till-check.service" /etc/systemd/system/till-check.service; then
+  echo "   service already current"
 else
-  cp "$PROJ/till-check.service" /etc/systemd/system/till-check.service
-  echo "   copied till-check.service"
+  install -m 0644 "$PROJ/till-check.service" /etc/systemd/system/till-check.service
+  echo "   installed current till-check.service"
 fi
 systemctl daemon-reload
 systemctl enable till-check.service
 echo "   enabled; is-enabled: $(systemctl is-enabled till-check.service)"
 
-echo "== [2/5] add nginx /till/ routing =="
+echo "== [2/6] add nginx /till/ routing =="
 if grep -q '/till/' "$NGINX_CONF"; then
   echo "   /till/ routing already present"
 else
@@ -40,12 +40,12 @@ else
   echo "   added /till/ location + /health/till"
 fi
 
-echo "== [3/5] validate + reload nginx =="
+echo "== [3/6] validate + reload nginx =="
 nginx -t
 systemctl reload nginx
 echo "   nginx reloaded"
 
-echo "== [4/5] add homepage card =="
+echo "== [4/6] add homepage card =="
 HOME_INDEX=/var/www/zeus-home/index.html
 if grep -q '/till' "$HOME_INDEX" 2>/dev/null; then
   echo "   homepage card already present"
@@ -77,11 +77,26 @@ else:
 PY
 fi
 
-echo "== [5/5] start service + verify =="
-systemctl start till-check.service || true
-sleep 2
-systemctl is-active till-check.service && echo "   service active" || echo "   WARNING: service not active"
-curl -s -m 5 http://127.0.0.1:3401/health && echo "" || echo "   WARNING: health check failed"
+echo "== [5/6] restart service + verify locally =="
+systemctl restart till-check.service
+for _ in $(seq 1 20); do
+  if curl -fsS -m 2 http://127.0.0.1:3401/health >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.25
+done
+systemctl is-active --quiet till-check.service
+curl -fsS -m 5 http://127.0.0.1:3401/health
+echo ""
+echo "   service active and healthy"
+
+echo "== [6/6] expose /till through Tailscale Serve + verify publicly =="
+# --set-path is additive: it preserves the existing root handler (Comandero)
+# while sending only /till and its subpaths to Till Check.
+tailscale serve --yes --bg --set-path /till http://127.0.0.1:3401 >/dev/null
+curl -fsS -m 10 "https://${TS_DOMAIN}/till/health"
+echo ""
+echo "   public route active and healthy"
 
 echo ""
 echo "Deployment complete."

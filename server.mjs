@@ -1,4 +1,4 @@
-#!/usrbin/env node
+#!/usr/bin/env node
 // Till Check — single-file, zero-dependency server.
 //
 // - Node stdlib only (node:http, node:sqlite, node:fs). No framework, no deps.
@@ -43,9 +43,8 @@ db.exec('PRAGMA foreign_keys = ON;')
 db.exec(`
 CREATE TABLE IF NOT EXISTS state (
   id INTEGER PRIMARY KEY CHECK (id = 1),
-  books_balance_cents INTEGER NOT NULL,
-  baseline_cents INTEGER NOT NULL,
-  baseline_date TEXT,
+  opening_cents INTEGER NOT NULL,
+  opening_date TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -61,6 +60,8 @@ CREATE TABLE IF NOT EXISTS entries (
   expected_cents INTEGER NOT NULL,
   variance_cents INTEGER NOT NULL,
   status TEXT NOT NULL,
+  opening_cents INTEGER,
+  takeout_cents INTEGER NOT NULL DEFAULT 0,
   confirmed_at TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -76,59 +77,37 @@ function ensureColumn(table, column, definition) {
   }
 }
 ensureColumn('entries', 'denominations', "TEXT NOT NULL DEFAULT ''")
+ensureColumn('entries', 'takeout_cents', 'INTEGER NOT NULL DEFAULT 0')
+ensureColumn('entries', 'opening_cents', 'INTEGER')
 
-// --- Payroll, costs, and monthly closings tables (Phase 1) ---
-db.exec(`
-CREATE TABLE IF NOT EXISTS people (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  pay_schedule TEXT NOT NULL DEFAULT 'weekly',
-  pay_method TEXT NOT NULL DEFAULT 'cash',
-  hourly_rate_cents INTEGER NOT NULL DEFAULT 0,
-  active INTEGER NOT NULL DEFAULT 1,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_people_active ON people(active);
-
-CREATE TABLE IF NOT EXISTS payments (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  date TEXT NOT NULL,
-  person_id INTEGER NOT NULL,
-  amount_cents INTEGER NOT NULL,
-  pay_method TEXT NOT NULL,
-  note TEXT NOT NULL DEFAULT '',
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(date DESC);
-CREATE INDEX IF NOT EXISTS idx_payments_person ON payments(person_id);
-
-CREATE TABLE IF NOT EXISTS costs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  date TEXT NOT NULL,
-  category TEXT NOT NULL,
-  label TEXT NOT NULL DEFAULT '',
-  amount_cents INTEGER NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_costs_date ON costs(date DESC);
-CREATE INDEX IF NOT EXISTS idx_costs_category ON costs(category);
-
-CREATE TABLE IF NOT EXISTS monthly_closings (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  year_month TEXT NOT NULL UNIQUE,
-  total_cents INTEGER NOT NULL,
-  payroll_cents INTEGER NOT NULL,
-  costs_cents INTEGER NOT NULL,
-  net_cents INTEGER NOT NULL,
-  daily_count INTEGER NOT NULL,
-  avg_variance_cents INTEGER NOT NULL,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-`)
+// Migration: older databases have state.books_balance_cents / baseline_cents.
+// Rename to the dynamic opening model on first run.
+function migrateStateSchema() {
+  const cols = db.prepare('PRAGMA table_info(state)').all()
+  const hasOpening = cols.some((c) => c.name === 'opening_cents')
+  const hasBooks = cols.some((c) => c.name === 'books_balance_cents')
+  if (!hasOpening && hasBooks) {
+    // SQLite can't rename a column while keeping the same name in a CHECK;
+    // rebuild the state row under the new column names.
+    db.exec(`
+      CREATE TABLE state_new (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        opening_cents INTEGER NOT NULL,
+        opening_date TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      INSERT INTO state_new (id, opening_cents, opening_date, created_at, updated_at)
+        SELECT id, books_balance_cents, baseline_date, created_at, updated_at FROM state;
+      DROP TABLE state;
+      ALTER TABLE state_new RENAME TO state;
+    `)
+  } else if (!hasOpening) {
+    db.exec('ALTER TABLE state ADD COLUMN opening_cents INTEGER NOT NULL')
+    db.exec('ALTER TABLE state ADD COLUMN opening_date TEXT')
+  }
+}
+migrateStateSchema()
 
 function nowIso() {
   return new Date().toISOString()
@@ -141,16 +120,39 @@ function todayKey() {
 
 function getState() {
   const row = db
-    .prepare('SELECT books_balance_cents, baseline_cents, baseline_date FROM state WHERE id = 1')
+    .prepare('SELECT opening_cents, opening_date FROM state WHERE id = 1')
     .get()
   if (row) {
     return {
-      booksBalanceCents: row.books_balance_cents,
-      baselineCents: row.baseline_cents,
-      baselineDate: row.baseline_date,
+      openingCents: row.opening_cents,
+      openingDate: row.opening_date,
     }
   }
   return null
+}
+
+function getOpeningForDate(date) {
+  const existing = db
+    .prepare('SELECT opening_cents FROM entries WHERE date = ?')
+    .get(date)
+  if (existing?.opening_cents !== null && existing?.opening_cents !== undefined) {
+    return existing.opening_cents
+  }
+
+  const previous = db.prepare(
+    `SELECT actual_cents, takeout_cents
+       FROM entries
+      WHERE date < ? AND confirmed_at IS NOT NULL
+      ORDER BY date DESC
+      LIMIT 1`,
+  ).get(date)
+  if (previous) return previous.actual_cents - previous.takeout_cents
+
+  const state = getState()
+  if (state && (!state.openingDate || state.openingDate <= date)) {
+    return state.openingCents
+  }
+  return 0
 }
 
 function upsertEntry(entry) {
@@ -161,8 +163,9 @@ function upsertEntry(entry) {
          actual_cents = @actual_cents, cash_removed_cents = @cash_removed_cents,
          cash_added_cents = @cash_added_cents, card_transfer_cents = @card_transfer_cents,
          declared_note = @declared_note, denominations = @denominations,
-         expected_cents = @expected_cents,
-         variance_cents = @variance_cents, status = @status, updated_at = @updated_at
+         expected_cents = @expected_cents, variance_cents = @variance_cents,
+         status = @status, opening_cents = @opening_cents, takeout_cents = @takeout_cents,
+         updated_at = @updated_at
        WHERE id = @id`,
     ).run({
       id: existing.id,
@@ -175,16 +178,18 @@ function upsertEntry(entry) {
       expected_cents: entry.expected_cents,
       variance_cents: entry.variance_cents,
       status: entry.status,
+      opening_cents: entry.opening_cents,
+      takeout_cents: entry.takeout_cents,
       updated_at: entry.updated_at,
     })
   } else {
     db.prepare(
       `INSERT INTO entries (date, actual_cents, cash_removed_cents, cash_added_cents,
         card_transfer_cents, declared_note, denominations, expected_cents, variance_cents, status,
-        created_at, updated_at)
+        opening_cents, takeout_cents, created_at, updated_at)
        VALUES (@date, @actual_cents, @cash_removed_cents, @cash_added_cents,
         @card_transfer_cents, @declared_note, @denominations, @expected_cents, @variance_cents,
-        @status, @created_at, @updated_at)`,
+        @status, @opening_cents, @takeout_cents, @created_at, @updated_at)`,
     ).run(entry)
   }
 }
@@ -240,19 +245,29 @@ function handleGetState() {
   const state = getState()
   const today = todayKey()
   const todayRow = db.prepare('SELECT * FROM entries WHERE date = ?').get(today)
-  // Auto-seed: if the operator has a count for today but no baseline yet,
-  // reconcile against a €0 baseline so the verdict is neutral (balanced).
-  // The owner skips the setup card entirely — the first count IS the start.
-  if (!state && todayRow) {
+  // Auto-seed: if there is no opening state yet, derive it from history —
+  // the newest confirmed day's actual minus takeout — so a backfilled or
+  // migrated ledger doesn't silently reconcile against today's raw count.
+  // With no history at all, start from €0 (the first count IS the start).
+  if (!state) {
+    const seed = db.prepare(
+      `SELECT actual_cents - takeout_cents AS opening, date
+         FROM entries
+        WHERE confirmed_at IS NOT NULL
+        ORDER BY date DESC
+        LIMIT 1`,
+    ).get()
+    const seedOpening = seed ? seed.opening : todayRow ? todayRow.actual_cents : 0
+    const seedDate = seed ? seed.date : todayRow ? today : null
     db.prepare(
-      'INSERT INTO state (id, books_balance_cents, baseline_cents, baseline_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET books_balance_cents = excluded.books_balance_cents, baseline_date = excluded.baseline_date, updated_at = excluded.updated_at',
-    ).run(todayRow.actual_cents, 0, today, nowIso(), nowIso())
+      'INSERT INTO state (id, opening_cents, opening_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET opening_cents = excluded.opening_cents, opening_date = excluded.opening_date, updated_at = excluded.updated_at',
+    ).run(seedOpening, seedDate, nowIso(), nowIso())
     return handleGetState()
   }
   return {
-    hasBaseline: state !== null,
-    booksBalance: state ? centsToEuros(state.booksBalanceCents) : null,
-    baselineDate: state ? state.baselineDate : null,
+    hasOpening: state !== null,
+    openingCash: state ? centsToEuros(state.openingCents) : null,
+    openingDate: state ? state.openingDate : null,
     today,
     hasTodayEntry: !!todayRow,
   }
@@ -277,20 +292,21 @@ async function handlePostEntry(req) {
       ? body.denominations
       : null
   const state = getState()
-  // If no baseline exists (first run), seed it from this entry's count so
-  // the verdict is neutral (balanced). The owner skips the setup card.
-  const effectiveState = state || { booksBalanceCents: 0 }
+  // If no opening state exists yet (first run), start from €0 so the
+  // verdict is neutral (balanced). The owner skips the setup card.
+  const openingCents = getOpeningForDate(today)
   const result = reconcileDay(
     {
       actual: body.actual,
-      cashRemoved: body.cashRemoved ?? 0,
+      expense: body.expense ?? body.cashRemoved ?? 0,
       cashAdded: body.cashAdded ?? 0,
       cardTransfer: body.cardTransfer ?? 0,
       declared,
       denominations,
     },
-    effectiveState.booksBalanceCents,
+    openingCents,
   )
+  const takeoutCents = eurosToCents(body.takeout ?? 0)
   const entry = {
     date: today,
     actual_cents: result.actualCents,
@@ -302,15 +318,24 @@ async function handlePostEntry(req) {
     expected_cents: result.expectedCents,
     variance_cents: result.varianceCents,
     status: result.status,
+    opening_cents: openingCents,
+    takeout_cents: takeoutCents,
     created_at: nowIso(),
     updated_at: nowIso(),
   }
   upsertEntry(entry)
-  // Seed the baseline on first run if it doesn't exist yet.
+  // Seed the opening state on first run only when this entry is not older
+  // than an existing confirmed day; otherwise the seed would misdate the
+  // carried opening. handleGetState derives the correct seed from history.
   if (!state) {
-    db.prepare(
-      'INSERT INTO state (id, books_balance_cents, baseline_cents, baseline_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET books_balance_cents = excluded.books_balance_cents, baseline_date = excluded.baseline_date, updated_at = excluded.updated_at',
-    ).run(result.actualCents, 0, today, nowIso(), nowIso())
+    const priorConfirmed = db.prepare(
+      'SELECT id FROM entries WHERE confirmed_at IS NOT NULL AND date > ? LIMIT 1',
+    ).get(today)
+    if (!priorConfirmed) {
+      db.prepare(
+        'INSERT INTO state (id, opening_cents, opening_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET opening_cents = excluded.opening_cents, opening_date = excluded.opening_date, updated_at = excluded.updated_at',
+      ).run(result.actualCents, today, nowIso(), nowIso())
+    }
   }
   return { code: 200, body: entryToView(entry) }
 }
@@ -323,6 +348,7 @@ function entryToView(row) {
   return {
     date: row.date,
     actual: centsToEuros(row.actual_cents),
+    expense: centsToEuros(row.cash_removed_cents),
     cashRemoved: centsToEuros(row.cash_removed_cents),
     cashAdded: centsToEuros(row.cash_added_cents),
     cardTransfer: centsToEuros(row.card_transfer_cents),
@@ -331,6 +357,8 @@ function entryToView(row) {
     expected: centsToEuros(row.expected_cents),
     variance: centsToEuros(row.variance_cents),
     status: row.status,
+    opening: row.opening_cents !== null && row.opening_cents !== undefined ? centsToEuros(row.opening_cents) : null,
+    takeout: centsToEuros(row.takeout_cents),
     confirmed: !!row.confirmed_at,
   }
 }
@@ -348,12 +376,32 @@ async function handlePostConfirm(req) {
   if (!row) {
     return { code: 404, body: { error: 'no entry for that date' } }
   }
-  // Confirming folds the actual count into the books (running baseline).
-  db.prepare(
-    'INSERT INTO state (id, books_balance_cents, baseline_cents, baseline_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET books_balance_cents = excluded.books_balance_cents, baseline_date = excluded.baseline_date, updated_at = excluded.updated_at',
-  ).run(row.actual_cents, row.actual_cents, date, nowIso(), nowIso())
+  // Takeout is the cash removed AFTER the count. The remainder becomes
+  // tomorrow's opening cash. Stored takeout is already cents; only convert
+  // when the caller supplied a fresh euros value.
+  const takeoutCents =
+    body.takeout !== undefined ? eurosToCents(body.takeout) : row.takeout_cents
+  const openingCents = row.actual_cents - takeoutCents
+  const state = getState()
+  const advancesOpening = !state?.openingDate || date >= state.openingDate
+  // Confirming an older backfilled day must not roll a newer carried opening
+  // backward. It still marks the selected day as confirmed.
+  if (advancesOpening) {
+    db.prepare(
+      'INSERT INTO state (id, opening_cents, opening_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET opening_cents = excluded.opening_cents, opening_date = excluded.opening_date, updated_at = excluded.updated_at',
+    ).run(openingCents, date, nowIso(), nowIso())
+  }
   db.prepare('UPDATE entries SET confirmed_at = ? WHERE date = ?').run(nowIso(), date)
-  return { code: 200, body: { confirmed: true, date, booksBalance: centsToEuros(row.actual_cents) } }
+  return {
+    code: 200,
+    body: {
+      confirmed: true,
+      date,
+      takeout: centsToEuros(takeoutCents),
+      openingAdvanced: advancesOpening,
+      openingCash: centsToEuros(advancesOpening ? openingCents : state.openingCents),
+    },
+  }
 }
 
 // Reconcile a day: correct its count and let the books accept the correction.
@@ -371,10 +419,6 @@ async function handlePostReconcile(req) {
   } catch {
     return { code: 400, body: { error: 'invalid JSON body' } }
   }
-  const state = getState()
-  if (!state) {
-    return { code: 409, body: { error: 'no baseline set' } }
-  }
   const date = body.date
   if (!date) return { code: 400, body: { error: 'date is required' } }
   const row = db.prepare('SELECT * FROM entries WHERE date = ?').get(date)
@@ -382,34 +426,29 @@ async function handlePostReconcile(req) {
     return { code: 404, body: { error: 'no entry for that date' } }
   }
 
-  // Reconcile the corrected day against the books balance that existed BEFORE
-  // this entry was the last confirmed one. If this entry is currently the
-  // baseline source, the "expected" baseline is the prior confirmed actual
-  // (or the original baseline). This mirrors handleDeleteEntry's revert so
-  // the books stay consistent in both directions.
-  const stateRow = db
-    .prepare('SELECT books_balance_cents, baseline_cents, baseline_date FROM state WHERE id = 1')
-    .get()
-  let baseCents = stateRow.books_balance_cents
-  let priorBaselineDate = stateRow.baseline_date
-  if (stateRow.baseline_date === date) {
-    const prev = db
-      .prepare('SELECT actual_cents FROM entries WHERE date < ? ORDER BY date DESC LIMIT 1')
-      .get(date)
-    baseCents = prev ? prev.actual_cents : stateRow.baseline_cents
-    priorBaselineDate = prev ? prev.date : stateRow.baseline_date
+  // Reconcile against the opening cash that was in effect when this day was
+  // counted. If the entry stored an opening, use it; otherwise fall back to
+  // the current opening state (or 0 on first run).
+  const state = getState()
+  let openingCents
+  if (row.opening_cents !== null && row.opening_cents !== undefined) {
+    openingCents = row.opening_cents
+  } else {
+    openingCents = state ? state.openingCents : 0
   }
 
   const declared = body.declared !== undefined ? body.declared : row.declared_note
   const result = reconcileDay(
     {
-      actual: body.actual !== undefined ? body.actual : Number(row.actual_cents) / 100,
-      cashRemoved: body.cashRemoved !== undefined ? body.cashRemoved : Number(row.cash_removed_cents) / 100,
-      cashAdded: body.cashAdded !== undefined ? body.cashAdded : Number(row.cash_added_cents) / 100,
-      cardTransfer: body.cardTransfer !== undefined ? body.cardTransfer : Number(row.card_transfer_cents) / 100,
+      actual: body.actual !== undefined ? body.actual : centsToEuros(row.actual_cents),
+      expense: body.expense !== undefined
+        ? body.expense
+        : body.cashRemoved !== undefined ? body.cashRemoved : centsToEuros(row.cash_removed_cents),
+      cashAdded: body.cashAdded !== undefined ? body.cashAdded : centsToEuros(row.cash_added_cents),
+      cardTransfer: body.cardTransfer !== undefined ? body.cardTransfer : centsToEuros(row.card_transfer_cents),
       declared,
     },
-    baseCents,
+    openingCents,
   )
   const entry = {
     id: row.id,
@@ -423,17 +462,21 @@ async function handlePostReconcile(req) {
     expected_cents: result.expectedCents,
     variance_cents: result.varianceCents,
     status: result.status,
+    opening_cents: openingCents,
+    takeout_cents: row.takeout_cents,
     created_at: row.created_at,
     updated_at: nowIso(),
   }
   upsertEntry(entry)
 
-  // If this entry is (or remains) the baseline source, fold the corrected
-  // actual into the books so the running balance reflects the reconciliation.
-  if (stateRow.baseline_date === date) {
+  // If this entry is (or remains) the source of the opening state, fold the
+  // corrected actual (minus any takeout) into the opening balance so the
+  // books stay consistent.
+  if (state && state.openingDate === date) {
+    const openingCentsAfter = result.actualCents - row.takeout_cents
     db.prepare(
-      'UPDATE state SET books_balance_cents = ?, baseline_date = ?, updated_at = ? WHERE id = 1'
-    ).run(result.actualCents, date, nowIso())
+      'UPDATE state SET opening_cents = ?, updated_at = ? WHERE id = 1'
+    ).run(openingCentsAfter, nowIso())
   }
 
   return {
@@ -445,8 +488,10 @@ async function handlePostReconcile(req) {
       expected: centsToEuros(result.expectedCents),
       variance: centsToEuros(result.varianceCents),
       status: result.status,
-      booksBalance: centsToEuros(stateRow.baseline_date === date ? result.actualCents : stateRow.books_balance_cents),
-      baselineDate: stateRow.baseline_date === date ? date : priorBaselineDate,
+      openingCash: state && state.openingDate === date
+        ? centsToEuros(result.actualCents - row.takeout_cents)
+        : state ? centsToEuros(state.openingCents) : null,
+      openingDate: state && state.openingDate === date ? date : state?.openingDate ?? null,
     },
   }
 }
@@ -460,17 +505,22 @@ function handleDeleteEntry(date) {
   const row = db.prepare('SELECT * FROM entries WHERE date = ?').get(date)
   if (!row) return { code: 404, body: { error: 'no entry for that date' } }
   const state = getState()
-  // If this was the entry that last set the books baseline (confirmed),
-  // revert the baseline to the previous entry's actual (or the original
-  // baseline if none). Keeps the running books consistent after deletion.
-  if (row.confirmed_at && state && state.baseline_date === date) {
+  // If this was the entry that last set the opening state (confirmed),
+  // revert the opening to the newest confirmed entry BEFORE this date (its
+  // actual minus takeout), or clear the state when none remains. Keeps the
+  // running opening consistent with what actually backs it.
+  if (row.confirmed_at && state && state.openingDate === date) {
     const prev = db.prepare(
-      'SELECT actual_cents FROM entries WHERE date < ? ORDER BY date DESC LIMIT 1'
+      `SELECT actual_cents, takeout_cents, date
+         FROM entries
+        WHERE date < ? AND confirmed_at IS NOT NULL
+        ORDER BY date DESC
+        LIMIT 1`,
     ).get(date)
-    const newBalance = prev ? prev.actual_cents : state.baseline_cents
+    const newOpening = prev ? prev.actual_cents - prev.takeout_cents : 0
     db.prepare(
-      'UPDATE state SET books_balance_cents = ?, baseline_date = ?, updated_at = ? WHERE id = 1'
-    ).run(newBalance, prev ? prev.date : state.baseline_date, nowIso())
+      'UPDATE state SET opening_cents = ?, opening_date = ?, updated_at = ? WHERE id = 1',
+    ).run(newOpening, prev ? prev.date : null, nowIso())
   }
   db.prepare('DELETE FROM entries WHERE date = ?').run(date)
   return { code: 200, body: { deleted: true, date } }
@@ -487,23 +537,31 @@ async function handlePatchEntry(req, date) {
     return { code: 400, body: { error: 'invalid JSON body' } }
   }
   const state = getState()
-  if (!state) return { code: 409, body: { error: 'no baseline set' } }
+  if (!state) return { code: 409, body: { error: 'no opening state set' } }
   // Denominations: preserve existing unless explicitly overridden.
   let denomObj = null
   try { denomObj = row.denominations ? JSON.parse(row.denominations) : null } catch { denomObj = null }
   if (body.denominations !== undefined) {
     denomObj = body.denominations && typeof body.denominations === 'object' ? body.denominations : null
   }
+  // Use the entry's stored opening if present; otherwise fall back to the
+  // current opening state (or 0 on first run).
+  let openingCents
+  if (row.opening_cents !== null && row.opening_cents !== undefined) {
+    openingCents = row.opening_cents
+  } else {
+    openingCents = state.openingCents
+  }
   const result = reconcileDay(
     {
-      actual: body.actual !== undefined ? body.actual : row.actual_cents,
-      cashRemoved: body.cashRemoved ?? row.cash_removed_cents,
-      cashAdded: body.cashAdded ?? row.cash_added_cents,
-      cardTransfer: body.cardTransfer ?? row.card_transfer_cents,
+      actual: body.actual !== undefined ? body.actual : centsToEuros(row.actual_cents),
+      expense: body.expense ?? body.cashRemoved ?? centsToEuros(row.cash_removed_cents),
+      cashAdded: body.cashAdded ?? centsToEuros(row.cash_added_cents),
+      cardTransfer: body.cardTransfer ?? centsToEuros(row.card_transfer_cents),
       declared: body.declared ?? row.declared_note,
       denominations: denomObj,
     },
-    state.booksBalanceCents,
+    openingCents,
   )
   const entry = {
     id: row.id,
@@ -517,291 +575,13 @@ async function handlePatchEntry(req, date) {
     expected_cents: result.expectedCents,
     variance_cents: result.varianceCents,
     status: result.status,
+    opening_cents: openingCents,
+    takeout_cents: row.takeout_cents,
     created_at: row.created_at,
     updated_at: nowIso(),
   }
   upsertEntry(entry)
   return { code: 200, body: entryToView({ ...entry, confirmed_at: row.confirmed_at }) }
-}
-
-// ---------------------------------------------------------------------------
-// Payroll, costs, monthly closings, and stats handlers (Phase 1)
-// ---------------------------------------------------------------------------
-
-function personToView(row) {
-  return {
-    id: row.id,
-    name: row.name,
-    paySchedule: row.pay_schedule,
-    payMethod: row.pay_method,
-    hourlyRate: centsToEuros(row.hourly_rate_cents),
-    active: !!row.active,
-    createdAt: row.created_at,
-  }
-}
-
-function paymentToView(row, personName) {
-  return {
-    id: row.id,
-    date: row.date,
-    personId: row.person_id,
-    personName: personName || `person ${row.person_id}`,
-    amount: centsToEuros(row.amount_cents),
-    payMethod: row.pay_method,
-    note: row.note,
-    createdAt: row.created_at,
-  }
-}
-
-function costToView(row) {
-  return {
-    id: row.id,
-    date: row.date,
-    category: row.category,
-    label: row.label,
-    amount: centsToEuros(row.amount_cents),
-    createdAt: row.created_at,
-  }
-}
-
-function handleGetPeople() {
-  const rows = db.prepare('SELECT * FROM people WHERE active = 1 ORDER BY name').all()
-  return { code: 200, body: { people: rows.map(personToView) } }
-}
-
-async function handlePostPeople(req) {
-  const raw = await readBody(req)
-  let body
-  try {
-    body = JSON.parse(raw || '{}')
-  } catch {
-    return { code: 400, body: { error: 'invalid JSON body' } }
-  }
-  const name = (body.name || '').trim()
-  if (!name) return { code: 400, body: { error: 'name is required' } }
-  const paySchedule = ['weekly', 'hourly', 'monthly'].includes(body.paySchedule) ? body.paySchedule : 'weekly'
-  const payMethod = ['cash', 'transfer', 'transfer_cash'].includes(body.payMethod) ? body.payMethod : 'cash'
-  const hourlyRateCents = parseAmount(body.hourlyRate || 0)
-  const result = db.prepare(
-    'INSERT INTO people (name, pay_schedule, pay_method, hourly_rate_cents, active, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)'
-  ).run(name, paySchedule, payMethod, hourlyRateCents, nowIso(), nowIso())
-  const row = db.prepare('SELECT * FROM people WHERE id = ?').get(result.lastInsertRowid)
-  return { code: 201, body: personToView(row) }
-}
-
-function handlePatchPeople(id) {
-  const row = db.prepare('SELECT * FROM people WHERE id = ?').get(id)
-  if (!row) return { code: 404, body: { error: 'person not found' } }
-  return { code: 200, body: personToView(row) }
-}
-
-async function handlePatchPeopleBody(req, id) {
-  const row = db.prepare('SELECT * FROM people WHERE id = ?').get(id)
-  if (!row) return { code: 404, body: { error: 'person not found' } }
-  const raw = await readBody(req)
-  let body
-  try {
-    body = JSON.parse(raw || '{}')
-  } catch {
-    return { code: 400, body: { error: 'invalid JSON body' } }
-  }
-  const name = body.name !== undefined ? body.name.trim() : row.name
-  const paySchedule = body.paySchedule !== undefined ? body.paySchedule : row.pay_schedule
-  const payMethod = body.payMethod !== undefined ? body.payMethod : row.pay_method
-  const hourlyRateCents = body.hourlyRate !== undefined ? parseAmount(body.hourlyRate) : row.hourly_rate_cents
-  db.prepare(
-    'UPDATE people SET name = ?, pay_schedule = ?, pay_method = ?, hourly_rate_cents = ?, updated_at = ? WHERE id = ?'
-  ).run(name, paySchedule, payMethod, hourlyRateCents, nowIso(), id)
-  const updated = db.prepare('SELECT * FROM people WHERE id = ?').get(id)
-  return { code: 200, body: personToView(updated) }
-}
-
-async function handleDeletePeople(req, id) {
-  const row = db.prepare('SELECT * FROM people WHERE id = ?').get(id)
-  if (!row) return { code: 404, body: { error: 'person not found' } }
-  db.prepare('UPDATE people SET active = 0, updated_at = ? WHERE id = ?').run(nowIso(), id)
-  return { code: 200, body: { deleted: true, id } }
-}
-
-function handleGetPayments() {
-  const rows = db.prepare(
-    'SELECT p.*, pe.name AS person_name FROM payments p LEFT JOIN people pe ON p.person_id = pe.id ORDER BY p.date DESC LIMIT 100'
-  ).all()
-  return { code: 200, body: { payments: rows.map(r => paymentToView(r, r.person_name)) } }
-}
-
-async function handlePostPayment(req) {
-  const raw = await readBody(req)
-  let body
-  try {
-    body = JSON.parse(raw || '{}')
-  } catch {
-    return { code: 400, body: { error: 'invalid JSON body' } }
-  }
-  const date = body.date || todayKey()
-  const personId = body.personId
-  const person = db.prepare('SELECT * FROM people WHERE id = ? AND active = 1').get(personId)
-  if (!person) return { code: 404, body: { error: 'person not found' } }
-  const amountCents = parseAmount(body.amount || 0)
-  const payMethod = body.payMethod || person.pay_method
-  const note = body.note || ''
-  const result = db.prepare(
-    'INSERT INTO payments (date, person_id, amount_cents, pay_method, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).run(date, personId, amountCents, payMethod, note, nowIso(), nowIso())
-  const row = db.prepare('SELECT * FROM payments WHERE id = ?').get(result.lastInsertRowid)
-  return { code: 201, body: paymentToView(row, person.name) }
-}
-
-function handleDeletePayment(id) {
-  const row = db.prepare('SELECT * FROM payments WHERE id = ?').get(id)
-  if (!row) return { code: 404, body: { error: 'payment not found' } }
-  db.prepare('DELETE FROM payments WHERE id = ?').run(id)
-  return { code: 200, body: { deleted: true, id } }
-}
-
-function handleGetCosts() {
-  const rows = db.prepare('SELECT * FROM costs ORDER BY date DESC LIMIT 100').all()
-  return { code: 200, body: { costs: rows.map(costToView) } }
-}
-
-async function handlePostCost(req) {
-  const raw = await readBody(req)
-  let body
-  try {
-    body = JSON.parse(raw || '{}')
-  } catch {
-    return { code: 400, body: { error: 'invalid JSON body' } }
-  }
-  const date = body.date || todayKey()
-  const category = body.category || 'other'
-  const label = body.label || ''
-  const amountCents = parseAmount(body.amount || 0)
-  const result = db.prepare(
-    'INSERT INTO costs (date, category, label, amount_cents, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(date, category, label, amountCents, nowIso(), nowIso())
-  const row = db.prepare('SELECT * FROM costs WHERE id = ?').get(result.lastInsertRowid)
-  return { code: 201, body: costToView(row) }
-}
-
-function handleDeleteCost(id) {
-  const row = db.prepare('SELECT * FROM costs WHERE id = ?').get(id)
-  if (!row) return { code: 404, body: { error: 'cost not found' } }
-  db.prepare('DELETE FROM costs WHERE id = ?').run(id)
-  return { code: 200, body: { deleted: true, id } }
-}
-
-function handleGetMonthly(yearMonth) {
-  // Compute monthly closing for a given month (YYYY-MM)
-  if (!/^\d{4}-\d{2}$/.test(yearMonth)) return { code: 400, body: { error: 'invalid year_month' } }
-  const startMonth = `${yearMonth}-01`
-  const endMonth = `${yearMonth}-31`
-  // Sum daily entries
-  const daily = db.prepare(
-    'SELECT COALESCE(SUM(actual_cents), 0) as total, COUNT(*) as count, COALESCE(AVG(variance_cents), 0) as avg_var FROM entries WHERE date >= ? AND date <= ?'
-  ).get(startMonth, endMonth)
-  const totalCents = Number(daily.total) || 0
-  const avgVarianceCents = Math.round(Number(daily.avg_var) || 0)
-  const dailyCount = Number(daily.count) || 0
-  
-  // Sum payroll
-  const payroll = db.prepare('SELECT COALESCE(SUM(amount_cents), 0) as total FROM payments WHERE date >= ? AND date <= ?').get(startMonth, endMonth)
-  const payrollCents = Number(payroll.total) || 0
-  
-  // Sum costs
-  const costs = db.prepare('SELECT COALESCE(SUM(amount_cents), 0) as total FROM costs WHERE date >= ? AND date <= ?').get(startMonth, endMonth)
-  const costsCents = Number(costs.total) || 0
-  
-  const netCents = totalCents - payrollCents - costsCents
-  
-  // Check if already closed
-  const existing = db.prepare('SELECT * FROM monthly_closings WHERE year_month = ?').get(yearMonth)
-  
-  return { code: 200, body: {
-    yearMonth,
-    total: centsToEuros(totalCents),
-    payroll: centsToEuros(payrollCents),
-    costs: centsToEuros(costsCents),
-    net: centsToEuros(netCents),
-    dailyCount,
-    avgVariance: centsToEuros(avgVarianceCents),
-    closed: !!existing,
-  } }
-}
-
-function handleGetMonthlyHistory() {
-  const rows = db.prepare('SELECT * FROM monthly_closings ORDER BY year_month DESC').all()
-  return { code: 200, body: { months: rows.map(row => ({
-    yearMonth: row.year_month,
-    total: centsToEuros(row.total_cents),
-    payroll: centsToEuros(row.payroll_cents),
-    costs: centsToEuros(row.costs_cents),
-    net: centsToEuros(row.net_cents),
-    dailyCount: row.daily_count,
-    avgVariance: centsToEuros(row.avg_variance_cents),
-    closedAt: row.updated_at,
-  })) } }
-}
-
-async function handlePostMonthly(req, yearMonth) {
-  if (!/^\d{4}-\d{2}$/.test(yearMonth)) return { code: 400, body: { error: 'invalid year_month' } }
-  const startMonth = `${yearMonth}-01`
-  const endMonth = `${yearMonth}-31`
-  const daily = db.prepare(
-    'SELECT COALESCE(SUM(actual_cents), 0) as total, COUNT(*) as count, COALESCE(AVG(variance_cents), 0) as avg_var FROM entries WHERE date >= ? AND date <= ?'
-  ).get(startMonth, endMonth)
-  const payroll = db.prepare(
-    'SELECT COALESCE(SUM(amount_cents), 0) as total FROM payments WHERE date >= ? AND date <= ?'
-  ).get(startMonth, endMonth)
-  const costs = db.prepare(
-    'SELECT COALESCE(SUM(amount_cents), 0) as total FROM costs WHERE date >= ? AND date <= ?'
-  ).get(startMonth, endMonth)
-  const totalCents = daily.total || 0
-  const payrollCents = payroll.total || 0
-  const costsCents = costs.total || 0
-  const netCents = totalCents - payrollCents - costsCents
-  const avgVarianceCents = Math.round(daily.avg_var || 0)
-  db.prepare(
-    'INSERT INTO monthly_closings (year_month, total_cents, payroll_cents, costs_cents, net_cents, daily_count, avg_variance_cents, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(year_month) DO UPDATE SET total_cents = excluded.total_cents, payroll_cents = excluded.payroll_cents, costs_cents = excluded.costs_cents, net_cents = excluded.net_cents, daily_count = excluded.daily_count, avg_variance_cents = excluded.avg_variance_cents, updated_at = excluded.updated_at'
-  ).run(yearMonth, totalCents, payrollCents, costsCents, netCents, daily.count || 0, avgVarianceCents, nowIso(), nowIso())
-  return { code: 200, body: { closed: true, yearMonth } }
-}
-
-function handleGetStats(req) {
-  const url = new URL(req.url, 'http://127.0.0.1')
-  // Default: current month if no params provided
-  const now = new Date()
-  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-  const from = url.searchParams.get('from') || `${currentMonth}-01`
-  const to = url.searchParams.get('to') || `${now.toISOString().slice(0, 10)}`
-  const rows = db.prepare(
-    'SELECT * FROM entries WHERE date >= ? AND date <= ? ORDER BY date'
-  ).all(from, to)
-  const totalEntries = rows.length
-  const totalActual = rows.reduce((sum, r) => sum + r.actual_cents, 0)
-  const totalVariance = rows.reduce((sum, r) => sum + r.variance_cents, 0)
-  const balancedCount = rows.filter(r => r.status === 'balanced').length
-  const shortCount = rows.filter(r => r.status === 'short').length
-  const overCount = rows.filter(r => r.status === 'over').length
-  
-  // Payroll and costs breakdown for the period
-  const payments = db.prepare('SELECT COALESCE(SUM(amount_cents), 0) as total FROM payments WHERE date >= ? AND date <= ?').get(from, to)
-  const costs = db.prepare('SELECT COALESCE(SUM(amount_cents), 0) as total FROM costs WHERE date >= ? AND date <= ?').get(from, to)
-  
-  return {
-    code: 200,
-    body: {
-      from, to,
-      totalEntries,
-      totalActual: centsToEuros(totalActual),
-      totalVariance: centsToEuros(totalVariance),
-      balanced: balancedCount,
-      short: shortCount,
-      over: overCount,
-      payroll: centsToEuros(payments.total),
-      costs: centsToEuros(costs.total),
-      net: centsToEuros(totalActual - payments.total - costs.total),
-    },
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -875,8 +655,9 @@ async function handle(req, res) {
     return
   }
 
-  if (pathname === '/api/baseline' && method === 'POST') {
-    // First-run: set the baseline (books_balance) once.
+  if (pathname === '/api/opening' && method === 'POST') {
+    // Set the opening cash for the next shift (e.g. first run or manual
+    // correction). Body: { opening, date }
     const raw = await readBody(req)
     let body
     try {
@@ -885,110 +666,12 @@ async function handle(req, res) {
       sendJson(res, 400, { error: 'invalid JSON body' })
       return
     }
-    if (getState()) {
-      sendJson(res, 409, { error: 'baseline already set' })
-      return
-    }
-    const cents = parseAmount(body.actual)
-    const baselineDate = todayKey()
+    const openingCents = parseAmount(body.opening)
+    const openingDate = body.date || todayKey()
     db.prepare(
-      'INSERT INTO state (id, books_balance_cents, baseline_cents, baseline_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?, ?)',
-    ).run(cents, cents, baselineDate, nowIso(), nowIso())
-    sendJson(res, 200, { ok: true, booksBalance: centsToEuros(cents), baselineDate })
-    return
-  }
-
-  // --- Payroll routes ---
-  if (pathname === '/api/people' && method === 'GET') {
-    const r = handleGetPeople()
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname === '/api/people' && method === 'POST') {
-    const r = await handlePostPeople(req)
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname.startsWith('/api/people/') && method === 'PATCH') {
-    const id = pathname.split('/').pop()
-    const r = await handlePatchPeopleBody(req, Number(id))
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname.startsWith('/api/people/') && method === 'DELETE') {
-    const id = pathname.split('/').pop()
-    const r = await handleDeletePeople(req, Number(id))
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname === '/api/payments' && method === 'GET') {
-    const r = handleGetPayments()
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname === '/api/payments' && method === 'POST') {
-    const r = await handlePostPayment(req)
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname.startsWith('/api/payments/') && method === 'DELETE') {
-    const id = pathname.split('/').pop()
-    const r = handleDeletePayment(Number(id))
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  // --- Costs routes ---
-  if (pathname === '/api/costs' && method === 'GET') {
-    const r = handleGetCosts()
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname === '/api/costs' && method === 'POST') {
-    const r = await handlePostCost(req)
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname.startsWith('/api/costs/') && method === 'DELETE') {
-    const id = pathname.split('/').pop()
-    const r = handleDeleteCost(Number(id))
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  // --- Monthly closings routes ---
-  if (pathname === '/api/monthly' && method === 'GET') {
-    // Get history
-    const r = handleGetMonthlyHistory()
-    sendJson(res, r.code, r.body)
-    return
-  }
-  if (pathname.startsWith('/api/monthly/') && method === 'GET') {
-    const yearMonth = pathname.split('/').pop()
-    const r = handleGetMonthly(decodeURIComponent(yearMonth))
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname.startsWith('/api/monthly/') && method === 'POST') {
-    const yearMonth = pathname.split('/').pop()
-    const r = await handlePostMonthly(req, decodeURIComponent(yearMonth))
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  // --- Stats routes ---
-  if (pathname === '/api/stats' && method === 'GET') {
-    const r = handleGetStats(req)
-    sendJson(res, r.code, r.body)
+      'INSERT INTO state (id, opening_cents, opening_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET opening_cents = excluded.opening_cents, opening_date = excluded.opening_date, updated_at = excluded.updated_at',
+    ).run(openingCents, openingDate, nowIso(), nowIso())
+    sendJson(res, 200, { ok: true, openingCash: centsToEuros(openingCents), openingDate })
     return
   }
 

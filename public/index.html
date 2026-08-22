@@ -134,6 +134,9 @@ button:active { transform: translateY(1px); }
 .section-title { font-size: 16px; font-weight: 600; }
 .section-hint { color: var(--muted); font-size: 12px; margin-left: auto; }
 .section-body { padding: 0 16px 16px; }
+.entry-adjustments { margin: 14px 0 0; }
+.entry-adjustments > summary { min-height: 48px; padding: 11px 12px; }
+.entry-adjustments .section-body { padding: 0 12px 12px; }
 .section-body > .label:first-child { margin-top: 15px; }
 .section-body .card { border: 0; box-shadow: none; padding: 0; margin: 0; }
 .summary-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; padding: 14px 0 2px; }
@@ -154,19 +157,19 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 <div class="wrap">
   <header class="topbar">
     <div>
-      <div class="eyebrow">Cash drawer · today</div>
+      <div class="eyebrow" id="dayHeading">Cash drawer · today</div>
       <h1>Till Check</h1>
     </div>
-    <div class="baseline-status"><span class="status-dot"></span><span>Baseline <strong id="baselineOut">—</strong></span></div>
+    <div class="baseline-status"><span class="status-dot"></span><span>Opening cash <strong id="baselineOut">—</strong></span></div>
   </header>
 
-  <!-- Baseline (first run only) -->
+  <!-- Opening cash (first run only) -->
   <div id="setup" class="card hidden">
-    <div class="label">Starting point</div>
-    <label>How much cash is in the till right now?</label>
+    <div class="label">Opening cash</div>
+    <label>How much cash is in the drawer right now?</label>
     <input id="setupAmount" type="text" inputmode="decimal" placeholder="e.g. 500" autocomplete="off">
-    <button id="setupBtn">Set starting point</button>
-    <div class="baseline-hint">Enter this once. It becomes your running baseline.</div>
+    <button id="setupBtn">Start checking</button>
+    <div class="baseline-hint">Enter this once. Tomorrow it will automatically carry forward from your last count.</div>
   </div>
 
   <!-- Verdict -->
@@ -183,28 +186,38 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
     <div class="label">Count the drawer</div>
     <div class="baseline-hint">Count each note and coin, then check the till.</div>
 
+    <label for="entryDate">Reconciliation date</label>
+    <input id="entryDate" type="date" autocomplete="off">
+    <div class="baseline-hint">Choose yesterday or an earlier day when catching up.</div>
+
     <div class="denom-list" id="denomList"></div>
     <div class="denom-sum">
       <span>Counted total</span>
       <span class="total" id="denomTotal">€0.00</span>
     </div>
 
-    <div class="row2">
-      <div>
-        <label>Removed</label>
-        <input id="removed" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
-      </div>
-      <div>
-        <label>Added</label>
-        <input id="added" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
-      </div>
-    </div>
+    <details id="adjustments" class="section-card entry-adjustments">
+      <summary><span class="section-title">Other cash movements</span><span class="section-hint">Optional</span></summary>
+      <div class="section-body">
+        <div class="baseline-hint">Record cash spent from or added to the till.</div>
+        <div class="row2">
+          <div>
+            <label for="expense">Till expense</label>
+            <input id="expense" type="text" inputmode="decimal" placeholder="e.g. 20.00" autocomplete="off">
+          </div>
+          <div>
+            <label>Cash added during shift</label>
+            <input id="added" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+          </div>
+        </div>
 
-    <label>Card transfer (bank)</label>
-    <input id="card" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+        <label>Card sales (for the record)</label>
+        <input id="card" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
 
-    <label>Declared (cash the books don't know about)</label>
-    <textarea id="declared" placeholder="e.g. lost €10, found €3 in old float"></textarea>
+        <label for="declared">Reason / note</label>
+        <textarea id="declared" placeholder="e.g. bags of ice"></textarea>
+      </div>
+    </details>
 
     <button id="checkBtn">Check the till</button>
     <button id="confirmBtn" class="ghost hidden">Confirm day</button>
@@ -238,7 +251,7 @@ const API = {
   confirm: PAGE_DIR + 'api/confirm',
   reconcile: PAGE_DIR + 'api/reconcile',
   history: PAGE_DIR + 'api/history',
-  baseline: PAGE_DIR + 'api/baseline',
+  opening: PAGE_DIR + 'api/opening',
   denominations: PAGE_DIR + 'api/denominations',
   entryById: (date) => PAGE_DIR + 'api/entry/' + date,
 };
@@ -247,8 +260,21 @@ const euroFmt = (v) => {
   const sign = n < 0 ? '−' : '';
   return sign + '€' + Math.abs(n).toFixed(2);
 };
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+const selectedDate = () => document.getElementById('entryDate').value || today();
 const pretty = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) : d;
+
+function updateDayHeading() {
+  const date = selectedDate();
+  document.getElementById('dayHeading').textContent =
+    date === today() ? 'Cash drawer · today' : 'Cash drawer · ' + pretty(date);
+}
 
 async function req(method, url, body) {
   const res = await fetch(url, {
@@ -264,7 +290,7 @@ async function req(method, url, body) {
 let DENOMS = [];
 let editingDate = null; // When set, the check button PATCHes this date instead of POSTing today.
 
-function setVerdict(status, varianceCents, label, booksBalance) {
+function setVerdict(status, varianceCents, label, openingCash) {
   const el = document.getElementById('verdict');
   el.classList.remove('hidden');
   el.className = 'verdict ' + status;
@@ -273,10 +299,10 @@ function setVerdict(status, varianceCents, label, booksBalance) {
   badge.className = 'badge ' + status;
   document.getElementById('vAmount').textContent = euroFmt(varianceCents / 100);
   // Variance context: if the variance is large (>€10) and we know the
-  // baseline, show it so the owner understands where the number comes from.
+  // opening, show it so the owner understands where the number comes from.
   let sub = label;
-  if (Math.abs(varianceCents) > 1000 && booksBalance !== undefined) {
-    sub += '  ·  baseline ' + euroFmt(booksBalance);
+  if (Math.abs(varianceCents) > 1000 && openingCash !== undefined) {
+    sub += '  ·  opening cash ' + euroFmt(openingCash);
   }
   document.getElementById('vSub').textContent = sub;
 }
@@ -340,6 +366,11 @@ function updateDenomTotal() {
 }
 
 async function init() {
+  const dateInput = document.getElementById('entryDate');
+  dateInput.max = today();
+  if (!dateInput.value) dateInput.value = today();
+  updateDayHeading();
+
   // Load denominations table
   try {
     const dres = await req('GET', API.denominations);
@@ -350,12 +381,12 @@ async function init() {
   }
 
   const state = await req('GET', API.state);
-  const baselineOut = document.getElementById('baselineOut');
-  document.querySelector('.status-dot').classList.toggle('ready', !!state.hasBaseline);
-  baselineOut.textContent = state.hasBaseline ? euroFmt(Number(state.booksBalance) || 0) : '—';
-  if (!state.hasBaseline) {
-    // If the owner already has a count for today, skip the setup card —
-    // the server auto-seeds the baseline from that count (neutral verdict).
+  const openingOut = document.getElementById('baselineOut');
+  document.querySelector('.status-dot').classList.toggle('ready', !!state.hasOpening);
+  openingOut.textContent = state.hasOpening ? euroFmt(Number(state.openingCash) || 0) : '—';
+  if (!state.hasOpening) {
+    // If the operator already has a count for today, skip the setup card —
+    // the server auto-seeds the opening from that count (neutral verdict).
     if (state.hasTodayEntry) {
       document.getElementById('entryCard').classList.remove('hidden')
       await refresh()
@@ -364,47 +395,28 @@ async function init() {
     }
     return
   }
-  baselineOut.textContent = euroFmt(Number(state.booksBalance) || 0);
+  openingOut.textContent = euroFmt(Number(state.openingCash) || 0);
   document.getElementById('entryCard').classList.remove('hidden');
   await refresh();
-  
 }
 
 async function refresh() {
   const state = await req('GET', API.state);
-  document.querySelector('.status-dot').classList.toggle('ready', !!state.hasBaseline);
-  baselineOut.textContent = euroFmt(Number(state.booksBalance) || 0);
-  // Pre-fill the denomination inputs with the expected balance (so the owner
-  // starts from "what should be there" and only adjusts).
-  prefillFromExpected(state);
-  // Load today's entry if present, else show neutral verdict.
-  let todayEntry = null;
+  document.querySelector('.status-dot').classList.toggle('ready', !!state.hasOpening);
+  document.getElementById('baselineOut').textContent = euroFmt(Number(state.openingCash) || 0);
+  // Load the selected day's entry if present, else show a clean form.
+  let selectedEntry = null;
   try {
     const hist = await req('GET', API.history);
-    todayEntry = hist.entries.find((e) => e.date === state.today) || null;
+    selectedEntry = hist.entries.find((e) => e.date === selectedDate()) || null;
     renderLedger(hist.entries);
   } catch (e) { /* history optional on refresh */ }
-  if (todayEntry) {
-    setVerdict(todayEntry.status, Number(todayEntry.variance) * 100,
-      verdictLabel(todayEntry.status), state.booksBalance);
-    document.getElementById('confirmBtn').classList.remove('hidden');
+  document.getElementById('confirmBtn').classList.toggle('hidden', !selectedEntry);
+  document.getElementById('verdict').classList.toggle('hidden', !selectedEntry);
+  if (selectedEntry) {
+    setVerdict(selectedEntry.status, Number(selectedEntry.variance) * 100,
+      verdictLabel(selectedEntry.status), selectedEntry.opening ?? state.openingCash);
   }
-}
-
-function prefillFromExpected(state) {
-  // The "expected" is the books balance (what should be in the till).
-  // We pre-fill the denomination inputs with a simple breakdown of the expected
-  // amount, so the owner can see what they're starting from and adjust.
-  const expectedCents = Number(state.booksBalance) * 100 || 0;
-  // Clear all denom inputs, then fill the €50 slot with the expected total
-  // (the owner will adjust from there). This is a starting point, not a count.
-  const counts = {};
-  for (const d of DENOMS) {
-    const inp = document.querySelector(`[data-denom="${d.id}"]`);
-    if (inp) inp.value = '';
-    counts[d.id] = 0;
-  }
-  updateDenomTotal();
 }
 
 function verdictLabel(status) {
@@ -425,8 +437,14 @@ function renderLedger(entries) {
 
   // Determine "recent" = today + yesterday. Older goes into the collapsed
   // "Earlier history" section (hidden by default).
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const yest = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const todayStr = today();
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yest = [
+    yesterday.getFullYear(),
+    String(yesterday.getMonth() + 1).padStart(2, '0'),
+    String(yesterday.getDate()).padStart(2, '0'),
+  ].join('-');
   const recentDates = new Set([todayStr, yest]);
 
   let recentCount = 0, olderCount = 0;
@@ -482,7 +500,7 @@ function buildLedgerRow(e, prevEntry) {
   // Unconfirmed nudge: if this entry is not confirmed and is not today,
   // the baseline hasn't been updated. Nudge the operator.
   if (!e.confirmed) {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = today();
     if (e.date !== todayStr) {
       const nudge = document.createElement('div');
       nudge.className = 'unconfirmed-flag';
@@ -491,9 +509,17 @@ function buildLedgerRow(e, prevEntry) {
     }
   }
 
-  // Details: count, removed, added, card, expected
+  // Details: always show the count and expected total; only show optional
+  // adjustments when they were used.
   const details = document.createElement('div'); details.className = 'details';
-  details.textContent = `Counted €${e.actual} · Removed €${e.cashRemoved} · Added €${e.cashAdded} · Card €${e.cardTransfer} · Expected €${e.expected}`;
+  const detailParts = [`Counted €${e.actual}`];
+  if (Number(e.expense ?? e.cashRemoved) !== 0) {
+    detailParts.push(`Till expense €${e.expense ?? e.cashRemoved}`);
+  }
+  if (Number(e.cashAdded) !== 0) detailParts.push(`Added €${e.cashAdded}`);
+  if (Number(e.cardTransfer) !== 0) detailParts.push(`Card €${e.cardTransfer}`);
+  detailParts.push(`Expected €${e.expected}`);
+  details.textContent = detailParts.join(' · ');
   li.append(details);
 
   // Confirmed marker + reconcile affordance. A confirmed day can be
@@ -529,6 +555,8 @@ function buildLedgerRow(e, prevEntry) {
   editBtn.className = 'ghost small';
   editBtn.textContent = 'Edit';
   editBtn.addEventListener('click', () => {
+    document.getElementById('entryDate').value = e.date;
+    updateDayHeading();
     // Pre-fill the denomination inputs from the entry's denominations.
     if (e.denominations) {
       for (const d of DENOMS) {
@@ -538,14 +566,18 @@ function buildLedgerRow(e, prevEntry) {
       updateDenomTotal();
     }
     // Pre-fill the other fields.
-    const removed = document.getElementById('removed');
-    if (removed) removed.value = Number(e.cashRemoved).toFixed(2);
+    const expense = document.getElementById('expense');
+    if (expense) expense.value = Number(e.expense ?? e.cashRemoved).toFixed(2);
     const added = document.getElementById('added');
     if (added) added.value = Number(e.cashAdded).toFixed(2);
     const card = document.getElementById('card');
     if (card) card.value = Number(e.cardTransfer).toFixed(2);
     const declared = document.getElementById('declared');
     if (declared) declared.value = e.declared || '';
+    const adjustments = document.getElementById('adjustments');
+    if (adjustments && (Number(e.expense ?? e.cashRemoved) !== 0 || Number(e.cashAdded) !== 0 || Number(e.cardTransfer) !== 0 || e.declared)) {
+      adjustments.open = true;
+    }
     // Show the entry card and scroll to it.
     document.getElementById('entryCard').classList.remove('hidden');
     document.getElementById('entryCard').scrollIntoView({ behavior: 'smooth' });
@@ -590,7 +622,7 @@ function buildLedgerRow(e, prevEntry) {
 document.getElementById('setupBtn').addEventListener('click', async () => {
   const raw = document.getElementById('setupAmount').value;
   try {
-    await req('POST', API.baseline, { actual: raw });
+    await req('POST', API.opening, { opening: raw });
     await init();
   } catch (e) { alert(e.message); }
 });
@@ -600,7 +632,7 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
   const hasDenomInput = Object.values(counts).some((n) => n > 0);
   const payload = {
     actual: hasDenomInput ? null : '0',  // When denominations are used, actual is derived
-    cashRemoved: document.getElementById('removed').value,
+    expense: document.getElementById('expense').value,
     cashAdded: document.getElementById('added').value,
     cardTransfer: document.getElementById('card').value,
     declared: document.getElementById('declared').value,
@@ -613,7 +645,7 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
       entry = await req('PATCH', API.entryById(editingDate), payload);
       editingDate = null; // Reset after save.
     } else {
-      payload.date = today();
+      payload.date = selectedDate();
       entry = await req('POST', API.entry, payload);
     }
     setVerdict(entry.status, Number(entry.variance) * 100, verdictLabel(entry.status),
@@ -625,10 +657,16 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
 
 document.getElementById('confirmBtn').addEventListener('click', async () => {
   try {
-    await req('POST', API.confirm, { date: today() });
-    alert('Day confirmed. Books updated to your count.');
+    await req('POST', API.confirm, { date: selectedDate() });
+    alert('Day confirmed.');
     await init();
   } catch (e) { alert(e.message); }
+});
+
+document.getElementById('entryDate').addEventListener('change', async () => {
+  editingDate = null;
+  updateDayHeading();
+  await refresh();
 });
 
 init().catch((e) => console.error('init failed', e));

@@ -2,28 +2,27 @@
 //
 // Model
 // -----
-// The single source of truth is `books_balance`: the cash the books say is in
-// the till. It is set once from the baseline, then (after a day is confirmed)
-// it equals that day's ACTUAL count — so it never has to be re-entered.
+// The single source of truth is `opening_cash`: the cash carried forward
+// from yesterday (after any takeout). It is dynamic, not a fixed float.
 //
 // Each day the operator enters:
 //   - actual        cash counted in the till (the main daily number)
-//   - cashRemoved   cash taken OUT of the till during the day (bank, personal…)
-//   - cashAdded     cash put INTO the till during the day (float top-up…)
+//   - expense       cash spent directly from the till (ice, supplies, payouts)
+//   - cashRemoved   legacy alias for expense
+//   - cashAdded     cash moved IN during the shift (loan, bank)
 //   - cardTransfer  card revenue moved to the bank (logged; does NOT touch till cash)
-//   - declared      free-text note for declared/unaccounted cash (e.g. "lost €10")
+//   - declared      free-text note for declared/unaccounted cash
 //
-// Expected cash in the till BEFORE the day's moves are reconciled:
-//   expected = books_balance + cashAdded - cashRemoved
+// Expected cash at close:
+//   expected = opening_cash + cashAdded - cashRemoved
 //
 //   variance = actual - expected
 //     < 0  short  (cash missing / unaccounted)
-//     > 0  over   (more cash than the books predict)
+//     > 0  over   (more cash than expected)
 //     == 0 balanced
 //
-// "Declared" cash (cash that moved but the books didn't record) is handled by
-// the operator choosing a cashRemoved/cashAdded/declared value that makes the
-// books match reality; confirming the day then folds the actual into the books.
+// After close, the operator may take out cash (e.g. €700). The remainder
+// becomes tomorrow's opening cash automatically.
 //
 // Money is stored in CENTS (integers) to avoid float drift. Inputs are accepted
 // as decimal strings/numbers in euros and converted to cents.
@@ -67,17 +66,13 @@ export function centsToEuros(cents) {
  *
  * @param {object} input
  * @param {string|number} input.actual        cash counted in the till (euros)
- * @param {string|number} [input.cashRemoved] cash taken out during the day
- * @param {string|number} [input.cashAdded]   cash added during the day
+ * @param {string|number} [input.expense]     cash spent directly from the till
+ * @param {string|number} [input.cashRemoved] legacy alias for expense
+ * @param {string|number} [input.cashAdded]   cash moved IN during the shift
  * @param {string|number} [input.cardTransfer] card revenue moved to bank (logged)
  * @param {string}        [input.declared]    declared-cash note
- * @param {object}        [input.denominations] counts by denomination:
- *        { "50": n, "20": n, "10": n, "5": n, "2": n, "1": n, "0.5": n, "0.2": n }
- *        where n is the count of each note/coin (integer). When present, the
- *        total derived from denominations is used as `actual` (overrides the
- *        raw `actual` field). This lets the owner count by notes/coins rather
- *        than typing a sum.
- * @param {number} booksBalanceCents   current books balance (cents)
+ * @param {object}        [input.denominations] counts by denomination
+ * @param {number} openingCents   opening cash carried from yesterday (cents)
  * @returns {{expectedCents:number, actualCents:number, varianceCents:number, status:string}}
  */
 
@@ -111,15 +106,18 @@ export function denominationsToCents(counts) {
   return total;
 }
 
-export function reconcileDay({ actual, cashRemoved = 0, cashAdded = 0, cardTransfer = 0, declared = "", denominations } , booksBalanceCents) {
+export function reconcileDay(
+  { actual, expense, cashRemoved = 0, cashAdded = 0, cardTransfer = 0, declared = "", denominations },
+  openingCents = 0,
+) {
   // If denominations are provided, they define the actual count.
   const actualCents = denominations ? denominationsToCents(denominations) : eurosToCents(actual);
-  const removedCents = eurosToCents(cashRemoved);
+  const removedCents = eurosToCents(expense ?? cashRemoved);
   const addedCents = eurosToCents(cashAdded);
   const cardCents = eurosToCents(cardTransfer);
   const declaredNote = String(declared ?? "");
 
-  const expectedCents = booksBalanceCents + addedCents - removedCents;
+  const expectedCents = openingCents + addedCents - removedCents;
   const varianceCents = actualCents - expectedCents;
 
   const status =
@@ -134,8 +132,9 @@ export function reconcileDay({ actual, cashRemoved = 0, cashAdded = 0, cardTrans
     declared: declaredNote,
     varianceCents,
     status,
-    // After confirming, the books accept reality: the balance becomes actual.
-    nextBooksBalanceCents: actualCents,
+    // The count is the new reference for tomorrow. After a takeout, the
+    // remainder becomes tomorrow's opening cash.
+    nextOpeningCents: actualCents,
   };
 }
 

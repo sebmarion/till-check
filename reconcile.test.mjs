@@ -42,12 +42,13 @@ test('centsToEuros round-trips', () => {
   assert.equal(centsToEuros(0), '0.00')
 })
 
-test('acceptance: day1 short 10, confirm folds actual into books, day2 balanced', () => {
-  // Baseline: the books start at 500.00 (entered once).
-  const BOOKS_BASELINE = eurosToCents('500')
-  assert.equal(BOOKS_BASELINE, 50000)
+test('acceptance: day1 short 10, confirm carries forward, day2 balanced', () => {
+  // Opening cash: €500 carried from yesterday.
+  const OPENING_DAY1 = eurosToCents('500')
+  assert.equal(OPENING_DAY1, 50000)
 
-  // Day 1: operator removes 100 cash (bank), card transfer of 50, counts 390.
+  // Day 1: operator removes €100 cash during the shift, card transfer of €50,
+  // counts €390.
   const day1 = reconcileDay(
     {
       actual: '390',
@@ -56,7 +57,7 @@ test('acceptance: day1 short 10, confirm folds actual into books, day2 balanced'
       cardTransfer: '50',
       declared: '',
     },
-    BOOKS_BASELINE,
+    OPENING_DAY1,
   )
   assert.equal(day1.expectedCents, 40000, 'day1 expected should be 400.00')
   assert.equal(day1.actualCents, 39000, 'day1 actual should be 390.00')
@@ -64,15 +65,15 @@ test('acceptance: day1 short 10, confirm folds actual into books, day2 balanced'
   assert.equal(day1.status, STATUS.SHORT, 'day1 should be short')
   // Card transfer is logged but must not touch the till-cash expected.
   assert.equal(day1.cardCents, 5000, 'card transfer recorded')
-  assert.equal(day1.nextBooksBalanceCents, 39000, 'confirm folds actual into books')
+  assert.equal(day1.nextOpeningCents, 39000, 'confirm carries actual forward')
 
-  // Operator declares the 10 missing (lost) and confirms the day.
-  // Books now accept reality: 390.
-  const BOOKS_AFTER_DAY1 = day1.nextBooksBalanceCents
-  assert.equal(BOOKS_AFTER_DAY1, 39000)
+  // Operator declares the €10 missing (lost) and confirms the day.
+  // Tomorrow's opening cash is the count: €390.
+  const OPENING_DAY2 = day1.nextOpeningCents
+  assert.equal(OPENING_DAY2, 39000)
 
-  // Day 2: no moves, count is 390.
-  const day2 = reconcileDay({ actual: '390', cashRemoved: 0, cashAdded: 0 }, BOOKS_AFTER_DAY1)
+  // Day 2: no moves, count is €390.
+  const day2 = reconcileDay({ actual: '390', cashRemoved: 0, cashAdded: 0 }, OPENING_DAY2)
   assert.equal(day2.expectedCents, 39000, 'day2 expected should be 390.00')
   assert.equal(day2.varianceCents, 0, 'day2 variance should be 0')
   assert.equal(day2.status, STATUS.BALANCED, 'day2 should be balanced')
@@ -94,6 +95,26 @@ test('cash added raises expected; declared note is carried through', () => {
   assert.equal(r.varianceCents, 0)
   assert.equal(r.status, STATUS.BALANCED)
   assert.equal(r.declared, 'found 3 in old float')
+})
+
+test('expense is an alias for cashRemoved and reduces expected cash', () => {
+  // Opening €500, staff took €20 for ice, count €480 -> balanced.
+  const viaExpense = reconcileDay({ actual: '480', expense: '20' }, 50000)
+  assert.equal(viaExpense.expectedCents, 48000)
+  assert.equal(viaExpense.removedCents, 2000)
+  assert.equal(viaExpense.varianceCents, 0)
+  assert.equal(viaExpense.status, STATUS.BALANCED)
+  // Legacy field still works identically.
+  const viaLegacy = reconcileDay({ actual: '480', cashRemoved: '20' }, 50000)
+  assert.equal(viaLegacy.expectedCents, viaExpense.expectedCents)
+  assert.equal(viaLegacy.removedCents, viaExpense.removedCents)
+  // Expense wins when both are supplied (documented precedence).
+  const both = reconcileDay({ actual: '480', expense: '20', cashRemoved: '50' }, 50000)
+  assert.equal(both.removedCents, 2000)
+  // null/undefined expense means no removal, not a crash.
+  const none = reconcileDay({ actual: '500', expense: null }, 50000)
+  assert.equal(none.expectedCents, 50000)
+  assert.equal(none.status, STATUS.BALANCED)
 })
 
 test('cent-precision: 0.01 short is a short, not a balanced float error', () => {
