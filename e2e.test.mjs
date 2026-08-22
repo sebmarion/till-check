@@ -48,13 +48,21 @@ function serialTest(name, fn) {
   })
 }
 
-// Generate a unique test date to avoid conflicts with existing entries and
-// between concurrently scheduled node:test cases.
-let testDateOffset = Number(process.env.TILL_TEST_DATE_OFFSET || 30)
+// Generate a unique test date per RUN so repeat runs against the same DB
+// never collide with dates an earlier run created (entries are UNIQUE by
+// date, and stale rows would poison opening-cash expectations). The offset
+// is seeded from the wall clock (minutes since epoch) so two back-to-back
+// runs land on disjoint date ranges; TILL_TEST_DATE_OFFSET pins it when set.
+const BASE_OFFSET = process.env.TILL_TEST_DATE_OFFSET !== undefined
+  ? Number(process.env.TILL_TEST_DATE_OFFSET)
+  : 30 + Math.floor(Date.now() / 60000)
+let testDateOffset = BASE_OFFSET
 function testDate() {
   const d = new Date()
-  d.setDate(d.getDate() + testDateOffset++)
-  return d.toISOString().slice(0, 10)
+  d.setDate(d.getDate() + testDateOffset)
+  const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  testDateOffset++
+  return iso
 }
 
 // --- State tests ---
@@ -395,10 +403,16 @@ serialTest('POST /entry uses the previous confirmed opening for a backdated day'
 })
 
 serialTest('POST /confirm keeps a newer carried opening when confirming a backdated day', async () => {
+  // Isolate from the shared rolling opening: seed through a dedicated
+  // confirmed day, then snapshot the state before the backdated confirm.
+  const base = testDate()
   const day1 = testDate()
   const day2 = testDate()
   const day3 = testDate()
   const day4 = testDate()
+
+  await req('POST', '/entry', { date: base, actual: '0' })
+  await req('POST', '/confirm', { date: base })
 
   await req('POST', '/entry', { date: day1, actual: '500' })
   await req('POST', '/confirm', { date: day1 })
@@ -420,8 +434,22 @@ serialTest('POST /confirm keeps a newer carried opening when confirming a backda
   const state = await req('GET', '/state')
 
   assert.equal(confirmed.status, 200)
+  assert.equal(confirmed.data.openingAdvanced, false)
   assert.equal(state.data.openingDate, day4)
   assert.equal(Number(state.data.openingCash), 400)
+})
+
+serialTest('POST /entry on a previously confirmed date upserts instead of failing', async () => {
+  // Idempotency guard for the suite itself: re-posting the same date must
+  // update the existing row (upsert path), not throw a UNIQUE constraint.
+  const date = testDate()
+  await req('POST', '/entry', { date, actual: '100' })
+  const again = await req('POST', '/entry', { date, actual: '120' })
+  const history = await req('GET', '/history')
+
+  assert.equal(again.status, 200)
+  assert.equal(Number(again.data.actual), 120)
+  assert.equal(history.data.entries.filter((e) => e.date === date).length, 1)
 })
 
 serialTest('PATCH /entry/:date preserves stored amounts when only the note changes', async () => {
