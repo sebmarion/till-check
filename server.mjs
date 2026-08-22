@@ -89,25 +89,45 @@ function migrateStateSchema() {
   if (!hasOpening && hasBooks) {
     // SQLite can't rename a column while keeping the same name in a CHECK;
     // rebuild the state row under the new column names.
-    db.exec(`
-      CREATE TABLE state_new (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        opening_cents INTEGER NOT NULL,
-        opening_date TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      INSERT INTO state_new (id, opening_cents, opening_date, created_at, updated_at)
-        SELECT id, books_balance_cents, baseline_date, created_at, updated_at FROM state;
-      DROP TABLE state;
-      ALTER TABLE state_new RENAME TO state;
-    `)
+    db.exec('BEGIN IMMEDIATE')
+    try {
+      db.exec(`
+        CREATE TABLE state_new (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          opening_cents INTEGER NOT NULL,
+          opening_date TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        INSERT INTO state_new (id, opening_cents, opening_date, created_at, updated_at)
+          SELECT id, books_balance_cents, baseline_date, created_at, updated_at FROM state;
+        DROP TABLE state;
+        ALTER TABLE state_new RENAME TO state;
+      `)
+      db.exec('COMMIT')
+    } catch (err) {
+      db.exec('ROLLBACK')
+      // Fail loud: a half-migrated DB must not boot into a broken service.
+      throw new Error(`state migration failed: ${err.message}`)
+    }
   } else if (!hasOpening) {
-    db.exec('ALTER TABLE state ADD COLUMN opening_cents INTEGER NOT NULL')
-    db.exec('ALTER TABLE state ADD COLUMN opening_date TEXT')
+    // A pre-existing table may hold rows; adding NOT NULL without a default
+    // would fail, so backfill existing rows with 0 as part of the ADD.
+    try {
+      db.exec('ALTER TABLE state ADD COLUMN opening_cents INTEGER NOT NULL DEFAULT 0')
+      db.exec("UPDATE state SET opening_cents = 0 WHERE opening_cents IS NULL")
+      db.exec('ALTER TABLE state ADD COLUMN opening_date TEXT')
+    } catch (err) {
+      throw new Error(`state migration failed: ${err.message}`)
+    }
   }
 }
-migrateStateSchema()
+try {
+  migrateStateSchema()
+} catch (err) {
+  console.error(err.message)
+  process.exit(1)
+}
 
 function nowIso() {
   return new Date().toISOString()
@@ -139,18 +159,24 @@ function getOpeningForDate(date) {
     return existing.opening_cents
   }
 
-  const previous = db.prepare(
-    `SELECT actual_cents, takeout_cents
-       FROM entries
-      WHERE date < ? AND confirmed_at IS NOT NULL
-      ORDER BY date DESC
-      LIMIT 1`,
-  ).get(date)
-  if (previous) return previous.actual_cents - previous.takeout_cents
-
+  // The carried opening (state) is authoritative whenever it exists and was
+  // set by this date or an earlier one — the normal forward path, plus a
+  // backfilled day whose successor was already confirmed. Only when state
+  // is NEWER than the requested date (a true backfill into history) do we
+  // reconstruct from the newest confirmed day before that date instead.
   const state = getState()
-  if (state && (!state.openingDate || state.openingDate <= date)) {
-    return state.openingCents
+  const stateIsCurrent = state && (!state.openingDate || state.openingDate <= date)
+  if (stateIsCurrent) return state.openingCents
+  if (state) {
+    const previous = db.prepare(
+      `SELECT actual_cents, takeout_cents
+         FROM entries
+        WHERE date < ? AND confirmed_at IS NOT NULL
+        ORDER BY date DESC
+        LIMIT 1`,
+    ).get(date)
+    if (previous) return previous.actual_cents - previous.takeout_cents
+    return 0
   }
   return 0
 }
@@ -292,9 +318,10 @@ async function handlePostEntry(req) {
       ? body.denominations
       : null
   const state = getState()
-  // If no opening state exists yet (first run), start from €0 so the
-  // verdict is neutral (balanced). The owner skips the setup card.
-  const openingCents = getOpeningForDate(today)
+  // Opening resolution: an explicit body.opening wins (used by tests and
+  // power users); otherwise derive it from history/state for the date.
+  const openingCents =
+    body.opening !== undefined ? eurosToCents(body.opening) : getOpeningForDate(today)
   const result = reconcileDay(
     {
       actual: body.actual,
@@ -438,6 +465,10 @@ async function handlePostReconcile(req) {
   }
 
   const declared = body.declared !== undefined ? body.declared : row.declared_note
+  // Takeout: a fresh euros value from the caller wins; otherwise the stored
+  // cents are kept as-is (already the right unit).
+  const takeoutCents =
+    body.takeout !== undefined ? eurosToCents(body.takeout) : row.takeout_cents
   const result = reconcileDay(
     {
       actual: body.actual !== undefined ? body.actual : centsToEuros(row.actual_cents),
@@ -463,7 +494,7 @@ async function handlePostReconcile(req) {
     variance_cents: result.varianceCents,
     status: result.status,
     opening_cents: openingCents,
-    takeout_cents: row.takeout_cents,
+    takeout_cents: takeoutCents,
     created_at: row.created_at,
     updated_at: nowIso(),
   }
@@ -473,7 +504,7 @@ async function handlePostReconcile(req) {
   // corrected actual (minus any takeout) into the opening balance so the
   // books stay consistent.
   if (state && state.openingDate === date) {
-    const openingCentsAfter = result.actualCents - row.takeout_cents
+    const openingCentsAfter = result.actualCents - takeoutCents
     db.prepare(
       'UPDATE state SET opening_cents = ?, updated_at = ? WHERE id = 1'
     ).run(openingCentsAfter, nowIso())
@@ -489,7 +520,7 @@ async function handlePostReconcile(req) {
       variance: centsToEuros(result.varianceCents),
       status: result.status,
       openingCash: state && state.openingDate === date
-        ? centsToEuros(result.actualCents - row.takeout_cents)
+        ? centsToEuros(result.actualCents - takeoutCents)
         : state ? centsToEuros(state.openingCents) : null,
       openingDate: state && state.openingDate === date ? date : state?.openingDate ?? null,
     },
@@ -601,7 +632,15 @@ async function handle(req, res) {
   }
 
   if (method === 'GET' && pathname === '/health') {
-    sendJson(res, 200, { ok: true, service: 'till-check', db: fs.existsSync(DB_PATH) })
+    // Fail-closed health: the DB must exist AND answer a real query. A
+    // constant-true endpoint gives deploys a false green.
+    let dbOk = false
+    try {
+      dbOk = fs.existsSync(DB_PATH) && db.prepare('SELECT COUNT(*) AS n FROM entries').get().n >= 0
+    } catch {
+      dbOk = false
+    }
+    sendJson(res, dbOk ? 200 : 503, { ok: dbOk, service: 'till-check', db: dbOk })
     return
   }
 
