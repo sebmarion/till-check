@@ -9,12 +9,15 @@
 //   - actual        cash counted in the till (the main daily number)
 //   - expense       cash spent directly from the till (ice, supplies, payouts)
 //   - cashRemoved   legacy alias for expense
+//   - black         undeclared ("black") cash out — own column, also reduces
+//                   expected so the day balances; tracked separately from
+//                   legitimate expenses for later totals
 //   - cashAdded     cash moved IN during the shift (loan, bank)
 //   - cardTransfer  card revenue moved to the bank (logged; does NOT touch till cash)
 //   - declared      free-text note for declared/unaccounted cash
 //
 // Expected cash at close:
-//   expected = opening_cash + cashAdded - cashRemoved
+//   expected = opening_cash + cashAdded - cashRemoved - black
 //
 //   variance = actual - expected
 //     < 0  short  (cash missing / unaccounted)
@@ -68,6 +71,7 @@ export function centsToEuros(cents) {
  * @param {string|number} input.actual        cash counted in the till (euros)
  * @param {string|number} [input.expense]     cash spent directly from the till
  * @param {string|number} [input.cashRemoved] legacy alias for expense
+ * @param {string|number} [input.black]       undeclared cash out (own column)
  * @param {string|number} [input.cashAdded]   cash moved IN during the shift
  * @param {string|number} [input.cardTransfer] card revenue moved to bank (logged)
  * @param {string}        [input.declared]    declared-cash note
@@ -86,6 +90,7 @@ export const DENOMINATIONS = [
   { id: "1",   valueCents: 100,  label: "€1"  },
   { id: "0.5", valueCents: 50,   label: "€0.50" },
   { id: "0.2", valueCents: 20,   label: "€0.20" },
+  { id: "0.1", valueCents: 10,   label: "€0.10" },
 ];
 
 /**
@@ -107,17 +112,18 @@ export function denominationsToCents(counts) {
 }
 
 export function reconcileDay(
-  { actual, expense, cashRemoved = 0, cashAdded = 0, cardTransfer = 0, declared = "", denominations },
+  { actual, expense, cashRemoved = 0, black = 0, cashAdded = 0, cardTransfer = 0, declared = "", denominations },
   openingCents = 0,
 ) {
   // If denominations are provided, they define the actual count.
   const actualCents = denominations ? denominationsToCents(denominations) : eurosToCents(actual);
   const removedCents = eurosToCents(expense ?? cashRemoved);
+  const blackCents = eurosToCents(black);
   const addedCents = eurosToCents(cashAdded);
   const cardCents = eurosToCents(cardTransfer);
   const declaredNote = String(declared ?? "");
 
-  const expectedCents = openingCents + addedCents - removedCents;
+  const expectedCents = openingCents + addedCents - removedCents - blackCents;
   const varianceCents = actualCents - expectedCents;
 
   const status =
@@ -129,6 +135,7 @@ export function reconcileDay(
     removedCents,
     addedCents,
     cardCents,
+    blackCents,
     declared: declaredNote,
     varianceCents,
     status,

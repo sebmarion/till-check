@@ -1,18 +1,78 @@
 #!/usr/bin/env node
 // Till Check — End-to-End Test Suite
 //
-// Tests ALL scenarios against a live server instance.
-// By default, tests against the running service on port 80.
+// Tests ALL scenarios against a LIVE server instance. By default the suite
+// starts its OWN throwaway server on a random port with a TEMPORARY database
+// (under the OS temp dir) and tears it down afterwards — the production
+// service and its data are never touched.
 //
 // Usage:
-//   node e2e.test.mjs              # test against default port 80
-//   TILL_TEST_PORT=8080 node e2e.test.mjs  # test against a different port
+//   node e2e.test.mjs                       # isolated server + temp DB (safe)
+//   TILL_TEST_PORT=8080 node e2e.test.mjs   # test against an already-running server
+//
+// The TILL_TEST_PORT opt-in exists for debugging against a specific instance;
+// it writes real entries to whatever DB that instance uses, so prefer the
+// default.
 
-import { test } from 'node:test'
+import { test, after } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import path from 'node:path'
+import fs from 'node:fs'
+import os from 'node:os'
 
-const BASE = `http://127.0.0.1:${process.env.TILL_TEST_PORT || 80}${process.env.TILL_TEST_PORT ? '' : '/till'}/api`
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// --- Isolated server lifecycle ---------------------------------------------
+// When TILL_TEST_PORT is unset we own the whole lifecycle: start server.mjs
+// with a temp DB, wait for /health, run tests, then kill the process.
+const OWN_SERVER = process.env.TILL_TEST_PORT === undefined
+const TEST_PORT = process.env.TILL_TEST_PORT || String(20000 + Math.floor(Math.random() * 20000))
+const BASE = `http://127.0.0.1:${TEST_PORT}${process.env.TILL_TEST_PORT ? '/till' : ''}/api`
+
+let child = null
+let tmpDbPath = null
+
+async function startOwnServer() {
+  tmpDbPath = path.join(os.tmpdir(), `till-e2e-${Date.now()}-${process.pid}.sqlite`)
+  child = spawn(process.execPath, [path.join(__dirname, 'server.mjs')], {
+    env: {
+      ...process.env,
+      TILL_PORT: TEST_PORT,
+      TILL_BIND: '127.0.0.1',
+      TILL_DB: tmpDbPath,
+    },
+    stdio: 'ignore',
+  })
+  // Wait for /health (up to ~5s) so the first test never races startup.
+  const healthUrl = `http://127.0.0.1:${TEST_PORT}/health`
+  for (let i = 0; i < 50; i++) {
+    try {
+      const res = await fetch(healthUrl)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.ok === true || data.ok === 'true') return
+      }
+    } catch { /* not up yet */ }
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  throw new Error(`own test server did not become healthy on port ${TEST_PORT}`)
+}
+
+function stopOwnServer() {
+  if (child) {
+    child.kill('SIGTERM')
+    child = null
+  }
+  if (tmpDbPath) {
+    for (const suffix of ['', '-shm', '-wal']) {
+      try { fs.rmSync(tmpDbPath + suffix, { force: true }) } catch { /* best effort */ }
+    }
+    tmpDbPath = null
+  }
+}
+
 
 async function req(method, path, body) {
   const opts = {
@@ -30,7 +90,7 @@ async function currentBooksBalance() {
   return Number(data.openingCash || 0)
 }
 
-// The live service shares one mutable ledger. Queue test bodies so one test
+// The test server shares one mutable ledger. Queue test bodies so one test
 // cannot change the books baseline while another is calculating its expected
 // variance.
 let testQueue = Promise.resolve()
@@ -47,6 +107,19 @@ function serialTest(name, fn) {
     }
   })
 }
+
+// Own-server lifecycle: boot before the first test, tear down after ALL tests
+// (after() runs once at the very end), and force a shutdown if the process is
+// interrupted mid-suite (ctrl-C, kill).
+if (OWN_SERVER) {
+  const ready = startOwnServer()
+  ready.catch(() => {})
+  serialTest('own test server is healthy', () => ready)
+  after(() => stopOwnServer())
+  process.on('SIGINT', () => { stopOwnServer(); process.exit(130) })
+  process.on('SIGTERM', () => { stopOwnServer(); process.exit(143) })
+}
+
 
 // Generate a unique test date per RUN so repeat runs against the same DB
 // never collide with dates an earlier run created (entries are UNIQUE by
@@ -70,10 +143,7 @@ function testDate() {
 
 // --- State tests ---
 serialTest('GET /health returns ok', async () => {
-  const healthUrl = process.env.TILL_TEST_PORT
-    ? `http://127.0.0.1:${process.env.TILL_TEST_PORT}/health`
-    : `http://127.0.0.1:80/till/health`
-  const res = await fetch(healthUrl)
+  const res = await fetch(`http://127.0.0.1:${TEST_PORT}/health`)
   const data = await res.json()
   assert.equal(res.status, 200)
   assert.ok(data.ok === true || data.ok === 'true')
@@ -284,6 +354,30 @@ serialTest('POST /reconcile with invalid JSON returns 400', async () => {
 })
 
 // --- History tests ---
+serialTest('POST /entry records black separately from expense and reduces expected', async () => {
+  const day = testDate()
+  const opening = await currentBooksBalance()
+  // No other moves: expected = opening − 30 (black reduces the books),
+  // counted = opening -> over by exactly the black amount.
+  const { status, data } = await req('POST', '/entry', {
+    date: day,
+    actual: String(opening),
+    black: '30',
+  })
+  assert.equal(status, 200)
+  assert.equal(data.status, 'over')
+  assert.equal(Number(data.black), 30)
+  assert.equal(Number(data.expense), 0)
+  assert.equal(Number(data.expected), opening - 30)
+  assert.equal(Number(data.variance), 30)
+  // Black survives in its own column in history (not folded into expense).
+  const hist = await req('GET', '/history')
+  const stored = hist.data.entries.find((e) => e.date === day)
+  assert.ok(stored, 'entry present in history')
+  assert.equal(Number(stored.black), 30)
+  assert.equal(Number(stored.expense), 0)
+})
+
 serialTest('GET /history returns entries', async () => {
   const { status, data } = await req('GET', '/history')
   assert.equal(status, 200)
@@ -538,15 +632,13 @@ serialTest('DELETE /entry/:date falls back to the newest confirmed day for the o
 serialTest('Served page exposes the date picker, expense field, and API wiring', async () => {
   // Behavior-level check against the LIVE server (not source regexes): the
   // served HTML must reference the working API surface and form fields.
-  const pageUrl = process.env.TILL_TEST_PORT
-    ? `http://127.0.0.1:${process.env.TILL_TEST_PORT}/`
-    : `http://127.0.0.1:80/till/`
+  const pageUrl = `http://127.0.0.1:${TEST_PORT}/`
   const res = await fetch(pageUrl)
   assert.equal(res.status, 200)
   const html = await res.text()
 
   // Form fields exist and are wired to the API contract the server serves.
-  for (const id of ['entryDate', 'expense', 'added', 'card', 'declared', 'checkBtn', 'confirmBtn']) {
+  for (const id of ['entryDate', 'expense', 'added', 'card', 'black', 'takeout', 'declared', 'checkBtn', 'confirmBtn', 'addExpense', 'extraExpenses']) {
     assert.ok(html.includes(`id="${id}"`), `served page must contain #${id}`)
   }
   for (const endpoint of ['api/entry', 'api/confirm', 'api/state']) {

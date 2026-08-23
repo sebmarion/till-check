@@ -83,6 +83,9 @@ button.ghost { background: transparent; color: var(--ink); border: 1px solid var
 button.ghost.small { width: auto; font-size: 12px; padding: 4px 8px; margin-top: 6px; }
 button.ghost.danger { color: var(--red); border-color: #e8c2be; }
 button:active { transform: translateY(1px); }
+.extra-expense-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.extra-expense-row input { flex: 1; min-width: 0; margin-top: 0; }
+.extra-expense-row button.ghost.small { flex-shrink: 0; }
 
 /* Denomination counter */
 .denom-list { list-style: none; margin: 0 0 12px; padding: 0; }
@@ -199,11 +202,13 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
     <details id="adjustments" class="section-card entry-adjustments">
       <summary><span class="section-title">Other cash movements</span><span class="section-hint">Optional</span></summary>
       <div class="section-body">
-        <div class="baseline-hint">Record cash spent from or added to the till.</div>
+        <div class="baseline-hint">Record cash spent from or added to the till. Tap “+ Add another” for each separate cash-out.</div>
         <div class="row2">
           <div>
             <label for="expense">Till expense</label>
             <input id="expense" type="text" inputmode="decimal" placeholder="e.g. 20.00" autocomplete="off">
+            <div id="extraExpenses"></div>
+            <button type="button" id="addExpense" class="ghost small">+ Add another</button>
           </div>
           <div>
             <label>Cash added during shift</label>
@@ -214,12 +219,18 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
         <label>Card sales (for the record)</label>
         <input id="card" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
 
+        <label for="black">Black — undeclared cash out</label>
+        <input id="black" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+
         <label for="declared">Reason / note</label>
         <textarea id="declared" placeholder="e.g. bags of ice"></textarea>
       </div>
     </details>
 
     <button id="checkBtn">Check the till</button>
+    <label for="takeout">Taken out after count (cash leaving the drawer)</label>
+    <input id="takeout" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+    <div class="baseline-hint">Whatever you take out here becomes tomorrow's opening cash.</div>
     <button id="confirmBtn" class="ghost hidden">Confirm day</button>
   </div>
 
@@ -309,6 +320,42 @@ function setVerdict(status, varianceCents, label, openingCash) {
 
 function denomLabel(id) {
   return DENOMS.find((d) => d.id === id)?.label || id;
+}
+
+// --- Multiple till expenses -------------------------------------------------
+// Each cash-out (propina, ice, supplies…) gets its own input line; they are
+// summed on save. The first line is #expense, extras live in #extraExpenses.
+function expenseInputs() {
+  return [document.getElementById('expense'),
+    ...document.querySelectorAll('#extraExpenses input')];
+}
+
+function addExpenseRow(value) {
+  const wrap = document.createElement('div');
+  wrap.className = 'extra-expense-row';
+  const inp = document.createElement('input');
+  inp.type = 'text';
+  inp.inputMode = 'decimal';
+  inp.placeholder = '0.00';
+  inp.autocomplete = 'off';
+  inp.setAttribute('aria-label', 'Additional till expense');
+  if (value !== undefined) inp.value = value;
+  const rm = document.createElement('button');
+  rm.type = 'button';
+  rm.className = 'ghost small danger';
+  rm.textContent = 'Remove';
+  rm.addEventListener('click', () => wrap.remove());
+  wrap.append(inp, rm);
+  document.getElementById('extraExpenses').append(wrap);
+}
+
+function totalExpenseValue() {
+  // Sum all expense lines as euros; empty/invalid lines count as 0.
+  return expenseInputs().reduce((sum, inp) => {
+    const raw = (inp?.value || '').trim().replace(',', '.');
+    const n = Number(raw);
+    return sum + (raw !== '' && Number.isFinite(n) ? n : 0);
+  }, 0);
 }
 
 function buildDenomList() {
@@ -516,6 +563,7 @@ function buildLedgerRow(e, prevEntry) {
   if (Number(e.expense ?? e.cashRemoved) !== 0) {
     detailParts.push(`Till expense €${e.expense ?? e.cashRemoved}`);
   }
+  if (Number(e.black) !== 0) detailParts.push(`Black €${e.black}`);
   if (Number(e.cashAdded) !== 0) detailParts.push(`Added €${e.cashAdded}`);
   if (Number(e.cardTransfer) !== 0) detailParts.push(`Card €${e.cardTransfer}`);
   detailParts.push(`Expected €${e.expected}`);
@@ -568,14 +616,19 @@ function buildLedgerRow(e, prevEntry) {
     // Pre-fill the other fields.
     const expense = document.getElementById('expense');
     if (expense) expense.value = Number(e.expense ?? e.cashRemoved).toFixed(2);
+    document.getElementById('extraExpenses').innerHTML = '';
     const added = document.getElementById('added');
     if (added) added.value = Number(e.cashAdded).toFixed(2);
     const card = document.getElementById('card');
     if (card) card.value = Number(e.cardTransfer).toFixed(2);
+    const black = document.getElementById('black');
+    if (black) black.value = Number(e.black ?? 0).toFixed(2);
+    const takeout = document.getElementById('takeout');
+    if (takeout) takeout.value = Number(e.takeout ?? 0).toFixed(2);
     const declared = document.getElementById('declared');
     if (declared) declared.value = e.declared || '';
     const adjustments = document.getElementById('adjustments');
-    if (adjustments && (Number(e.expense ?? e.cashRemoved) !== 0 || Number(e.cashAdded) !== 0 || Number(e.cardTransfer) !== 0 || e.declared)) {
+    if (adjustments && (Number(e.expense ?? e.cashRemoved) !== 0 || Number(e.black) !== 0 || Number(e.cashAdded) !== 0 || Number(e.cardTransfer) !== 0 || e.declared)) {
       adjustments.open = true;
     }
     // Show the entry card and scroll to it.
@@ -627,14 +680,18 @@ document.getElementById('setupBtn').addEventListener('click', async () => {
   } catch (e) { alert(e.message); }
 });
 
+document.getElementById('addExpense').addEventListener('click', () => addExpenseRow());
+
 document.getElementById('checkBtn').addEventListener('click', async () => {
   const counts = getDenomCounts();
   const hasDenomInput = Object.values(counts).some((n) => n > 0);
   const payload = {
     actual: hasDenomInput ? null : '0',  // When denominations are used, actual is derived
-    expense: document.getElementById('expense').value,
+    expense: totalExpenseValue().toFixed(2),
     cashAdded: document.getElementById('added').value,
     cardTransfer: document.getElementById('card').value,
+    black: document.getElementById('black').value,
+    takeout: document.getElementById('takeout').value,
     declared: document.getElementById('declared').value,
     denominations: hasDenomInput ? counts : null,
   };
@@ -659,6 +716,12 @@ document.getElementById('confirmBtn').addEventListener('click', async () => {
   try {
     await req('POST', API.confirm, { date: selectedDate() });
     alert('Day confirmed.');
+    // Reset to today so the form is ready for the next day instead of
+    // lingering on the confirmed date (which would PATCH the wrong day).
+    editingDate = null;
+    document.getElementById('entryDate').value = today();
+    const takeoutInput = document.getElementById('takeout');
+    if (takeoutInput) takeoutInput.value = '';
     await init();
   } catch (e) { alert(e.message); }
 });
