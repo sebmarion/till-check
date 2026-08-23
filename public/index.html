@@ -222,15 +222,19 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
         <label for="black">Black — undeclared cash out</label>
         <input id="black" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
 
+        <label for="preTakeout">Cash drop — taken out before counting</label>
+        <input id="preTakeout" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+        <div class="baseline-hint">Cash removed from the drawer before doing the count.</div>
+
         <label for="declared">Reason / note</label>
         <textarea id="declared" placeholder="e.g. bags of ice"></textarea>
       </div>
     </details>
 
     <button id="checkBtn">Check the till</button>
-    <label for="takeout">Taken out after count (cash leaving the drawer)</label>
+    <label for="takeout">Taken out at close</label>
     <input id="takeout" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
-    <div class="baseline-hint">Whatever you take out here becomes tomorrow's opening cash.</div>
+    <div class="baseline-hint">Cash leaving the drawer after counting becomes tomorrow's opening.</div>
     <button id="confirmBtn" class="ghost hidden">Confirm day</button>
   </div>
 
@@ -564,6 +568,7 @@ function buildLedgerRow(e, prevEntry) {
     detailParts.push(`Till expense €${e.expense ?? e.cashRemoved}`);
   }
   if (Number(e.black) !== 0) detailParts.push(`Black €${e.black}`);
+  if (Number(e.preTakeout) !== 0) detailParts.push(`Taken out €${e.preTakeout}`);
   if (Number(e.cashAdded) !== 0) detailParts.push(`Added €${e.cashAdded}`);
   if (Number(e.cardTransfer) !== 0) detailParts.push(`Card €${e.cardTransfer}`);
   detailParts.push(`Expected €${e.expected}`);
@@ -623,12 +628,14 @@ function buildLedgerRow(e, prevEntry) {
     if (card) card.value = Number(e.cardTransfer).toFixed(2);
     const black = document.getElementById('black');
     if (black) black.value = Number(e.black ?? 0).toFixed(2);
+    const preTakeout = document.getElementById('preTakeout');
+    if (preTakeout) preTakeout.value = Number(e.preTakeout ?? 0).toFixed(2);
     const takeout = document.getElementById('takeout');
     if (takeout) takeout.value = Number(e.takeout ?? 0).toFixed(2);
     const declared = document.getElementById('declared');
     if (declared) declared.value = e.declared || '';
     const adjustments = document.getElementById('adjustments');
-    if (adjustments && (Number(e.expense ?? e.cashRemoved) !== 0 || Number(e.black) !== 0 || Number(e.cashAdded) !== 0 || Number(e.cardTransfer) !== 0 || e.declared)) {
+    if (adjustments && (Number(e.expense ?? e.cashRemoved) !== 0 || Number(e.black) !== 0 || Number(e.preTakeout) !== 0 || Number(e.cashAdded) !== 0 || Number(e.cardTransfer) !== 0 || e.declared)) {
       adjustments.open = true;
     }
     // Show the entry card and scroll to it.
@@ -691,6 +698,7 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     cashAdded: document.getElementById('added').value,
     cardTransfer: document.getElementById('card').value,
     black: document.getElementById('black').value,
+    preTakeout: document.getElementById('preTakeout').value,
     takeout: document.getElementById('takeout').value,
     declared: document.getElementById('declared').value,
     denominations: hasDenomInput ? counts : null,
@@ -722,6 +730,8 @@ document.getElementById('confirmBtn').addEventListener('click', async () => {
     document.getElementById('entryDate').value = today();
     const takeoutInput = document.getElementById('takeout');
     if (takeoutInput) takeoutInput.value = '';
+    const preTakeoutInput = document.getElementById('preTakeout');
+    if (preTakeoutInput) preTakeoutInput.value = '';
     await init();
   } catch (e) { alert(e.message); }
 });

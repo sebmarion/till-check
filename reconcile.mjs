@@ -12,12 +12,14 @@
 //   - black         undeclared ("black") cash out — own column, also reduces
 //                   expected so the day balances; tracked separately from
 //                   legitimate expenses for later totals
+//   - preTakeout    cash taken out BEFORE counting — the count already
+//                   reflects it, so it reduces expected (own column)
 //   - cashAdded     cash moved IN during the shift (loan, bank)
 //   - cardTransfer  card revenue moved to the bank (logged; does NOT touch till cash)
 //   - declared      free-text note for declared/unaccounted cash
 //
 // Expected cash at close:
-//   expected = opening_cash + cashAdded - cashRemoved - black
+//   expected = opening_cash + cashAdded - cashRemoved - black - preTakeout
 //
 //   variance = actual - expected
 //     < 0  short  (cash missing / unaccounted)
@@ -112,18 +114,20 @@ export function denominationsToCents(counts) {
 }
 
 export function reconcileDay(
-  { actual, expense, cashRemoved = 0, black = 0, cashAdded = 0, cardTransfer = 0, declared = "", denominations },
+  { actual, expense, cashRemoved = 0, black = 0, preTakeout = 0, cashAdded = 0, cardTransfer = 0, declared = "", denominations },
   openingCents = 0,
 ) {
   // If denominations are provided, they define the actual count.
   const actualCents = denominations ? denominationsToCents(denominations) : eurosToCents(actual);
   const removedCents = eurosToCents(expense ?? cashRemoved);
   const blackCents = eurosToCents(black);
+  const preTakeoutCents = eurosToCents(preTakeout);
   const addedCents = eurosToCents(cashAdded);
   const cardCents = eurosToCents(cardTransfer);
   const declaredNote = String(declared ?? "");
 
-  const expectedCents = openingCents + addedCents - removedCents - blackCents;
+  const expectedCents =
+    openingCents + addedCents - removedCents - blackCents - preTakeoutCents;
   const varianceCents = actualCents - expectedCents;
 
   const status =
@@ -136,6 +140,7 @@ export function reconcileDay(
     addedCents,
     cardCents,
     blackCents,
+    preTakeoutCents,
     declared: declaredNote,
     varianceCents,
     status,

@@ -132,6 +132,22 @@ test('black is tracked separately and reduces expected like a cash-out', () => {
   assert.equal(both.status, STATUS.BALANCED)
 })
 
+test('pre-takeout (removed before counting) reduces expected in its own column', () => {
+  // Opening €500, €80 taken out before counting, count €420 -> balanced.
+  const r = reconcileDay({ actual: '420', preTakeout: '80' }, 50000)
+  assert.equal(r.expectedCents, 42000)
+  assert.equal(r.preTakeoutCents, 8000)
+  assert.equal(r.varianceCents, 0)
+  assert.equal(r.status, STATUS.BALANCED)
+  // Combines with black and expense without cross-contamination.
+  const mix = reconcileDay(
+    { actual: '350', expense: '10', black: '50', preTakeout: '90' }, 50000)
+  assert.equal(mix.expectedCents, 35000)
+  assert.equal(mix.removedCents, 1000)
+  assert.equal(mix.blackCents, 5000)
+  assert.equal(mix.preTakeoutCents, 9000)
+})
+
 test('cent-precision: 0.01 short is a short, not a balanced float error', () => {
   const r = reconcileDay({ actual: '399.99', cashRemoved: '100' }, 50000)
   // expected = 500 - 100 = 400.00 ; actual 399.99 -> variance -0.01

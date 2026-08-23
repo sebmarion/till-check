@@ -378,6 +378,26 @@ serialTest('POST /entry records black separately from expense and reduces expect
   assert.equal(Number(stored.expense), 0)
 })
 
+serialTest('POST /entry stores taken-out-before-count separately', async () => {
+  const day = testDate()
+  const opening = await currentBooksBalance()
+  // €40 removed before counting; counted = opening - 40 -> balanced.
+  const { status, data } = await req('POST', '/entry', {
+    date: day,
+    actual: String(opening - 40),
+    preTakeout: '40',
+  })
+  assert.equal(status, 200)
+  assert.equal(data.status, 'balanced')
+  assert.equal(Number(data.preTakeout), 40)
+  assert.equal(Number(data.black), 0)
+  assert.equal(Number(data.expense), 0)
+  const hist = await req('GET', '/history')
+  const stored = hist.data.entries.find((e) => e.date === day)
+  assert.ok(stored, 'entry present in history')
+  assert.equal(Number(stored.preTakeout), 40)
+})
+
 serialTest('GET /history returns entries', async () => {
   const { status, data } = await req('GET', '/history')
   assert.equal(status, 200)
@@ -638,7 +658,7 @@ serialTest('Served page exposes the date picker, expense field, and API wiring',
   const html = await res.text()
 
   // Form fields exist and are wired to the API contract the server serves.
-  for (const id of ['entryDate', 'expense', 'added', 'card', 'black', 'takeout', 'declared', 'checkBtn', 'confirmBtn', 'addExpense', 'extraExpenses']) {
+  for (const id of ['entryDate', 'expense', 'added', 'card', 'black', 'preTakeout', 'takeout', 'declared', 'checkBtn', 'confirmBtn', 'addExpense', 'extraExpenses']) {
     assert.ok(html.includes(`id="${id}"`), `served page must contain #${id}`)
   }
   for (const endpoint of ['api/entry', 'api/confirm', 'api/state']) {
