@@ -262,8 +262,8 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
     <div id="verdict" class="verdict balanced hidden">
       <div class="badge balanced" id="vBadge">✓</div>
       <div class="body">
-        <div class="amount" id="vAmount">€0.00</div>
-        <div class="sub" id="vSub">Balanced — accounts match</div>
+        <div class="amount" id="vAmount">MATCHES</div>
+        <div class="sub" id="vSub">Matches — your count and the books agree</div>
       </div>
     </div>
 
@@ -347,8 +347,8 @@ function setVerdict(status, varianceCents, label, openingCash, actualCents, expe
   badge.className = 'badge ' + status;
   const amount = Math.abs(varianceCents);
   document.getElementById('vAmount').textContent = status === 'balanced'
-    ? 'MATCH'
-    : status === 'short' ? 'SHORT by ' + euroFmt(amount / 100) : 'OVER by ' + euroFmt(amount / 100);
+    ? 'MATCHES'
+    : status === 'short' ? euroFmt(amount / 100) + ' CASH MISSING' : euroFmt(amount / 100) + ' EXTRA CASH';
   let sub = label;
   if (actualCents !== undefined && expectedCents !== undefined) {
     sub += '  ·  Counted ' + euroFmt(actualCents / 100) + '  ·  Expected ' + euroFmt(expectedCents / 100);
@@ -378,13 +378,13 @@ function updateCheckPreview() {
   const variance = actual - expected;
   if (variance === 0) {
     live.className = 'live-check balanced';
-    live.textContent = '✓ MATCH — your count is correct';
+    live.textContent = '✓ MATCHES — your count is correct';
   } else if (variance < 0) {
     live.className = 'live-check short';
-    live.textContent = 'SHORT by ' + euroFmt(Math.abs(variance) / 100) + ' — counted cash is below the books';
+    live.textContent = euroFmt(Math.abs(variance) / 100) + ' CASH MISSING — you counted less than the books expect';
   } else {
     live.className = 'live-check over';
-    live.textContent = 'OVER by ' + euroFmt(variance / 100) + ' — counted cash is above the books';
+    live.textContent = euroFmt(variance / 100) + ' EXTRA CASH — you counted more than the books expect';
   }
 }
 
@@ -591,9 +591,9 @@ async function refresh() {
 }
 
 function verdictLabel(status) {
-  if (status === 'balanced') return 'Balanced — accounts match';
-  if (status === 'short') return 'Short — cash missing or unaccounted';
-  return 'Over — more cash than the books predict';
+  if (status === 'balanced') return 'Matches — your count and the books agree';
+  if (status === 'short') return 'Cash missing — the drawer has less than the books expect';
+  return 'Extra cash — the drawer has more than the books expect';
 }
 
 function renderLedger(entries) {
@@ -655,8 +655,8 @@ function buildLedgerRow(e, prevEntry) {
   const varSpan = document.createElement('span'); varSpan.className = 'var ' + e.status;
   const variance = Math.abs(Number(e.variance));
   varSpan.textContent = e.status === 'balanced'
-    ? '✓ MATCH'
-    : e.status === 'short' ? 'SHORT ' + euroFmt(variance) : 'OVER ' + euroFmt(variance);
+    ? '✓ MATCHES'
+    : e.status === 'short' ? euroFmt(variance) + ' CASH MISSING' : euroFmt(variance) + ' EXTRA CASH';
   row1.append(dateSpan, varSpan);
   li.append(row1);
 
