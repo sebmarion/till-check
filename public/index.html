@@ -671,6 +671,14 @@ function buildLedgerRow(e, prevEntry) {
         if (inp) inp.value = e.denominations[d.id] || '';
       }
       updateDenomTotal();
+    } else {
+      // The edited day has no stored count: clear the counters so the form
+      // can't silently reuse whatever was counted for a different day.
+      for (const d of DENOMS) {
+        const inp = document.querySelector(`[data-denom="${d.id}"]`);
+        if (inp) inp.value = '';
+      }
+      updateDenomTotal();
     }
     // Pre-fill the other fields.
     const expense = document.getElementById('expense');

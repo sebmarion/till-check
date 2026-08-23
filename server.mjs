@@ -586,6 +586,10 @@ async function handlePatchEntry(req, date) {
   }
   const state = getState()
   if (!state) return { code: 409, body: { error: 'no opening state set' } }
+  // Takeout: a fresh euros value from the caller wins; otherwise the stored
+  // cents are kept as-is (already the right unit).
+  const takeoutCents =
+    body.takeout !== undefined ? eurosToCents(body.takeout) : row.takeout_cents
   // Denominations: preserve existing unless explicitly overridden.
   let denomObj = null
   try { denomObj = row.denominations ? JSON.parse(row.denominations) : null } catch { denomObj = null }
@@ -626,7 +630,7 @@ async function handlePatchEntry(req, date) {
     variance_cents: result.varianceCents,
     status: result.status,
     opening_cents: openingCents,
-    takeout_cents: row.takeout_cents,
+    takeout_cents: takeoutCents,
     black_cents: result.blackCents,
     pre_takeout_cents: result.preTakeoutCents,
     created_at: row.created_at,

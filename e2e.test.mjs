@@ -625,6 +625,17 @@ serialTest('PATCH /entry/:date preserves stored amounts when only the note chang
   assert.equal(entry.declared, 'ice run')
 })
 
+serialTest('PATCH /entry/:date updates takeout on edit (was silently dropped)', async () => {
+  const day = testDate()
+  await req('POST', '/entry', { date: day, actual: '100', takeout: '8' })
+  const { status, data } = await req('PATCH', `/entry/${day}`, {
+    actual: '100',
+    takeout: '20',
+  })
+  assert.equal(status, 200)
+  assert.equal(Number(data.takeout), 20, 'takeout must update on edit')
+})
+
 serialTest('DELETE /entry/:date falls back to the newest confirmed day for the opening', async () => {
   const day1 = testDate()
   const day2 = testDate()
