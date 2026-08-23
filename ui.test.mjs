@@ -167,13 +167,13 @@ test('saved black and taken-out-at-close persist and show in history', async () 
   await page.locator('#adjustments summary').click() // open the cash-movements section
   await page.locator('#black').fill('20')
   await page.locator('#takeout').fill('40')
-  // Now counted €300 vs expected 280 (300 - 20 black): €20 EXTRA CASH.
+  // Black is cash IN: expected = 300 + 20 = 320; counted 300 -> €20 MISSING.
   await page.locator('#checkBtn').click()
   await page.waitForTimeout(400)
   const firstRow = await page.locator('#ledger li').first().innerText()
   assert.match(firstRow, /Black €20\.00/, 'history must show the saved black amount')
   assert.match(firstRow, /Taken out at close €40\.00/, 'history must show the saved takeout')
-  assert.match(firstRow, /€20\.00 EXTRA CASH/, 'history badge reflects the variance')
+  assert.match(firstRow, /€20\.00 CASH MISSING/, 'history badge reflects the variance')
 
   // Reload: still there, from the server, not from page state.
   await gotoApp()
@@ -192,7 +192,38 @@ test('edit re-fills denominations, black and takeout from the saved day', async 
   assert.equal(await page.locator('#takeout').inputValue(), '40.00')
 })
 
-// --- 6. Changing the date clears the form ------------------------------------
+// --- 7. Field definitions: glossary + labels --------------------------------
+
+test('every money field is defined in the glossary', async () => {
+  await gotoApp()
+  await page.locator('#glossary summary').click()
+  const text = (await page.locator('#glossary').innerText()).toLowerCase()
+  for (const term of ['counted', 'till expense', 'black', 'cash drop', 'taken out at close', 'cash added', 'card sales', 'target']) {
+    assert.ok(text.includes(term), `glossary must define "${term}"`)
+  }
+  // Black's definition must reflect the corrected semantics: cash IN.
+  const blackDef = await page.locator('[data-glossary="black"]').innerText()
+  assert.match(blackDef.toLowerCase(), /into the till/, 'black must be defined as cash going IN')
+  assert.ok(!/undeclared cash out/i.test(blackDef), 'old cash-OUT definition must be gone')
+})
+
+test('black label says cash in, not undeclared cash out', async () => {
+  const label = await page.locator('label[for="black"]').textContent()
+  assert.match(label.toLowerCase(), /cash in|income|unrung/)
+  assert.ok(!/cash out/i.test(label.toLowerCase()))
+})
+
+test('live preview counts black as cash IN (raises the target)', async () => {
+  // Opening 300; black 100 -> target 400; count 400 -> MATCHES.
+  await page.locator('#adjustments summary').click()
+  await page.locator('#black').fill('100')
+  await setCount('50', 8)
+  const live = await page.locator('#liveCheck').innerText()
+  assert.match(live, /MATCHES/, '400 counted vs 300+100 black must match')
+  const target = await page.locator('#expectedNow').innerText()
+  assert.equal(target, '€400.00', 'target must include black income')
+})
+
 
 test('changing the reconciliation date clears the count form', async () => {
   // Form currently holds the edited values from the previous test.

@@ -310,6 +310,10 @@ function handleGetDenominations() {
   return { code: 200, body: { denominations: DENOMINATIONS } }
 }
 
+function todayRowBefore(date) {
+  return !!db.prepare('SELECT id FROM entries WHERE date = ?').get(date)
+}
+
 async function handlePostEntry(req) {
   const raw = await readBody(req)
   let body
@@ -326,9 +330,18 @@ async function handlePostEntry(req) {
       : null
   const state = getState()
   // Opening resolution: an explicit body.opening wins (used by tests and
-  // power users); otherwise derive it from history/state for the date.
-  const openingCents =
-    body.opening !== undefined ? eurosToCents(body.opening) : getOpeningForDate(today)
+  // power users); otherwise derive it from history/state for the date. A
+  // TRUE first entry (no state, no confirmed history, no explicit opening)
+  // has no knowable opening — the operator only knows what was left — so
+  // the day derives its own opening and balances by design.
+  const hasExplicitOpening = body.opening !== undefined
+  const hasHistory = !!db.prepare(
+    'SELECT id FROM entries WHERE confirmed_at IS NOT NULL LIMIT 1',
+  ).get()
+  const firstDay = !state && !hasHistory && !hasExplicitOpening && !todayRowBefore(today)
+  const openingCents = hasExplicitOpening
+    ? eurosToCents(body.opening)
+    : getOpeningForDate(today)
   const result = reconcileDay(
     {
       actual: body.actual,
@@ -339,10 +352,12 @@ async function handlePostEntry(req) {
       cardTransfer: body.cardTransfer ?? 0,
       declared,
       denominations,
+      firstDay,
     },
     openingCents,
   )
   const takeoutCents = eurosToCents(body.takeout ?? 0)
+  const effectiveOpeningCents = result.openingCents ?? openingCents
   const entry = {
     date: today,
     actual_cents: result.actualCents,
@@ -354,7 +369,7 @@ async function handlePostEntry(req) {
     expected_cents: result.expectedCents,
     variance_cents: result.varianceCents,
     status: result.status,
-    opening_cents: openingCents,
+    opening_cents: effectiveOpeningCents,
     takeout_cents: takeoutCents,
     black_cents: result.blackCents,
     pre_takeout_cents: result.preTakeoutCents,

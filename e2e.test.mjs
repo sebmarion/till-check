@@ -354,25 +354,25 @@ serialTest('POST /reconcile with invalid JSON returns 400', async () => {
 })
 
 // --- History tests ---
-serialTest('POST /entry records black separately from expense and reduces expected', async () => {
+serialTest('POST /entry records black as unrung cash IN and raises expected', async () => {
   const day = testDate()
   const opening = await currentBooksBalance()
-  // No other moves: expected = opening − 30 (black reduces the books),
-  // counted = opening -> over by exactly the black amount.
+  // Black is cash that went INTO the till without a receipt: expected =
+  // opening + black. Counted = opening + black -> balanced.
   const { status, data } = await req('POST', '/entry', {
     date: day,
-    actual: String(opening),
+    actual: String(opening + 30),
     black: '30',
     takeout: '20',
   })
   assert.equal(status, 200)
-  assert.equal(data.status, 'over')
+  assert.equal(data.status, 'balanced')
   assert.equal(Number(data.black), 30)
   assert.equal(Number(data.takeout), 20)
   assert.equal(Number(data.expense), 0)
-  assert.equal(Number(data.expected), opening - 30)
-  assert.equal(Number(data.variance), 30)
-  // Black survives in its own column in history (not folded into expense).
+  assert.equal(Number(data.expected), opening + 30)
+  assert.equal(Number(data.variance), 0)
+  // Black survives in its own column in history (not folded into added).
   const hist = await req('GET', '/history')
   const stored = hist.data.entries.find((e) => e.date === day)
   assert.ok(stored, 'entry present in history')
@@ -399,6 +399,47 @@ serialTest('POST /entry stores taken-out-before-count separately', async () => {
   const stored = hist.data.entries.find((e) => e.date === day)
   assert.ok(stored, 'entry present in history')
   assert.equal(Number(stored.preTakeout), 40)
+})
+
+serialTest('full movement mix balances and takeout becomes tomorrow opening', async () => {
+  const day1 = testDate()
+  const day2 = testDate()
+  const { status, data } = await req('POST', '/entry', {
+    date: day1,
+    opening: '500',
+    actual: '520',
+    expense: '20',
+    black: '30',
+    preTakeout: '40',
+    cashAdded: '50',
+    cardTransfer: '100',
+    takeout: '100',
+  })
+  assert.equal(status, 200)
+  // expected = 500 + 50 added + 30 black - 20 expense - 40 drop = 520
+  assert.equal(Number(data.expected), 520, 'black raises expected; drop and expense lower it')
+  assert.equal(Number(data.actual), 520)
+  assert.equal(Number(data.variance), 0)
+  assert.equal(data.status, 'balanced')
+  assert.equal(Number(data.black), 30)
+  assert.equal(Number(data.preTakeout), 40)
+  assert.equal(Number(data.takeout), 100)
+  assert.equal(Number(data.cardTransfer), 100)
+
+  const history = await req('GET', '/history')
+  const stored = history.data.entries.find((entry) => entry.date === day1)
+  assert.equal(Number(stored.expected), 520)
+  assert.equal(Number(stored.takeout), 100)
+
+  const confirmed = await req('POST', '/confirm', { date: day1 })
+  assert.equal(confirmed.status, 200)
+  assert.equal(Number(confirmed.data.openingCash), 420)
+
+  const next = await req('POST', '/entry', { date: day2, actual: '420' })
+  assert.equal(next.status, 200)
+  assert.equal(Number(next.data.opening), 420)
+  assert.equal(Number(next.data.expected), 420)
+  assert.equal(next.data.status, 'balanced')
 })
 
 serialTest('GET /history returns entries', async () => {

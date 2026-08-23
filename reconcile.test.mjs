@@ -117,19 +117,55 @@ test('expense is an alias for cashRemoved and reduces expected cash', () => {
   assert.equal(none.status, STATUS.BALANCED)
 })
 
-test('black is tracked separately and reduces expected like a cash-out', () => {
-  // Opening €500, €50 taken out undeclared (black), count €450 -> balanced.
-  const r = reconcileDay({ actual: '450', black: '50' }, 50000)
-  assert.equal(r.expectedCents, 45000)
+test('black is unrung cash IN: raises expected, stays in its own column', () => {
+  // Seb's model: black = cash that went INTO the till without a receipt
+  // (tracked on the guy's table). It is part of the till, so the books
+  // must EXPECT it: expected = opening + added + black - expense - drop.
+  // Opening €500, €50 black income, count €550 -> balanced.
+  const r = reconcileDay({ actual: '550', black: '50' }, 50000)
+  assert.equal(r.expectedCents, 55000)
   assert.equal(r.blackCents, 5000)
   assert.equal(r.varianceCents, 0)
   assert.equal(r.status, STATUS.BALANCED)
-  // Black stays distinct from expense even when both are present.
-  const both = reconcileDay({ actual: '430', expense: '20', black: '50' }, 50000)
-  assert.equal(both.expectedCents, 43000)
-  assert.equal(both.removedCents, 2000)
-  assert.equal(both.blackCents, 5000)
-  assert.equal(both.status, STATUS.BALANCED)
+  // Black combines with the outflows without cross-contamination:
+  // 500 + 50 black - 20 expense = 530 expected; count 530 -> balanced.
+  const mix = reconcileDay({ actual: '530', expense: '20', black: '50' }, 50000)
+  assert.equal(mix.expectedCents, 53000)
+  assert.equal(mix.removedCents, 2000)
+  assert.equal(mix.blackCents, 5000)
+  assert.equal(mix.status, STATUS.BALANCED)
+  // Missing black income shows up as cash missing, not extra cash:
+  // 500 + 50 expected, counted 500 -> €50 short.
+  const missing = reconcileDay({ actual: '500', black: '50' }, 50000)
+  assert.equal(missing.status, STATUS.SHORT)
+  assert.equal(missing.varianceCents, -5000)
+})
+
+test('first-ever entry derives its own opening (baseline = first leftover)', () => {
+  // Day one: no known opening. The operator only knows what was left AFTER
+  // drops and expenses. So the first count IS the baseline: the day must
+  // reconcile as balanced with opening = actual + outflows - inflows,
+  // not against a fake €0 opening.
+  const r = reconcileDay(
+    { actual: '108.30', expense: '38.10', black: '199.10', preTakeout: '230', firstDay: true },
+    0,
+  )
+  // opening = 108.30 + 38.10 - 199.10 + 230 = 177.30
+  assert.equal(r.derivedOpeningCents, 17730)
+  assert.equal(r.expectedCents, r.actualCents, 'first day must reconcile against its own derived opening')
+  assert.equal(r.varianceCents, 0)
+  assert.equal(r.status, STATUS.BALANCED)
+  // A normal day (firstDay not set) is unaffected: €0 opening stays €0.
+  const normal = reconcileDay({ actual: '100' }, 0)
+  assert.equal(normal.derivedOpeningCents, undefined)
+  assert.equal(normal.expectedCents, 0)
+})
+
+test('cent-precision: 0.01 short is a short, not a balanced float error', () => {
+  const r = reconcileDay({ actual: '399.99', cashRemoved: '100' }, 50000)
+  // expected = 500 - 100 = 400.00 ; actual 399.99 -> variance -0.01
+  assert.equal(r.varianceCents, -1)
+  assert.equal(r.status, STATUS.SHORT)
 })
 
 test('pre-takeout (removed before counting) reduces expected in its own column', () => {
@@ -139,20 +175,14 @@ test('pre-takeout (removed before counting) reduces expected in its own column',
   assert.equal(r.preTakeoutCents, 8000)
   assert.equal(r.varianceCents, 0)
   assert.equal(r.status, STATUS.BALANCED)
-  // Combines with black and expense without cross-contamination.
+  // Combines with black (income) and expense without cross-contamination.
+  // 500 + 50 black - 10 expense - 90 drop = 450; count 450 -> balanced.
   const mix = reconcileDay(
-    { actual: '350', expense: '10', black: '50', preTakeout: '90' }, 50000)
-  assert.equal(mix.expectedCents, 35000)
+    { actual: '450', expense: '10', black: '50', preTakeout: '90' }, 50000)
+  assert.equal(mix.expectedCents, 45000)
   assert.equal(mix.removedCents, 1000)
   assert.equal(mix.blackCents, 5000)
   assert.equal(mix.preTakeoutCents, 9000)
-})
-
-test('cent-precision: 0.01 short is a short, not a balanced float error', () => {
-  const r = reconcileDay({ actual: '399.99', cashRemoved: '100' }, 50000)
-  // expected = 500 - 100 = 400.00 ; actual 399.99 -> variance -0.01
-  assert.equal(r.varianceCents, -1)
-  assert.equal(r.status, STATUS.SHORT)
 })
 
 test('DENOMINATIONS table is complete and in order', () => {

@@ -9,17 +9,19 @@
 //   - actual        cash counted in the till (the main daily number)
 //   - expense       cash spent directly from the till (ice, supplies, payouts)
 //   - cashRemoved   legacy alias for expense
-//   - black         undeclared ("black") cash out — own column, also reduces
-//                   expected so the day balances; tracked separately from
-//                   legitimate expenses for later totals
-//   - preTakeout    cash taken out BEFORE counting — the count already
+//   - black         UNRUNG CASH IN — cash that went into the till without a
+//                   receipt, tracked on an external table. It is part of the
+//                   till, so it RAISES expected (own column for monthly totals)
+//   - preTakeout    cash drop taken out BEFORE counting — the count already
 //                   reflects it, so it reduces expected (own column)
 //   - cashAdded     cash moved IN during the shift (loan, bank)
 //   - cardTransfer  card revenue moved to the bank (logged; does NOT touch till cash)
 //   - declared      free-text note for declared/unaccounted cash
+//   - firstDay      first-ever entry: no known opening, so opening is derived
+//                   from this day's own numbers and the day balances by design
 //
 // Expected cash at close:
-//   expected = opening_cash + cashAdded - cashRemoved - black - preTakeout
+//   expected = opening_cash + cashAdded + black - cashRemoved - preTakeout
 //
 //   variance = actual - expected
 //     < 0  short  (cash missing / unaccounted)
@@ -114,7 +116,7 @@ export function denominationsToCents(counts) {
 }
 
 export function reconcileDay(
-  { actual, expense, cashRemoved = 0, black = 0, preTakeout = 0, cashAdded = 0, cardTransfer = 0, declared = "", denominations },
+  { actual, expense, cashRemoved = 0, black = 0, preTakeout = 0, cashAdded = 0, cardTransfer = 0, declared = "", denominations, firstDay = false },
   openingCents = 0,
 ) {
   // If denominations are provided, they define the actual count.
@@ -126,8 +128,19 @@ export function reconcileDay(
   const cardCents = eurosToCents(cardTransfer);
   const declaredNote = String(declared ?? "");
 
+  let effectiveOpening = openingCents;
+  let derivedOpeningCents;
+  if (firstDay) {
+    // First-ever entry: the operator only knows what was LEFT after drops
+    // and expenses. Derive the opening that makes this day balance:
+    //   opening = actual - added - black + removed + preTakeout
+    derivedOpeningCents =
+      actualCents - addedCents - blackCents + removedCents + preTakeoutCents;
+    effectiveOpening = derivedOpeningCents;
+  }
+
   const expectedCents =
-    openingCents + addedCents - removedCents - blackCents - preTakeoutCents;
+    effectiveOpening + addedCents + blackCents - removedCents - preTakeoutCents;
   const varianceCents = actualCents - expectedCents;
 
   const status =
@@ -144,6 +157,8 @@ export function reconcileDay(
     declared: declaredNote,
     varianceCents,
     status,
+    derivedOpeningCents,
+    openingCents: effectiveOpening,
     // The count is the new reference for tomorrow. After a takeout, the
     // remainder becomes tomorrow's opening cash.
     nextOpeningCents: actualCents,

@@ -161,6 +161,11 @@ button:active { transform: translateY(1px); }
 .summary-item .value { display: block; font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
 .summary-item .caption { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
 .section-body .ledger { margin-top: 8px; }
+.glossary { margin: 0; }
+.glossary > div { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.glossary > div:last-child { border-bottom: 0; }
+.glossary dt { font-weight: 650; font-size: 14px; }
+.glossary dd { margin: 3px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
 .hidden { display: none !important; }
 footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
 @media (max-width: 380px) {
@@ -236,8 +241,9 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
         <label>Card sales (for the record)</label>
         <input id="card" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
 
-        <label for="black">Black — undeclared cash out</label>
+        <label for="black">Black — cash in without a receipt</label>
         <input id="black" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+        <div class="baseline-hint">Unrung cash that went into the till. It raises today's target.</div>
 
         <label for="preTakeout">Cash drop — taken out before counting</label>
         <input id="preTakeout" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
@@ -282,6 +288,22 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
       </div>
     </details>
   </div>
+
+  <details id="glossary" class="section-card">
+    <summary><span class="section-title">What do these mean?</span><span class="section-hint">Field definitions</span></summary>
+    <div class="section-body">
+      <dl class="glossary">
+        <div data-glossary="counted"><dt>Counted</dt><dd>The cash physically in the drawer after you count it. This is your starting point every day.</dd></div>
+        <div data-glossary="target"><dt>Target</dt><dd>What the books say should be in the drawer. It is NOT your count — it is what you compare against.</dd></div>
+        <div data-glossary="till-expense"><dt>Till expense</dt><dd>Cash spent straight from the drawer (ice, supplies, payouts). Lowers the target. Keep the receipt or note why.</dd></div>
+        <div data-glossary="black"><dt>Black</dt><dd>Cash that went INTO the till without a receipt — unrung income, tracked on the side table. Raises the target because it is real cash in the drawer.</dd></div>
+        <div data-glossary="cash-drop"><dt>Cash drop</dt><dd>Cash taken out of the drawer BEFORE counting (e.g. to the safe). The count is whatever is left afterwards, so it lowers the target.</dd></div>
+        <div data-glossary="taken-out-at-close"><dt>Taken out at close</dt><dd>Cash removed AFTER counting (usually to the safe). Does not change today's result — it becomes tomorrow's opening.</dd></div>
+        <div data-glossary="cash-added"><dt>Cash added</dt><dd>Cash put into the drawer during the shift (change loan, bank withdrawal). Raises the target.</dd></div>
+        <div data-glossary="card-sales"><dt>Card sales</dt><dd>Card revenue, for the record only. Card money never touches the drawer, so it never changes the target.</dd></div>
+      </dl>
+    </div>
+  </details>
 
   <footer>Till Check · one drawer, one owner, one machine</footer>
 </div>
@@ -361,8 +383,8 @@ function setVerdict(status, varianceCents, label, openingCash, actualCents, expe
 function expectedCentsNow() {
   return Math.round(currentOpeningCash * 100)
     + Math.round(totalAddedValue() * 100)
+    + Math.round(Number((document.getElementById('black')?.value || '').replace(',', '.')) * 100 || 0)
     - Math.round(totalExpenseValue() * 100)
-    - Math.round(Number((document.getElementById('black')?.value || '').replace(',', '.')) * 100 || 0)
     - Math.round(totalPreTakeoutValue() * 100);
 }
 
