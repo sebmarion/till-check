@@ -363,10 +363,12 @@ serialTest('POST /entry records black separately from expense and reduces expect
     date: day,
     actual: String(opening),
     black: '30',
+    takeout: '20',
   })
   assert.equal(status, 200)
   assert.equal(data.status, 'over')
   assert.equal(Number(data.black), 30)
+  assert.equal(Number(data.takeout), 20)
   assert.equal(Number(data.expense), 0)
   assert.equal(Number(data.expected), opening - 30)
   assert.equal(Number(data.variance), 30)
@@ -375,6 +377,7 @@ serialTest('POST /entry records black separately from expense and reduces expect
   const stored = hist.data.entries.find((e) => e.date === day)
   assert.ok(stored, 'entry present in history')
   assert.equal(Number(stored.black), 30)
+  assert.equal(Number(stored.takeout), 20)
   assert.equal(Number(stored.expense), 0)
 })
 
@@ -425,6 +428,8 @@ serialTest('PATCH /entry/:date updates the entry', async () => {
     cashRemoved: 0,
     cashAdded: 0,
     cardTransfer: 0,
+    black: 10,
+    takeout: 8,
     declared: '',
   })
   assert.equal(created.status, 200)
@@ -433,10 +438,14 @@ serialTest('PATCH /entry/:date updates the entry', async () => {
     cashRemoved: 0,
     cashAdded: 0,
     cardTransfer: 0,
+    black: 30,
+    takeout: 20,
     declared: 'updated',
   })
   assert.equal(status, 200)
   assert.equal(Number(data.actual), 550)
+  assert.equal(Number(data.black), 30)
+  assert.equal(Number(data.takeout), 20)
 })
 
 serialTest('DELETE /entry/:date deletes the entry', async () => {
@@ -675,6 +684,7 @@ serialTest('Served page exposes the date picker, expense field, and API wiring',
   assert.ok(html.includes('Step 1 of 3'), 'page must explain the counting workflow')
   assert.ok(html.includes('Step 3: Save count &amp; see if it matches'), 'save action must explain its result')
   assert.ok(html.includes('MATCH'), 'page must use an explicit match verdict')
+  assert.ok(html.includes('Taken out at close'), 'history must show saved takeout values')
   for (const endpoint of ['api/entry', 'api/confirm', 'api/state']) {
     assert.ok(html.includes(endpoint), `page must call ${endpoint}`)
   }

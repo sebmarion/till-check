@@ -692,7 +692,8 @@ function buildLedgerRow(e, prevEntry) {
     detailParts.push(`Till expense €${e.expense ?? e.cashRemoved}`);
   }
   if (Number(e.black ?? 0) !== 0) detailParts.push(`Black €${e.black}`);
-  if (Number(e.preTakeout ?? 0) !== 0) detailParts.push(`Taken out €${e.preTakeout}`);
+  if (Number(e.preTakeout ?? 0) !== 0) detailParts.push(`Cash drop €${e.preTakeout}`);
+  if (Number(e.takeout ?? 0) !== 0) detailParts.push(`Taken out at close €${e.takeout}`);
   if (Number(e.cashAdded) !== 0) detailParts.push(`Added €${e.cashAdded}`);
   if (Number(e.cardTransfer) !== 0) detailParts.push(`Card €${e.cardTransfer}`);
   detailParts.push(`Expected €${e.expected}`);
