@@ -126,10 +126,10 @@ button:active { transform: translateY(1px); }
 .ledger li:last-child { border-bottom: 0; }
 .ledger .row1 { display: flex; justify-content: space-between; align-items: center; }
 .ledger .date { color: var(--muted); font-size: 13px; }
-.ledger .var { font-variant-numeric: tabular-nums; font-weight: 600; }
-.ledger .var.short { color: var(--red); }
-.ledger .var.over { color: var(--amber); }
-.ledger .var.balanced { color: var(--green); }
+.ledger .var { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; padding: 5px 9px; border-radius: 8px; }
+.ledger .var.short { color: var(--red); background: var(--red-bg); }
+.ledger .var.over { color: var(--amber); background: var(--amber-bg); }
+.ledger .var.balanced { color: var(--green); background: var(--green-bg); }
 .ledger .status-word { font-weight: 700; letter-spacing: 0.2px; }
 .ledger .details { font-size: 13px; color: var(--muted); margin-top: 6px; }
 .ledger .denom-break { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
@@ -697,6 +697,7 @@ function buildLedgerRow(e, prevEntry) {
   if (Number(e.cashAdded) !== 0) detailParts.push(`Added €${e.cashAdded}`);
   if (Number(e.cardTransfer) !== 0) detailParts.push(`Card €${e.cardTransfer}`);
   detailParts.push(`Expected €${e.expected}`);
+  detailParts.push(`Difference €${Math.abs(Number(e.variance)).toFixed(2)}`);
   details.textContent = detailParts.join(' · ');
   li.append(details);
 
