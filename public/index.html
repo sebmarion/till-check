@@ -64,6 +64,18 @@ h1 { font-size: 22px; line-height: 1.1; font-weight: 650; margin: 0; letter-spac
 .verdict .badge.balanced { background: var(--green); color: #fff; }
 .verdict .badge.short { background: var(--red); color: #fff; }
 .verdict .badge.over { background: var(--amber); color: #fff; }
+.count-guide { padding: 14px 16px; margin: 0 0 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); }
+.count-guide .step { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
+.count-guide h2 { font-size: 21px; margin: 3px 0 2px; letter-spacing: -0.2px; }
+.count-guide p { margin: 0; color: var(--muted); font-size: 14px; }
+.expected-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--line); }
+.expected-row span { color: var(--muted); font-size: 14px; }
+.expected-row strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.live-check { margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-weight: 650; font-size: 15px; }
+.live-check.neutral { background: #eceae4; color: var(--muted); font-weight: 500; }
+.live-check.balanced { background: var(--green-bg); color: var(--green); }
+.live-check.short { background: var(--red-bg); color: var(--red); }
+.live-check.over { background: var(--amber-bg); color: var(--amber); }
 
 label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
 input {
@@ -118,6 +130,7 @@ button:active { transform: translateY(1px); }
 .ledger .var.short { color: var(--red); }
 .ledger .var.over { color: var(--amber); }
 .ledger .var.balanced { color: var(--green); }
+.ledger .status-word { font-weight: 700; letter-spacing: 0.2px; }
 .ledger .details { font-size: 13px; color: var(--muted); margin-top: 6px; }
 .ledger .denom-break { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
 .ledger .declared { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
@@ -177,8 +190,18 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 
   <!-- Daily entry -->
   <div id="entryCard" class="card hidden">
-    <div class="label">Count the drawer</div>
-    <div class="baseline-hint">Count each note and coin, then check the till.</div>
+    <div class="count-guide">
+      <div class="step">Step 1 of 3</div>
+      <h2>Count the drawer</h2>
+      <p>Enter how many notes and coins are physically in the drawer.</p>
+      <div class="expected-row">
+        <span>Books say the drawer should contain</span>
+        <strong id="expectedNow">€0.00</strong>
+      </div>
+      <div id="liveCheck" class="live-check neutral">Enter your count above to compare.</div>
+    </div>
+
+    <div class="label">Your notes and coins</div>
 
     <label for="entryDate">Reconciliation date</label>
     <input id="entryDate" type="date" autocomplete="off">
@@ -191,9 +214,9 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
     </div>
 
     <details id="adjustments" class="section-card entry-adjustments">
-      <summary><span class="section-title">Other cash movements</span><span class="section-hint">Optional</span></summary>
+      <summary><span class="section-title">Step 2: Cash in or out?</span><span class="section-hint">Only if needed</span></summary>
       <div class="section-body">
-        <div class="baseline-hint">Record cash spent from or added to the till. Tap “+ Add another” for each separate cash-out.</div>
+        <div class="baseline-hint">Open this only if cash was added, spent, dropped, or taken out during the shift.</div>
         <div class="row2">
           <div>
             <label for="expense">Till expense</label>
@@ -232,8 +255,8 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
       </div>
     </details>
 
-    <button id="checkBtn">Save &amp; check</button>
-    <div class="baseline-hint">Compares your counted cash against what the books say — shows balanced, over or short.</div>
+    <button id="checkBtn">Step 3: Save count &amp; see if it matches</button>
+    <div class="baseline-hint">This saves today's count and tells you clearly if the cash matches the books.</div>
 
     <!-- Verdict: right under the save button so the answer is where you're looking -->
     <div id="verdict" class="verdict balanced hidden">
@@ -313,22 +336,56 @@ async function req(method, url, body) {
 
 let DENOMS = [];
 let editingDate = null; // When set, the check button PATCHes this date instead of POSTing today.
+let currentOpeningCash = 0;
 
-function setVerdict(status, varianceCents, label, openingCash) {
+function setVerdict(status, varianceCents, label, openingCash, actualCents, expectedCents) {
   const el = document.getElementById('verdict');
   el.classList.remove('hidden');
   el.className = 'verdict ' + status;
   const badge = document.getElementById('vBadge');
   badge.textContent = status === 'balanced' ? '✓' : status === 'short' ? '−' : '+';
   badge.className = 'badge ' + status;
-  document.getElementById('vAmount').textContent = euroFmt(varianceCents / 100);
-  // Variance context: if the variance is large (>€10) and we know the
-  // opening, show it so the owner understands where the number comes from.
+  const amount = Math.abs(varianceCents);
+  document.getElementById('vAmount').textContent = status === 'balanced'
+    ? 'MATCH'
+    : status === 'short' ? 'SHORT by ' + euroFmt(amount / 100) : 'OVER by ' + euroFmt(amount / 100);
   let sub = label;
-  if (Math.abs(varianceCents) > 1000 && openingCash !== undefined) {
-    sub += '  ·  opening cash ' + euroFmt(openingCash);
+  if (actualCents !== undefined && expectedCents !== undefined) {
+    sub += '  ·  Counted ' + euroFmt(actualCents / 100) + '  ·  Expected ' + euroFmt(expectedCents / 100);
   }
   document.getElementById('vSub').textContent = sub;
+}
+
+function expectedCentsNow() {
+  return Math.round(currentOpeningCash * 100)
+    + Math.round(totalAddedValue() * 100)
+    - Math.round(totalExpenseValue() * 100)
+    - Math.round(Number((document.getElementById('black')?.value || '').replace(',', '.')) * 100 || 0)
+    - Math.round(totalPreTakeoutValue() * 100);
+}
+
+function updateCheckPreview() {
+  const expected = expectedCentsNow();
+  const actual = denomTotalCents();
+  document.getElementById('expectedNow').textContent = euroFmt(expected / 100);
+  const live = document.getElementById('liveCheck');
+  const hasCount = Object.values(getDenomCounts()).some((n) => n > 0);
+  if (!hasCount) {
+    live.className = 'live-check neutral';
+    live.textContent = 'Enter your count above to compare.';
+    return;
+  }
+  const variance = actual - expected;
+  if (variance === 0) {
+    live.className = 'live-check balanced';
+    live.textContent = '✓ MATCH — your count is correct';
+  } else if (variance < 0) {
+    live.className = 'live-check short';
+    live.textContent = 'SHORT by ' + euroFmt(Math.abs(variance) / 100) + ' — counted cash is below the books';
+  } else {
+    live.className = 'live-check over';
+    live.textContent = 'OVER by ' + euroFmt(variance / 100) + ' — counted cash is above the books';
+  }
 }
 
 function denomLabel(id) {
@@ -470,6 +527,7 @@ function updateDenomTotal() {
     const span = document.getElementById('dt-' + d.id);
     if (span) span.textContent = euroFmt((n * d.valueCents) / 100);
   }
+  updateCheckPreview();
 }
 
 async function init() {
@@ -503,6 +561,7 @@ async function init() {
     return
   }
   openingOut.textContent = euroFmt(Number(state.openingCash) || 0);
+  currentOpeningCash = Number(state.openingCash) || 0;
   document.getElementById('entryCard').classList.remove('hidden');
   await refresh();
 }
@@ -518,12 +577,17 @@ async function refresh() {
     selectedEntry = hist.entries.find((e) => e.date === selectedDate()) || null;
     renderLedger(hist.entries);
   } catch (e) { /* history optional on refresh */ }
+  currentOpeningCash = selectedEntry && selectedEntry.opening !== null && selectedEntry.opening !== undefined
+    ? Number(selectedEntry.opening)
+    : Number(state.openingCash) || 0;
   document.getElementById('confirmBtn').classList.toggle('hidden', !selectedEntry);
   document.getElementById('verdict').classList.toggle('hidden', !selectedEntry);
   if (selectedEntry) {
     setVerdict(selectedEntry.status, Number(selectedEntry.variance) * 100,
-      verdictLabel(selectedEntry.status), selectedEntry.opening ?? state.openingCash);
+      verdictLabel(selectedEntry.status), selectedEntry.opening ?? state.openingCash,
+      Number(selectedEntry.actual) * 100, Number(selectedEntry.expected) * 100);
   }
+  updateCheckPreview();
 }
 
 function verdictLabel(status) {
@@ -588,7 +652,11 @@ function buildLedgerRow(e, prevEntry) {
   const li = document.createElement('li');
   const row1 = document.createElement('div'); row1.className = 'row1';
   const dateSpan = document.createElement('span'); dateSpan.className = 'date'; dateSpan.textContent = pretty(e.date);
-  const varSpan = document.createElement('span'); varSpan.className = 'var ' + e.status; varSpan.textContent = euroFmt(Number(e.variance));
+  const varSpan = document.createElement('span'); varSpan.className = 'var ' + e.status;
+  const variance = Math.abs(Number(e.variance));
+  varSpan.textContent = e.status === 'balanced'
+    ? '✓ MATCH'
+    : e.status === 'short' ? 'SHORT ' + euroFmt(variance) : 'OVER ' + euroFmt(variance);
   row1.append(dateSpan, varSpan);
   li.append(row1);
 
@@ -755,6 +823,11 @@ document.getElementById('addExpense').addEventListener('click', () => addExtraRo
 document.getElementById('addAdded').addEventListener('click', () => addExtraRow('extraAdds', undefined, 'Additional cash added'));
 document.getElementById('addDrop').addEventListener('click', () => addExtraRow('extraDrops', undefined, 'Additional cash drop'));
 document.getElementById('addTakeout').addEventListener('click', () => addExtraRow('extraTakeouts', undefined, 'Additional taken out at close'));
+document.addEventListener('input', (event) => {
+  if (event.target.matches('#expense, #added, #black, #preTakeout, #takeout, #extraExpenses input, #extraAdds input, #extraDrops input, #extraTakeouts input')) {
+    updateCheckPreview();
+  }
+});
 
 document.getElementById('checkBtn').addEventListener('click', async () => {
   const counts = getDenomCounts();
@@ -781,7 +854,7 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
       entry = await req('POST', API.entry, payload);
     }
     setVerdict(entry.status, Number(entry.variance) * 100, verdictLabel(entry.status),
-      Number(entry.expected) - Number(entry.variance));
+      Number(entry.opening), Number(entry.actual) * 100, Number(entry.expected) * 100);
     document.getElementById('verdict').scrollIntoView({ behavior: 'smooth', block: 'center' });
     document.getElementById('confirmBtn').classList.remove('hidden');
     await refresh();

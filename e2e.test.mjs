@@ -669,9 +669,12 @@ serialTest('Served page exposes the date picker, expense field, and API wiring',
   const html = await res.text()
 
   // Form fields exist and are wired to the API contract the server serves.
-  for (const id of ['entryDate', 'expense', 'added', 'card', 'black', 'preTakeout', 'takeout', 'declared', 'checkBtn', 'confirmBtn', 'addExpense', 'extraExpenses']) {
+  for (const id of ['entryDate', 'expense', 'added', 'card', 'black', 'preTakeout', 'takeout', 'declared', 'checkBtn', 'confirmBtn', 'addExpense', 'extraExpenses', 'expectedNow', 'liveCheck']) {
     assert.ok(html.includes(`id="${id}"`), `served page must contain #${id}`)
   }
+  assert.ok(html.includes('Step 1 of 3'), 'page must explain the counting workflow')
+  assert.ok(html.includes('Step 3: Save count &amp; see if it matches'), 'save action must explain its result')
+  assert.ok(html.includes('MATCH'), 'page must use an explicit match verdict')
   for (const endpoint of ['api/entry', 'api/confirm', 'api/state']) {
     assert.ok(html.includes(endpoint), `page must call ${endpoint}`)
   }
