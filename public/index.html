@@ -70,6 +70,7 @@ h1 { font-size: 22px; line-height: 1.1; font-weight: 650; margin: 0; letter-spac
 .count-guide p { margin: 0; color: var(--muted); font-size: 14px; }
 .expected-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--line); }
 .expected-row span { color: var(--muted); font-size: 14px; }
+.expected-row span small { font-size: 11px; }
 .expected-row strong { font-size: 22px; font-variant-numeric: tabular-nums; }
 .live-check { margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-weight: 650; font-size: 15px; }
 .live-check.neutral { background: #eceae4; color: var(--muted); font-weight: 500; }
@@ -195,7 +196,7 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
       <h2>Count the drawer</h2>
       <p>Enter how many notes and coins are physically in the drawer.</p>
       <div class="expected-row">
-        <span>Books say the drawer should contain</span>
+        <span>Target for today's count <small>(not your count)</small></span>
         <strong id="expectedNow">€0.00</strong>
       </div>
       <div id="liveCheck" class="live-check neutral">Enter your count above to compare.</div>
@@ -337,6 +338,7 @@ async function req(method, url, body) {
 let DENOMS = [];
 let editingDate = null; // When set, the check button PATCHes this date instead of POSTing today.
 let currentOpeningCash = 0;
+let hasCheckedCurrentForm = false; // A saved history row is not a fresh check result.
 
 function setVerdict(status, varianceCents, label, openingCash, actualCents, expectedCents) {
   const el = document.getElementById('verdict');
@@ -386,6 +388,28 @@ function updateCheckPreview() {
     live.className = 'live-check over';
     live.textContent = euroFmt(variance / 100) + ' EXTRA CASH — you counted more than the books expect';
   }
+}
+
+function clearEntryForm() {
+  for (const d of DENOMS) {
+    const input = document.querySelector(`[data-denom="${d.id}"]`);
+    if (input) input.value = '';
+  }
+  for (const id of ['expense', 'added', 'card', 'black', 'preTakeout', 'takeout', 'declared']) {
+    const input = document.getElementById(id);
+    if (input) input.value = '';
+  }
+  for (const id of ['extraExpenses', 'extraAdds', 'extraDrops', 'extraTakeouts']) {
+    const container = document.getElementById(id);
+    if (container) container.innerHTML = '';
+  }
+  const adjustments = document.getElementById('adjustments');
+  if (adjustments) adjustments.open = false;
+  editingDate = null;
+  hasCheckedCurrentForm = false;
+  document.getElementById('verdict').classList.add('hidden');
+  document.getElementById('confirmBtn').classList.add('hidden');
+  updateDenomTotal();
 }
 
 function denomLabel(id) {
@@ -580,9 +604,9 @@ async function refresh() {
   currentOpeningCash = selectedEntry && selectedEntry.opening !== null && selectedEntry.opening !== undefined
     ? Number(selectedEntry.opening)
     : Number(state.openingCash) || 0;
-  document.getElementById('confirmBtn').classList.toggle('hidden', !selectedEntry);
-  document.getElementById('verdict').classList.toggle('hidden', !selectedEntry);
-  if (selectedEntry) {
+  document.getElementById('confirmBtn').classList.toggle('hidden', !selectedEntry || !hasCheckedCurrentForm);
+  document.getElementById('verdict').classList.toggle('hidden', !selectedEntry || !hasCheckedCurrentForm);
+  if (selectedEntry && hasCheckedCurrentForm) {
     setVerdict(selectedEntry.status, Number(selectedEntry.variance) * 100,
       verdictLabel(selectedEntry.status), selectedEntry.opening ?? state.openingCash,
       Number(selectedEntry.actual) * 100, Number(selectedEntry.expected) * 100);
@@ -734,6 +758,7 @@ function buildLedgerRow(e, prevEntry) {
   editBtn.className = 'ghost small';
   editBtn.textContent = 'Edit';
   editBtn.addEventListener('click', () => {
+    clearEntryForm();
     document.getElementById('entryDate').value = e.date;
     updateDayHeading();
     // Pre-fill the denomination inputs from the entry's denominations.
@@ -855,6 +880,7 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
       payload.date = selectedDate();
       entry = await req('POST', API.entry, payload);
     }
+    hasCheckedCurrentForm = true;
     setVerdict(entry.status, Number(entry.variance) * 100, verdictLabel(entry.status),
       Number(entry.opening), Number(entry.actual) * 100, Number(entry.expected) * 100);
     document.getElementById('verdict').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -869,23 +895,15 @@ document.getElementById('confirmBtn').addEventListener('click', async () => {
     alert('Day confirmed.');
     // Reset to today so the form is ready for the next day instead of
     // lingering on the confirmed date (which would PATCH the wrong day).
-    editingDate = null;
     document.getElementById('entryDate').value = today();
-    // Clear the repeatable rows so nothing carries into tomorrow's form.
-    for (const id of ['extraExpenses', 'extraAdds', 'extraDrops', 'extraTakeouts']) {
-      const c = document.getElementById(id);
-      if (c) c.innerHTML = '';
-    }
-    const takeoutInput = document.getElementById('takeout');
-    if (takeoutInput) takeoutInput.value = '';
-    const preTakeoutInput = document.getElementById('preTakeout');
-    if (preTakeoutInput) preTakeoutInput.value = '';
+    editingDate = null;
+    clearEntryForm();
     await init();
   } catch (e) { alert(e.message); }
 });
 
 document.getElementById('entryDate').addEventListener('change', async () => {
-  editingDate = null;
+  clearEntryForm();
   updateDayHeading();
   await refresh();
 });
