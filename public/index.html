@@ -175,15 +175,6 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
     <div class="baseline-hint">Enter this once. Tomorrow it will automatically carry forward from your last count.</div>
   </div>
 
-  <!-- Verdict -->
-  <div id="verdict" class="verdict balanced hidden">
-    <div class="badge balanced" id="vBadge">✓</div>
-    <div class="body">
-      <div class="amount" id="vAmount">€0.00</div>
-      <div class="sub" id="vSub">Balanced — accounts match</div>
-    </div>
-  </div>
-
   <!-- Daily entry -->
   <div id="entryCard" class="card hidden">
     <div class="label">Count the drawer</div>
@@ -230,6 +221,12 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
         <button type="button" id="addDrop" class="ghost small">+ Add another drop</button>
         <div class="baseline-hint">Cash removed from the drawer before doing the count.</div>
 
+        <label for="takeout">Taken out at close</label>
+        <input id="takeout" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+        <div id="extraTakeouts"></div>
+        <button type="button" id="addTakeout" class="ghost small">+ Add another</button>
+        <div class="baseline-hint">Cash leaving the drawer after counting becomes tomorrow's opening.</div>
+
         <label for="declared">Reason / note</label>
         <textarea id="declared" placeholder="e.g. bags of ice"></textarea>
       </div>
@@ -237,11 +234,16 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
 
     <button id="checkBtn">Save &amp; check</button>
     <div class="baseline-hint">Compares your counted cash against what the books say — shows balanced, over or short.</div>
-    <label for="takeout">Taken out at close</label>
-    <input id="takeout" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
-    <div id="extraTakeouts"></div>
-    <button type="button" id="addTakeout" class="ghost small">+ Add another</button>
-    <div class="baseline-hint">Cash leaving the drawer after counting becomes tomorrow's opening.</div>
+
+    <!-- Verdict: right under the save button so the answer is where you're looking -->
+    <div id="verdict" class="verdict balanced hidden">
+      <div class="badge balanced" id="vBadge">✓</div>
+      <div class="body">
+        <div class="amount" id="vAmount">€0.00</div>
+        <div class="sub" id="vSub">Balanced — accounts match</div>
+      </div>
+    </div>
+
     <button id="confirmBtn" class="ghost hidden">Confirm day</button>
   </div>
 
@@ -780,6 +782,7 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     }
     setVerdict(entry.status, Number(entry.variance) * 100, verdictLabel(entry.status),
       Number(entry.expected) - Number(entry.variance));
+    document.getElementById('verdict').scrollIntoView({ behavior: 'smooth', block: 'center' });
     document.getElementById('confirmBtn').classList.remove('hidden');
     await refresh();
   } catch (e) { alert(e.message); }
