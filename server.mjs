@@ -612,9 +612,13 @@ async function handlePatchEntry(req, date) {
     denomObj = body.denominations && typeof body.denominations === 'object' ? body.denominations : null
   }
   // Use the entry's stored opening if present; otherwise fall back to the
-  // current opening state (or 0 on first run).
+  // current opening state (or 0 on first run). A caller-supplied body.opening
+  // overrides the stored value — that is the correction path for a first-day
+  // entry whose original €0 opening was an artifact, not reality.
   let openingCents
-  if (row.opening_cents !== null && row.opening_cents !== undefined) {
+  if (body.opening !== undefined) {
+    openingCents = eurosToCents(body.opening)
+  } else if (row.opening_cents !== null && row.opening_cents !== undefined) {
     openingCents = row.opening_cents
   } else {
     openingCents = state.openingCents
