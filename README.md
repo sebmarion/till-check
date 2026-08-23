@@ -21,7 +21,7 @@ It does not pretend to know *why* money is missing. It gives you a reliable numb
 </p>
 
 1. **Count the drawer** — enter the notes and coins.
-2. **Check the till** — see balanced, over, or short in euros.
+2. **Save & check** — compares your counted cash against the books: balanced, over, or short in euros.
 3. **Confirm the day** — accept the count as the next running balance.
 4. **Review history** — see previous counts and skipped days.
 
