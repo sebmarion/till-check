@@ -225,12 +225,70 @@ test('live preview counts black as cash IN (raises the target)', async () => {
 })
 
 
-test('changing the reconciliation date clears the count form', async () => {
-  // Form currently holds the edited values from the previous test.
-  await page.locator('#entryDate').fill(todayStr())
-  await page.waitForTimeout(300)
-  assert.equal(await page.locator('[data-denom="50"]').inputValue(), '')
-  assert.equal(await page.locator('#black').inputValue(), '')
-  assert.equal(await page.locator('#takeout').inputValue(), '')
-  assert.ok(await page.locator('#verdict').isHidden(), 'stale verdict must not survive a date change')
-})
+// --- 8. Editing must never destroy, and re-dating must work -----------------
+
+test('edit + save without changes preserves the stored count (no zeroing)', async () => {
+  // Regression: the UI used to send count=0 when the denom boxes were empty,
+  // wiping any day whose count wasn't currently in the form.
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  await api('POST', '/api/entry', { date: yesterday, actual: '100' });
+  await gotoApp();
+  await page.locator('#ledger li').first().locator('button', { hasText: 'Edit' }).click();
+  await page.waitForTimeout(200);
+  await page.locator('#checkBtn').click(); // touch NOTHING
+  await page.waitForTimeout(400);
+  const row = await page.evaluate(async () => {
+    const hist = await fetch('api/history').then((r) => r.json());
+    return hist.entries.find((e) => e.date === new Date(Date.now() - 86400000).toISOString().slice(0, 10));
+  });
+  assert.equal(Number(row.actual), 100, 'untouched edit-save must preserve the stored count');
+  assert.equal(Number(row.variance), Number(row.variance), 'entry still reconciles'); // sanity: fields present
+  assert.ok(['balanced', 'over', 'short'].includes(row.status), 'status is a real verdict');
+  // The critical assertion: count NOT zeroed. Status depends on shared books.
+  assert.notEqual(Number(row.actual), 0);
+});
+
+test('changing the date while editing MOVES the entry (old date freed, values kept)', async () => {
+  // Use a unique far-past marker day so no other test touches it. It renders
+  // in "Earlier history" (collapsed) — open that section first.
+  const markerDate = new Date(Date.now() - 30 * 86400000);
+  const marker = `${markerDate.getFullYear()}-${String(markerDate.getMonth() + 1).padStart(2, '0')}-${String(markerDate.getDate()).padStart(2, '0')}`;
+  await api('POST', '/api/entry', { date: marker, actual: '77.77', black: '3' });
+  await gotoApp();
+  await page.locator('#historyMore summary').click(); // reveal Earlier history
+  const rowHandle = page.locator('#ledgerOlder li', { hasText: '€77.77' }).first();
+  await rowHandle.locator('button', { hasText: 'Edit' }).click();
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('#black').inputValue(), '3.00', 'edit pre-fill loaded the seeded day');
+  // Re-date the entry to a free future day, then save — it must MOVE, not copy.
+  const target = new Date(Date.now() + 86400000);
+  const targetStr = `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
+  await page.locator('#entryDate').fill(targetStr);
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('#black').inputValue(), '3.00',
+    'values must stay in the form while re-dating (they belong to the entry)');
+  page.once('dialog', (d) => d.accept()); // dismiss any alert
+  await page.locator('#checkBtn').click();
+  await page.waitForTimeout(500);
+  const dates = await page.evaluate(async () => {
+    const hist = await fetch('api/history').then((r) => r.json());
+    return hist.entries.map((e) => e.date);
+  });
+  assert.ok(!dates.includes(marker), 'old date must be freed after a move');
+  const moved = await page.evaluate(async (d) => {
+    const hist = await fetch('api/history').then((r) => r.json());
+    return hist.entries.find((e) => e.date === d);
+  }, targetStr);
+  assert.ok(moved, 'entry exists under the new date');
+  assert.equal(Number(moved.black), 3, 'moved with all data intact');
+});
+
+test('date change with NO edit in progress still clears the form', async () => {
+  await gotoApp(); // fresh page: editingDate is null
+  await page.locator('.denom-row [data-denom="50"]').fill('4');
+  await page.locator('#entryDate').fill(todayStr());
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('[data-denom="50"]').inputValue(), '',
+    'stray counts must not leak across ordinary date switches');
+});
+

@@ -625,14 +625,18 @@ async function handlePatchEntry(req, date) {
   }
   const result = reconcileDay(
     {
-      actual: body.actual !== undefined ? body.actual : centsToEuros(row.actual_cents),
+      // Count: a caller-supplied value wins. An OMITTED count means "not
+      // re-counted" — the stored count must survive untouched. Only an
+      // explicit zero (or empty denominations object) zeroes the day.
+      actual: body.actual !== undefined ? body.actual
+        : denomObj ? undefined : centsToEuros(row.actual_cents),
       expense: body.expense ?? body.cashRemoved ?? centsToEuros(row.cash_removed_cents),
       black: body.black ?? centsToEuros(row.black_cents ?? 0),
       preTakeout: body.preTakeout ?? centsToEuros(row.pre_takeout_cents ?? 0),
       cashAdded: body.cashAdded ?? centsToEuros(row.cash_added_cents),
       cardTransfer: body.cardTransfer ?? centsToEuros(row.card_transfer_cents),
       declared: body.declared ?? row.declared_note,
-      denominations: denomObj,
+      denominations: denomObj && Object.keys(denomObj).length ? denomObj : undefined,
     },
     openingCents,
   )
@@ -657,6 +661,46 @@ async function handlePatchEntry(req, date) {
   }
   upsertEntry(entry)
   return { code: 200, body: entryToView({ ...entry, confirmed_at: row.confirmed_at }) }
+}
+
+// Move an entry to another date: full data preserved, old date freed.
+// Refuses to land on an occupied date (409) rather than overwriting.
+async function handleMoveEntry(req, date) {
+  const row = db.prepare('SELECT * FROM entries WHERE date = ?').get(date)
+  if (!row) return { code: 404, body: { error: 'no entry for that date' } }
+  const raw = await readBody(req)
+  let body
+  try {
+    body = JSON.parse(raw || '{}')
+  } catch {
+    return { code: 400, body: { error: 'invalid JSON body' } }
+  }
+  const target = body.date
+  if (!target) return { code: 400, body: { error: 'date is required' } }
+  if (target === date) return { code: 200, body: entryToView(row) }
+  const occupied = db.prepare('SELECT id FROM entries WHERE date = ?').get(target)
+  if (occupied) {
+    return { code: 409, body: { error: `an entry for ${target} already exists` } }
+  }
+  db.exec('BEGIN IMMEDIATE')
+  try {
+    db.prepare('UPDATE entries SET date = ?, updated_at = ? WHERE id = ?')
+      .run(target, nowIso(), row.id)
+    // If this was the confirmed source of the carried opening, re-point the
+    // state at the new date so history stays consistent.
+    const state = getState()
+    if (state && state.openingDate === date && row.confirmed_at) {
+      db.prepare('UPDATE state SET opening_date = ?, updated_at = ? WHERE id = 1')
+        .run(target, nowIso())
+    }
+    db.exec('COMMIT')
+  } catch (err) {
+    try { db.exec('ROLLBACK') } catch { /* already rolled back */ }
+    console.error('move entry failed:', err)
+    throw err
+  }
+  const updated = db.prepare('SELECT * FROM entries WHERE date = ?').get(target)
+  return { code: 200, body: entryToView(updated) }
 }
 
 // ---------------------------------------------------------------------------
@@ -727,6 +771,13 @@ async function handle(req, res) {
   if (pathname.startsWith('/api/entry/') && method === 'PATCH') {
     const date = pathname.split('/').pop()
     const r = await handlePatchEntry(req, decodeURIComponent(date))
+    sendJson(res, r.code, r.body)
+    return
+  }
+
+  if (pathname.startsWith('/api/entry/') && pathname.endsWith('/move') && method === 'POST') {
+    const date = pathname.slice('/api/entry/'.length, -'/move'.length)
+    const r = await handleMoveEntry(req, decodeURIComponent(date))
     sendJson(res, r.code, r.body)
     return
   }

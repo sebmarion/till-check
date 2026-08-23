@@ -881,8 +881,12 @@ document.addEventListener('input', (event) => {
 document.getElementById('checkBtn').addEventListener('click', async () => {
   const counts = getDenomCounts();
   const hasDenomInput = Object.values(counts).some((n) => n > 0);
+  // Count resolution: denominations define the count when present. When the
+  // boxes are empty AND we're editing, send no count at all — the stored one
+  // must survive untouched (an empty box is "not re-counted", never "zero").
+  // A brand-new day with nothing counted is genuinely zero.
   const payload = {
-    actual: hasDenomInput ? null : '0',  // When denominations are used, actual is derived
+    actual: hasDenomInput ? null : (editingDate ? undefined : '0'),
     expense: totalExpenseValue().toFixed(2),
     cashAdded: totalAddedValue().toFixed(2),
     cardTransfer: document.getElementById('card').value,
@@ -895,8 +899,15 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
   try {
     let entry;
     if (editingDate) {
-      // Editing a past entry: PATCH that date instead of POSTing today.
-      entry = await req('PATCH', API.entryById(editingDate), payload);
+      // Editing an existing entry: PATCH it; if the date was changed in the
+      // picker, MOVE the entry to the new date instead of leaving a stale
+      // copy behind.
+      const targetDate = selectedDate();
+      if (targetDate !== editingDate) {
+        await req('POST', API.entryById(editingDate) + '/move', { date: targetDate });
+      } else {
+        await req('PATCH', API.entryById(editingDate), payload);
+      }
       editingDate = null; // Reset after save.
     } else {
       payload.date = selectedDate();
@@ -925,7 +936,12 @@ document.getElementById('confirmBtn').addEventListener('click', async () => {
 });
 
 document.getElementById('entryDate').addEventListener('change', async () => {
-  clearEntryForm();
+  // Date change semantics: while EDITING an entry, the picker re-dates that
+  // entry (the move happens on save). With no edit in progress, switching
+  // days clears the form so one day's numbers can't leak into another.
+  if (!editingDate) {
+    clearEntryForm();
+  }
   updateDayHeading();
   await refresh();
 });

@@ -442,6 +442,48 @@ serialTest('full movement mix balances and takeout becomes tomorrow opening', as
   assert.equal(next.data.status, 'balanced')
 })
 
+serialTest('POST /entry/:date/move re-dates an entry without losing data', async () => {
+  const from = testDate()
+  const to = testDate()
+  await req('POST', '/entry', { date: from, actual: '200', black: '30', takeout: '10' })
+  const moved = await req('POST', `/entry/${from}/move`, { date: to })
+  assert.equal(moved.status, 200)
+  assert.equal(Number(moved.data.actual), 200)
+  assert.equal(Number(moved.data.black), 30)
+  assert.equal(Number(moved.data.takeout), 10)
+
+  // Old date is gone; new date holds the full entry.
+  const history = await req('GET', '/history')
+  assert.ok(!history.data.entries.some((e) => e.date === from), 'old date must be freed')
+  const atNew = history.data.entries.find((e) => e.date === to)
+  assert.ok(atNew, 'entry exists under the new date')
+  assert.equal(Number(atNew.actual), 200)
+  assert.equal(Number(atNew.black), 30)
+})
+
+serialTest('POST /entry/:date/move onto an occupied date returns 409', async () => {
+  const a = testDate()
+  const b = testDate()
+  await req('POST', '/entry', { date: a, actual: '100' })
+  await req('POST', '/entry', { date: b, actual: '300' })
+  const clash = await req('POST', `/entry/${a}/move`, { date: b })
+  assert.equal(clash.status, 409, 'must refuse to overwrite another day')
+})
+
+serialTest('PATCH with no count field keeps the stored count (no zeroing)', async () => {
+  const day = testDate()
+  // Explicit opening makes the day self-contained: 150 counted vs 150 expected.
+  await req('POST', '/entry', { date: day, actual: '150', opening: '150' })
+  // The UI now omits `actual` when the denom boxes are empty on edit.
+  const { status, data } = await req('PATCH', `/entry/${day}`, {
+    declared: 'note only',
+  })
+  assert.equal(status, 200)
+  assert.equal(Number(data.actual), 150, 'omitted count must preserve the stored count')
+  assert.equal(Number(data.variance), 0, 'reconciliation must still balance')
+  assert.equal(data.status, 'balanced')
+})
+
 serialTest('GET /history returns entries', async () => {
   const { status, data } = await req('GET', '/history')
   assert.equal(status, 200)
