@@ -72,6 +72,7 @@ before(async () => {
   browser = await chromium.launch({ executablePath: findChromium(), args: ['--no-sandbox'] })
   page = await browser.newPage({ viewport: { width: 430, height: 950 } })
   page.on('pageerror', (e) => { throw new Error(`page error: ${e}`) })
+  page.on('dialog', (d) => { d.accept() })
 })
 
 after(async () => {
@@ -290,7 +291,6 @@ test('changing the date while editing MOVES the entry (old date freed, values ke
   await page.waitForTimeout(200);
   assert.equal(await page.locator('#black').inputValue(), '3.00',
     'values must stay in the form while re-dating (they belong to the entry)');
-  page.once('dialog', (d) => d.accept()); // dismiss any alert
   await page.locator('#checkBtn').click();
   await page.waitForTimeout(500);
   const dates = await page.evaluate(async () => {
@@ -313,5 +313,112 @@ test('date change with NO edit in progress still clears the form', async () => {
   await page.waitForTimeout(200);
   assert.equal(await page.locator('[data-denom="50"]').inputValue(), '',
     'stray counts must not leak across ordinary date switches');
+});
+
+// --- 9. Repeatable money lines -------------------------------------------------
+
+test('+ Add another lines are summed, and Remove drops them', async () => {
+  await gotoApp();
+  await page.locator('#adjustments summary').click();
+  await page.locator('#expense').fill('10');
+  await page.locator('#addExpense').click();
+  await page.locator('#extraExpenses .extra-expense-row input').last().fill('7.50');
+  await page.waitForTimeout(200);
+  // Opening 300 − 17.50 across both lines = target 282.50.
+  assert.equal(await page.locator('#expectedNow').innerText(), '€282.50',
+    'extra expense line must lower the live target');
+  await page.locator('#extraExpenses .extra-expense-row button', { hasText: 'Remove' }).click();
+  // The Remove button must also refresh the live target, not just delete the row.
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('#extraExpenses').innerText(), '', 'row is gone');
+  // #expense still holds €10, so the target is back to 300 − 10 = €290.00.
+  assert.equal(await page.locator('#expectedNow').innerText(), '€290.00',
+    'removing the extra line drops only the removed line');
+});
+
+test('both expense lines are summed into the SAVED entry', async () => {
+  await gotoApp();
+  await page.locator('#adjustments summary').click();
+  await page.locator('#expense').fill('10');
+  await page.locator('#addExpense').click();
+  await page.locator('#extraExpenses .extra-expense-row input').last().fill('7.50');
+  // Target 300 − 17.50 = 282.50. Count exactly that: 5×€50 + €20 + 2×€5 + 2×€1 + €0.50.
+  await setCount('50', 5);
+  await setCount('20', 1);
+  await setCount('5', 2);
+  await setCount('1', 2);
+  await setCount('0.5', 1);
+  await page.locator('#checkBtn').click();
+  await page.waitForTimeout(500);
+  const row = await page.locator('#ledger li').first().innerText();
+  assert.match(row, /MATCHES/, 'the summed target must reconcile against the summed count');
+  const saved = await page.evaluate(async () => {
+    const hist = await fetch('api/history').then((r) => r.json());
+    return hist.entries.find((e) => e.date === new Date().toISOString().slice(0, 10));
+  });
+  assert.equal(Number(saved.expense), 17.5, 'the API must store the SUM of both expense lines');
+});
+
+// --- 10. Edit pre-fills EVERY numeric field ------------------------------------
+
+test('edit pre-fills expense, added, card, drop, takeout and note', async () => {
+  const markerDate = new Date(Date.now() - 60 * 86400000);
+  const marker = `${markerDate.getFullYear()}-${String(markerDate.getMonth() + 1).padStart(2, '0')}-${String(markerDate.getDate()).padStart(2, '0')}`;
+  await api('POST', '/api/entry', {
+    date: marker, actual: '80', expense: '12.5', cashAdded: '30',
+    cardTransfer: '45.25', black: '6', preTakeout: '15', takeout: '9.75',
+    declared: 'ice and glasses',
+  });
+  await gotoApp();
+  await page.locator('#historyMore summary').click();
+  const row = page.locator('#ledgerOlder li', { hasText: 'ice and glasses' }).first();
+  await row.locator('button', { hasText: 'Edit' }).click();
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('#expense').inputValue(), '12.50')
+  assert.equal(await page.locator('#added').inputValue(), '30.00')
+  assert.equal(await page.locator('#card').inputValue(), '45.25')
+  assert.equal(await page.locator('#black').inputValue(), '6.00')
+  assert.equal(await page.locator('#preTakeout').inputValue(), '15.00')
+  assert.equal(await page.locator('#takeout').inputValue(), '9.75')
+  assert.equal(await page.locator('#declared').inputValue(), 'ice and glasses')
+})
+
+// --- 11. Confirm resets the form; Delete removes the day ------------------------
+
+test('confirming a day clears the form and resets the picker to today', async () => {
+  const markerDate = new Date(Date.now() - 75 * 86400000);
+  const marker = `${markerDate.getFullYear()}-${String(markerDate.getMonth() + 1).padStart(2, '0')}-${String(markerDate.getDate()).padStart(2, '0')}`;
+  await api('POST', '/api/entry', { date: marker, actual: '55' });
+  await gotoApp();
+  await page.locator('#historyMore summary').click();
+  const row = page.locator('#ledgerOlder li', { hasText: '€55.00' }).first();
+  await row.locator('button', { hasText: 'Edit' }).click();
+  await page.waitForTimeout(200);
+  await page.locator('#checkBtn').click(); // PATCH -> verdict + Confirm appear
+  await page.waitForTimeout(400);
+  await page.locator('#confirmBtn').click();
+  await page.waitForTimeout(600);
+  assert.equal(await page.locator('#entryDate').inputValue(), todayStr(),
+    'picker must return to today after confirming');
+  assert.equal(await page.locator('[data-denom="50"]').inputValue(), '',
+    'count must be cleared after confirming');
+  assert.ok(await page.locator('#verdict').isHidden(),
+    'stale verdict must not linger after confirming');
+});
+
+test('delete removes the day from history after confirmation', async () => {
+  const markerDate = new Date(Date.now() - 90 * 86400000);
+  const marker = `${markerDate.getFullYear()}-${String(markerDate.getMonth() + 1).padStart(2, '0')}-${String(markerDate.getDate()).padStart(2, '0')}`;
+  await api('POST', '/api/entry', { date: marker, actual: '63' });
+  await gotoApp();
+  await page.locator('#historyMore summary').click();
+  const row = page.locator('#ledgerOlder li', { hasText: '€63.00' }).first();
+  await row.locator('button', { hasText: 'Delete day' }).click();
+  await page.waitForTimeout(600);
+  const dates = await page.evaluate(async () => {
+    const hist = await fetch('api/history').then((r) => r.json());
+    return hist.entries.map((e) => e.date);
+  });
+  assert.ok(!dates.includes(marker), 'deleted day must vanish from history');
 });
 

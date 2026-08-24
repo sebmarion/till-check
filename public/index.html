@@ -470,7 +470,7 @@ function makeMoneyRow(ariaLabel) {
   rm.type = 'button';
   rm.className = 'ghost small danger';
   rm.textContent = 'Remove';
-  rm.addEventListener('click', () => wrap.remove());
+  rm.addEventListener('click', () => { wrap.remove(); updateCheckPreview(); });
   wrap.append(inp, rm);
   return wrap;
 }
@@ -890,8 +890,10 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
       const targetDate = selectedDate();
       if (targetDate !== editingDate) {
         await req('POST', API.entryById(editingDate) + '/move', { date: targetDate });
+        entry = await req('GET', 'api/history')
+          .then((hist) => hist.entries.find((e) => e.date === targetDate));
       } else {
-        await req('PATCH', API.entryById(editingDate), payload);
+        entry = await req('PATCH', API.entryById(editingDate), payload);
       }
       editingDate = null; // Reset after save.
     } else {
