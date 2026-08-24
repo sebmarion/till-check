@@ -156,6 +156,15 @@ test('first-ever entry derives its own opening (baseline = first leftover)', () 
   assert.equal(r.expectedCents, r.actualCents, 'first day must reconcile against its own derived opening')
   assert.equal(r.varianceCents, 0)
   assert.equal(r.status, STATUS.BALANCED)
+  // cashAdded must SUBTRACT from the derived opening (mutation: -added -> +added).
+  // actual 100, added 50, black 30, removed 20, drop 10:
+  // opening = 100 - 50 - 30 + 20 + 10 = 50
+  const withAdded = reconcileDay(
+    { actual: '100', cashAdded: '50', black: '30', expense: '20', preTakeout: '10', firstDay: true },
+    0,
+  )
+  assert.equal(withAdded.derivedOpeningCents, 5000)
+  assert.equal(withAdded.status, STATUS.BALANCED)
   // A normal day (firstDay not set) is unaffected: €0 opening stays €0.
   const normal = reconcileDay({ actual: '100' }, 0)
   assert.equal(normal.derivedOpeningCents, undefined)
@@ -167,6 +176,10 @@ test('cent-precision: 0.01 short is a short, not a balanced float error', () => 
   // expected = 500 - 100 = 400.00 ; actual 399.99 -> variance -0.01
   assert.equal(r.varianceCents, -1)
   assert.equal(r.status, STATUS.SHORT)
+  // Symmetric edge: +0.01 over must be OVER, not balanced (mutation: > 0 -> > 1)
+  const over1 = reconcileDay({ actual: '400.01', cashRemoved: '100' }, 50000)
+  assert.equal(over1.varianceCents, 1)
+  assert.equal(over1.status, STATUS.OVER)
 })
 
 test('pre-takeout (removed before counting) reduces expected in its own column', () => {

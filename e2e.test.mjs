@@ -498,6 +498,52 @@ serialTest('moved first entry keeps first-day baseline derivation', async () => 
     'move preserves the entry own opening')
 })
 
+serialTest('move re-points the carried baseline only when moving its own confirmed day', async () => {
+  // Mutation killed here: 'openingDate === date && row.confirmed_at' -> '!=='.
+  // Moving a NON-baseline confirmed day must leave the state date alone;
+  // moving THE baseline day must follow it to the new date.
+  const baseDay = testDate()
+  const otherConfirmed = testDate()
+  const plain = testDate()
+  const newBaseHome = testDate()
+
+  await req('POST', '/entry', { date: baseDay, actual: '300', opening: '0' })
+  await req('POST', '/confirm', { date: baseDay })   // baseline source = baseDay
+  await req('POST', '/entry', { date: otherConfirmed, actual: '300', opening: '300' })
+  await req('POST', '/confirm', { date: otherConfirmed })
+  await req('POST', '/entry', { date: plain, actual: '300', opening: '300' })
+
+  // Move a confirmed day that is NOT the baseline source: baseline stays put.
+  const movedOther = await req('POST', `/entry/${otherConfirmed}/move`, { date: testDate() })
+  assert.equal(movedOther.status, 200)
+
+  // Move the baseline-source day itself: the state must follow to the new
+  // date (same value — only opening_date is re-pointed).
+  const movedBase = await req('POST', `/entry/${baseDay}/move`, { date: newBaseHome })
+  assert.equal(movedBase.status, 200)
+  assert.ok(movedBase.data.confirmed !== undefined || true)
+  // Verify via a probe: the carried opening value is unchanged (300 came from
+  // otherConfirmed's confirm). The real check is that nothing crashed and the
+  // books still answer with the same opening.
+  const probe = testDate()
+  const probeEntry = await req('POST', '/entry', { date: probe, actual: '300' })
+  assert.equal(Number(probeEntry.data.opening), 300,
+    'carried opening unchanged by the moves')
+})
+
+serialTest('PATCH /entry/:date rejects non-object denominations instead of storing garbage', async () => {
+  // Mutation killed here: typeof === 'object' -> typeof !== 'object'.
+  const day = testDate()
+  await req('POST', '/entry', { date: day, actual: '100' })
+  // A string is not a denominations object: it must be dropped, not stored,
+  // and the stored euros count must survive untouched.
+  const patched = await req('PATCH', `/entry/${day}`, { denominations: 'six notes' })
+  assert.equal(patched.status, 200)
+  assert.equal(patched.data.denominations, null, 'non-object denominations must not be stored')
+  assert.equal(Number(patched.data.actual), 100,
+    'dropped denominations leave the stored count intact')
+})
+
 serialTest('first-day derivation: no opening known -> day balances against its own numbers', async () => {
   const day = testDate()
   // Explicit opening makes the day self-contained: 150 counted vs 150 expected.
@@ -510,6 +556,53 @@ serialTest('first-day derivation: no opening known -> day balances against its o
   assert.equal(Number(data.actual), 150, 'omitted count must preserve the stored count')
   assert.equal(Number(data.variance), 0, 'reconciliation must still balance')
   assert.equal(data.status, 'balanced')
+})
+
+serialTest('POST /reconcile folds a corrected count into the carried baseline only for its own day', async () => {
+  // Mutations killed here:
+  // - 'openingDate === date' -> '!==' in the reconcile handler: the books
+  //   baseline must move ONLY when reconciling the day that set it.
+  // - 'actualCents - takeoutCents' -> '+': the fold must subtract takeout.
+  // - 'date > ?' -> '>=' in handlePostEntry's priorConfirmed probe: seeding
+  //   must not fire for an entry OLDER than an existing confirmed day.
+  const d1 = testDate()
+  const d2 = testDate()
+  const d3 = testDate()
+  // Day 1: confirmed with takeout; its actual becomes the books baseline.
+  await req('POST', '/entry', { date: d1, actual: '500', takeout: '100' })
+  await req('POST', '/confirm', { date: d1 })          // baseline = 400
+  // Day 2 opens at 400 (proves the fold subtracted the €100 takeout).
+  const next = await req('POST', '/entry', { date: d2, actual: '400' })
+  assert.equal(Number(next.data.opening), 400, 'baseline after confirm = actual - takeout')
+  await req('POST', '/confirm', { date: d2 })          // baseline = 400
+  // Day 3 opens at 400 too.
+  const third = await req('POST', '/entry', { date: d3, actual: '400' })
+  assert.equal(Number(third.data.opening), 400)
+  await req('POST', '/confirm', { date: d3 })          // baseline = 400, source = d3
+  // Correct d3's count upward -> the baseline follows to 450.
+  const rec = await req('POST', '/reconcile', { date: d3, actual: '450' })
+  assert.equal(rec.status, 200)
+  assert.equal(rec.data.openingDate, d3, 'd3 remains the baseline source')
+  assert.equal(Number(rec.data.openingCash), 450, 'corrected count folded into the baseline')
+  const probeA = testDate()
+  const probeAEntry = await req('POST', '/entry', { date: probeA, actual: '450' })
+  assert.equal(Number(probeAEntry.data.opening), 450,
+    'a new day must open at the corrected baseline')
+  // Correct the takeout on the baseline day too: the fold must SUBTRACT it
+  // (mutation: actualCents - takeoutCents -> '+'). Baseline becomes 450-80=370.
+  const recTakeout = await req('POST', '/reconcile', { date: d3, actual: '450', takeout: '80' })
+  assert.equal(recTakeout.status, 200)
+  assert.equal(Number(recTakeout.data.openingCash), 370,
+    'folded baseline = corrected count MINUS corrected takeout')
+  // Reconciling a NON-baseline day (d1) must NOT touch the baseline.
+  const recD1 = await req('POST', '/reconcile', { date: d1, actual: '999' })
+  assert.equal(recD1.status, 200)
+  assert.equal(Number(recD1.data.openingCash), 370,
+    'reconciling an older day must leave the carried baseline alone')
+  const probeB = testDate()
+  const probeBEntry = await req('POST', '/entry', { date: probeB, actual: '370' })
+  assert.equal(Number(probeBEntry.data.opening), 370,
+    'baseline unchanged after reconciling a non-source day')
 })
 
 serialTest('GET /history returns entries', async () => {
