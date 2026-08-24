@@ -22,6 +22,7 @@ import {
   centsToEuros,
   STATUS,
   DENOMINATIONS,
+  InvalidAmountError,
 } from './reconcile.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -814,6 +815,11 @@ async function handle(req, res) {
 
 const server = http.createServer((req, res) => {
   handle(req, res).catch((err) => {
+    // A rejected amount is the caller's mistake: answer 400 with the reason.
+    if (err instanceof InvalidAmountError) {
+      sendJson(res, 400, { error: err.message })
+      return
+    }
     console.error('request error:', err)
     if (!res.headersSent) {
       sendJson(res, 500, { error: 'internal error' })

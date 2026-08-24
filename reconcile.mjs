@@ -40,6 +40,10 @@ export const STATUS = {
   OVER: 'over',
 }
 
+// Thrown by eurosToCents for malformed input. The server maps this to a
+// clean 400 response; any other error stays a 500.
+export class InvalidAmountError extends Error {}
+
 // Parse an input amount (euros, possibly a string like "12.50" or "12,50")
 // into integer cents. Throws on non-finite / malformed values.
 export function eurosToCents(amount) {
@@ -52,7 +56,7 @@ export function eurosToCents(amount) {
   const cleaned = normalized.replace(/\s/g, '')
   const match = cleaned.match(/^-?(\d{1,9})(?:[.,](\d{1,2}))?$/)
   if (!match) {
-    throw new Error(`invalid amount: ${amount}`)
+    throw new InvalidAmountError(`invalid amount: ${amount}`)
   }
   const sign = cleaned.startsWith('-') ? -1 : 1
   const whole = Number(match[1])

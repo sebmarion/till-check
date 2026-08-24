@@ -132,8 +132,12 @@ button:active { transform: translateY(1px); }
 .ledger .var.over { color: var(--amber); background: var(--amber-bg); }
 .ledger .var.balanced { color: var(--green); background: var(--green-bg); }
 .ledger .status-word { font-weight: 700; letter-spacing: 0.2px; }
-.ledger .details { font-size: 13px; color: var(--muted); margin-top: 6px; }
-.ledger .denom-break { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
+.details { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.balance-band { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 7px 10px; border-radius: 8px; background: var(--bg); font-size: 13px; }
+.balance-band .bal-start, .balance-band .bal-end { font-variant-numeric: tabular-nums; font-weight: 600; }
+.balance-band .bal-start { color: var(--green); }
+.balance-band .bal-end { color: var(--ink); }
+.denom-break { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
 .ledger .declared { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
 .confirmed-flag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--green); margin-top: 6px; }
 .gap-flag { font-size: 11px; color: var(--amber); margin-top: 6px; }
@@ -730,22 +734,14 @@ function buildLedgerRow(e, prevEntry) {
     }
   }
 
-  // Details: always show the count and expected total; only show optional
-  // adjustments when they were used.
-  const details = document.createElement('div'); details.className = 'details';
-  const detailParts = [`Counted €${e.actual}`];
-  if (Number(e.expense ?? e.cashRemoved) !== 0) {
-    detailParts.push(`Till expense €${e.expense ?? e.cashRemoved}`);
-  }
-  if (Number(e.black ?? 0) !== 0) detailParts.push(`Black €${e.black}`);
-  if (Number(e.preTakeout ?? 0) !== 0) detailParts.push(`Cash drop €${e.preTakeout}`);
-  if (Number(e.takeout ?? 0) !== 0) detailParts.push(`Taken out at close €${e.takeout}`);
-  if (Number(e.cashAdded) !== 0) detailParts.push(`Added €${e.cashAdded}`);
-  if (Number(e.cardTransfer) !== 0) detailParts.push(`Card €${e.cardTransfer}`);
-  detailParts.push(`Expected €${e.expected}`);
-  detailParts.push(`Difference €${Math.abs(Number(e.variance)).toFixed(2)}`);
-  details.textContent = detailParts.join(' · ');
-  li.append(details);
+  // Balance band: start → end for this day, at a glance.
+  const bal = document.createElement('div'); bal.className = 'balance-band';
+  const balStart = document.createElement('span'); balStart.className = 'bal-start';
+  balStart.textContent = 'Start ' + euroFmt(Number(e.opening ?? 0));
+  const balEnd = document.createElement('span'); balEnd.className = 'bal-end';
+  balEnd.textContent = 'End ' + euroFmt(Number(e.actual) - Number(e.takeout ?? 0));
+  bal.append(balStart, balEnd);
+  li.append(bal);
 
   // Confirmed marker + reconcile affordance. A confirmed day can be
   // re-reconciled (count corrected) without deleting — the books baseline
@@ -755,17 +751,6 @@ function buildLedgerRow(e, prevEntry) {
     badge.className = 'confirmed-flag';
     badge.textContent = '✓ confirmed';
     li.append(badge);
-  }
-
-  // Denomination breakdown (if present)
-  if (e.denominations) {
-    const db = document.createElement('div'); db.className = 'denom-break';
-    const parts = Object.entries(e.denominations)
-      .filter(([id, n]) => n > 0)
-      .map(([id, n]) => `${n}×${denomLabel(id)}`)
-      .join(', ');
-    db.textContent = 'Counted: ' + parts;
-    li.append(db);
   }
 
   // Declared note

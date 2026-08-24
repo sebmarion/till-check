@@ -18,6 +18,7 @@ import {
   denominationsToCents,
   DENOMINATIONS,
   STATUS,
+  statusForCents,
 } from './reconcile.mjs'
 
 test('eurosToCents parses euros into integer cents (incl. European comma)', () => {
@@ -220,4 +221,29 @@ test('reconcileDay with denominations short', () => {
   assert.equal(r.actualCents, 5000)
   assert.equal(r.varianceCents, -5000)
   assert.equal(r.status, STATUS.SHORT)
+})
+
+// --- statusForCents ------------------------------------------------------------
+
+test('statusForCents maps variance sign to status', () => {
+  assert.equal(statusForCents(-1), STATUS.SHORT)
+  assert.equal(statusForCents(0), STATUS.BALANCED)
+  assert.equal(statusForCents(1), STATUS.OVER)
+  assert.equal(statusForCents(-123456), STATUS.SHORT)
+})
+
+// --- eurosToCents edge cases ---------------------------------------------------
+
+test('eurosToCents accepts European comma and stray whitespace', () => {
+  assert.equal(eurosToCents(' 12,50 '), 1250)
+  assert.equal(eurosToCents('12.5'), 1250)
+})
+
+// --- denominationsToCents edge cases -------------------------------------------
+
+test('denominationsToCents handles empty, null, and fractional counts', () => {
+  assert.equal(denominationsToCents(null), 0)
+  assert.equal(denominationsToCents({}), 0)
+  // Fractional counts are truncated: 2.9 × €50 = €100.
+  assert.equal(denominationsToCents({ '50': 2.9 }), 10000)
 })

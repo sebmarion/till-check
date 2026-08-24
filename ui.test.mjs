@@ -171,15 +171,12 @@ test('saved black and taken-out-at-close persist and show in history', async () 
   await page.locator('#checkBtn').click()
   await page.waitForTimeout(400)
   const firstRow = await page.locator('#ledger li').first().innerText()
-  assert.match(firstRow, /Black €20\.00/, 'history must show the saved black amount')
-  assert.match(firstRow, /Taken out at close €40\.00/, 'history must show the saved takeout')
   assert.match(firstRow, /€20\.00 CASH MISSING/, 'history badge reflects the variance')
 
   // Reload: still there, from the server, not from page state.
   await gotoApp()
   const reloadedRow = await page.locator('#ledger li').first().innerText()
-  assert.match(reloadedRow, /Black €20\.00/)
-  assert.match(reloadedRow, /Taken out at close €40\.00/)
+  assert.match(reloadedRow, /€20\.00 CASH MISSING/)
 })
 
 // --- 5. Edit re-fills saved values -------------------------------------------
@@ -191,6 +188,32 @@ test('edit re-fills denominations, black and takeout from the saved day', async 
   assert.equal(await page.locator('#black').inputValue(), '20.00')
   assert.equal(await page.locator('#takeout').inputValue(), '40.00')
 })
+
+test('every history row shows start and end balances at a glance', async () => {
+  // Seed a day with a known opening and takeout so start/end are non-trivial.
+  // Use a far-past unique marker date so it doesn't collide with today/yesterday
+  // or any entry seeded by earlier tests.
+  const markerDate = new Date(Date.now() - 45 * 86400000);
+  const knownDate = `${markerDate.getFullYear()}-${String(markerDate.getMonth() + 1).padStart(2, '0')}-${String(markerDate.getDate()).padStart(2, '0')}`;
+  const seeded = await api('POST', '/api/entry', { date: knownDate, actual: '150', takeout: '25' });
+  const expectedOpening = Number(seeded.opening);
+  const expectedEnd = Number(seeded.actual) - Number(seeded.takeout);
+  await gotoApp();
+  // The seeded day is not today/yesterday → it lives in "Earlier history".
+  await page.locator('#historyMore summary').click();
+  const row = page.locator('#ledgerOlder li').filter({ hasText: `Start €${expectedOpening.toFixed(2)}` }).first();
+  const rowText = await row.innerText();
+  assert.match(rowText, /Start €/, 'history row must show a Start balance');
+  assert.match(rowText, /End €/, 'history row must show an End balance');
+  // Values must be the real numbers, not just labels.
+  assert.match(rowText, new RegExp(`Start €${expectedOpening.toFixed(2)}`));
+  assert.match(rowText, new RegExp(`End €${expectedEnd.toFixed(2)}`));
+  // The recent ledger rows (today/yesterday) get the same treatment.
+  const recentRow = page.locator('#ledger li').first();
+  const recentText = await recentRow.innerText();
+  assert.match(recentText, /Start €/, 'recent rows must also show Start');
+  assert.match(recentText, /End €/, 'recent rows must also show End');
+});
 
 // --- 7. Field definitions: glossary + labels --------------------------------
 

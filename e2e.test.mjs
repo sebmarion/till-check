@@ -814,3 +814,143 @@ serialTest('Served page exposes the date picker, expense field, and API wiring',
   assert.equal(confirmed.status, 200)
   assert.equal(confirmed.data.confirmed, true)
 })
+
+// --- Validation & error-contract tests ---------------------------------------
+// A malformed amount must be a clean 400, never a 500. eurosToCents throws on
+// non-numeric input; the handlers must catch that and answer with the invalid
+// input contract instead of crashing into the generic internal-error path.
+
+serialTest('POST /entry with a malformed amount returns 400', async () => {
+  const day = testDate()
+  const res = await req('POST', '/entry', { date: day, actual: 'abc' })
+  assert.equal(res.status, 400)
+  assert.match(res.data.error, /invalid/i, 'error must name the problem')
+  // Nothing may be persisted for the rejected request.
+  const hist = await req('GET', '/history')
+  assert.ok(!hist.data.entries.some((e) => e.date === day), 'rejected entry must not be stored')
+})
+
+serialTest('POST /entry with malformed movement fields returns 400', async () => {
+  for (const field of ['expense', 'cashAdded', 'cardTransfer', 'black', 'preTakeout', 'takeout']) {
+    const day = testDate()
+    const res = await req('POST', '/entry', { date: day, [field]: '12.345' })
+    assert.equal(res.status, 400, `${field}='12.345' must be rejected with 400`)
+    assert.match(res.data.error, /invalid/i)
+  }
+})
+
+serialTest('PATCH /entry/:date with a malformed amount returns 400 and keeps the stored row', async () => {
+  const day = testDate()
+  await req('POST', '/entry', { date: day, actual: '100' })
+  const res = await req('PATCH', `/entry/${day}`, { actual: 'xyz' })
+  assert.equal(res.status, 400)
+  // The stored entry must survive untouched.
+  const hist = await req('GET', '/history')
+  const stored = hist.data.entries.find((e) => e.date === day)
+  assert.equal(Number(stored.actual), 100, 'failed PATCH must not corrupt the stored entry')
+})
+
+serialTest('POST /reconcile with a malformed amount returns 400', async () => {
+  const day = testDate()
+  await req('POST', '/entry', { date: day, actual: '100' })
+  const res = await req('POST', '/reconcile', { date: day, actual: 'not-a-number' })
+  assert.equal(res.status, 400)
+})
+
+serialTest('POST /api/opening with a malformed amount returns 400', async () => {
+  const res = await fetch(`${BASE.replace(/\/api$/, '')}/api/opening`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ opening: 'garbage' }),
+  })
+  assert.equal(res.status, 400)
+  const data = await res.json()
+  assert.match(data.error, /invalid/i)
+})
+
+// --- Move endpoint edge cases -------------------------------------------------
+
+serialTest('POST /entry/:date/move to the same date is a no-op success', async () => {
+  const day = testDate()
+  await req('POST', '/entry', { date: day, actual: '210', black: '5' })
+  const moved = await req('POST', `/entry/${day}/move`, { date: day })
+  assert.equal(moved.status, 200)
+  assert.equal(Number(moved.data.actual), 210)
+  const hist = await req('GET', '/history')
+  assert.equal(hist.data.entries.filter((e) => e.date === day).length, 1)
+})
+
+serialTest('POST /entry/:date/move for a non-existent date returns 404', async () => {
+  const res = await req('POST', '/entry/1999-01-01/move', { date: testDate() })
+  assert.equal(res.status, 404)
+})
+
+serialTest('POST /entry/:date/move without a target date returns 400', async () => {
+  const day = testDate()
+  await req('POST', '/entry', { date: day, actual: '50' })
+  const res = await req('POST', `/entry/${day}/move`, {})
+  assert.equal(res.status, 400)
+})
+
+serialTest('POST /entry/:date/move with invalid JSON returns 400', async () => {
+  const day = testDate()
+  await req('POST', '/entry', { date: day, actual: '50' })
+  const res = await fetch(`${BASE}/entry/${day}/move`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{broken',
+  })
+  assert.equal(res.status, 400)
+})
+
+// --- PATCH edge cases ----------------------------------------------------------
+
+serialTest('PATCH /entry/:date for a non-existent date returns 404', async () => {
+  const { status } = await req('PATCH', '/entry/1999-01-01', { declared: 'x' })
+  assert.equal(status, 404)
+})
+
+serialTest('PATCH /entry/:date with invalid JSON returns 400', async () => {
+  const day = testDate()
+  await req('POST', '/entry', { date: day, actual: '50' })
+  const res = await fetch(`${BASE}/entry/${day}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: 'not json',
+  })
+  assert.equal(res.status, 400)
+})
+
+// --- Confirm edge cases --------------------------------------------------------
+
+serialTest('POST /confirm with a fresh takeout re-derives the carried opening', async () => {
+  // The confirm handler accepts a fresh euros takeout; it must override the
+  // stored one and set tomorrow's opening to actual − freshTakeout.
+  const day1 = testDate()
+  const day2 = testDate()
+  await req('POST', '/entry', { date: day1, actual: '500', opening: '0' })
+  const confirmed = await req('POST', '/confirm', { date: day1, takeout: '120' })
+  assert.equal(confirmed.status, 200)
+  assert.equal(Number(confirmed.data.takeout), 120, 'fresh takeout must win')
+  assert.equal(Number(confirmed.data.openingCash), 380, 'opening = actual - fresh takeout')
+  const next = await req('POST', '/entry', { date: day2, actual: '380' })
+  assert.equal(next.status, 200)
+  assert.equal(Number(next.data.opening), 380, 'next day opens with the corrected remainder')
+})
+
+// --- Plumbing ------------------------------------------------------------------
+
+serialTest('every response carries the security headers', async () => {
+  const res = await fetch(`${BASE}/state`)
+  assert.equal(res.headers.get('x-content-type-options'), 'nosniff')
+  assert.equal(res.headers.get('x-frame-options'), 'DENY')
+  assert.equal(res.headers.get('referrer-policy'), 'no-referrer')
+  assert.equal(res.headers.get('cache-control'), 'no-store')
+})
+
+serialTest('unknown API route returns a JSON 404 naming the path', async () => {
+  const res = await fetch(`${BASE}/api/nonsense`)
+  assert.equal(res.status, 404)
+  const data = await res.json()
+  assert.match(data.path, /nonsense/)
+})
