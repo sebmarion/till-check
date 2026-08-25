@@ -354,6 +354,40 @@ serialTest('POST /reconcile with invalid JSON returns 400', async () => {
 })
 
 // --- History tests ---
+serialTest('POST /entry with cashSales raises expected and persists in history', async () => {
+  const day = testDate()
+  const opening = await currentBooksBalance()
+  // Sales are today's POS cash income: expected = opening + sales.
+  // Counted = opening + 120 -> balanced; a €300 sale must NOT be ignored.
+  const { status, data } = await req('POST', '/entry', {
+    date: day,
+    actual: String(opening + 120),
+    cashSales: '120',
+    takeout: '0',
+  })
+  assert.equal(status, 200)
+  assert.equal(data.status, 'balanced')
+  assert.equal(Number(data.cashSales), 120)
+  assert.equal(Number(data.expected), opening + 120)
+  // Under-count vs the POS figure shows up as short:
+  const short = await req('POST', '/entry', {
+    date: day,
+    actual: String(opening + 100),
+    cashSales: '120',
+    takeout: '0',
+  })
+  assert.equal(short.status, 200)
+  assert.equal(short.data.status, 'short')
+  assert.equal(Number(short.data.variance), -20)
+  // Survives in its own column (PATCH without cashSales keeps it):
+  const patched = await req('PATCH', `/entry/${day}`, { declared: 'note only' })
+  assert.equal(patched.status, 200)
+  const hist = await req('GET', '/history')
+  const stored = hist.data.entries.find((e) => e.date === day)
+  assert.ok(stored, 'entry present in history')
+  assert.equal(Number(stored.cashSales), 120)
+})
+
 serialTest('POST /entry records black as unrung cash IN and raises expected', async () => {
   const day = testDate()
   const opening = await currentBooksBalance()
@@ -882,7 +916,7 @@ serialTest('Served page exposes the date picker, expense field, and API wiring',
   const html = await res.text()
 
   // Form fields exist and are wired to the API contract the server serves.
-  for (const id of ['entryDate', 'expense', 'added', 'card', 'black', 'preTakeout', 'takeout', 'declared', 'checkBtn', 'confirmBtn', 'addExpense', 'extraExpenses', 'expectedNow', 'liveCheck']) {
+  for (const id of ['entryDate', 'expense', 'added', 'card', 'cashSales', 'black', 'preTakeout', 'takeout', 'declared', 'checkBtn', 'confirmBtn', 'addExpense', 'extraExpenses', 'expectedNow', 'liveCheck']) {
     assert.ok(html.includes(`id="${id}"`), `served page must contain #${id}`)
   }
   assert.ok(html.includes('Step 1 of 3'), 'page must explain the counting workflow')

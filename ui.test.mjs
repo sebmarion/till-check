@@ -248,6 +248,25 @@ test('live preview counts black as cash IN (raises the target)', async () => {
   assert.equal(target, '€400.00', 'target must include black income')
 })
 
+test('cash sales from POS raise the live target and round-trip through edit', async () => {
+  await gotoApp() // fresh day, opening €300
+  await page.locator('#adjustments summary').click()
+  await page.locator('#cashSales').fill('150')
+  const target = await page.locator('#expectedNow').innerText()
+  assert.equal(target, '€450.00', 'target must be opening + POS sales')
+  await setCount('50', 9) // €450 -> live MATCHES
+  assert.match(await page.locator('#liveCheck').innerText(), /MATCHES/,
+    'counting opening+sales must balance against the POS figure')
+  await page.locator('#checkBtn').click()
+  await page.waitForTimeout(400)
+  const row = await page.evaluate(async () => {
+    const hist = await fetch('api/history').then((r) => r.json());
+    return hist.entries.find((e) => e.date === new Date().toISOString().slice(0, 10));
+  });
+  assert.equal(Number(row.cashSales), 150, 'saved entry stores the POS sales')
+  assert.equal(row.status, 'balanced', 'counted 450 vs expected 450')
+})
+
 
 // --- 8. Editing must never destroy, and re-dating must work -----------------
 
@@ -360,6 +379,31 @@ test('both expense lines are summed into the SAVED entry', async () => {
 });
 
 // --- 10. Edit pre-fills EVERY numeric field ------------------------------------
+
+test('tapping a 0.00 field blanks it so you type from scratch', async () => {
+  // Edit pre-fill writes "0.00" into untouched fields; tapping one must
+  // select/blank it instead of appending after the zero.
+  await gotoApp();
+  await page.locator('#adjustments summary').click();
+  await page.locator('#cashSales').fill('5'); // live target moves to €305.00
+  await page.locator('#cashSales').fill('');
+  const markerDate = new Date(Date.now() - 45 * 86400000);
+  const marker = `${markerDate.getFullYear()}-${String(markerDate.getMonth() + 1).padStart(2, '0')}-${String(markerDate.getDate()).padStart(2, '0')}`;
+  await api('POST', '/api/entry', { date: marker, actual: '80', expense: '12.5', black: '0', declared: 'tapblank marker' });
+  await gotoApp();
+  await page.locator('#historyMore summary').click();
+  const row = page.locator('#ledgerOlder li', { hasText: 'tapblank marker' }).first();
+  await row.locator('button', { hasText: 'Edit' }).click();
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('#black').inputValue(), '0.00',
+    'pre-fill wrote the zero representation');
+  await page.locator('#black').click();
+  // After a real tap (not programmatic fill) on a "0.00" field, typing must
+  // replace, not append: "3" becomes "3", never "0.003".
+  await page.keyboard.type('3');
+  assert.equal(await page.locator('#black').inputValue(), '3',
+    'typing after the tap must start from scratch');
+});
 
 test('edit pre-fills expense, added, card, drop, takeout and note', async () => {
   const markerDate = new Date(Date.now() - 60 * 86400000);

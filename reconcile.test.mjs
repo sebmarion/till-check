@@ -118,6 +118,22 @@ test('expense is an alias for cashRemoved and reduces expected cash', () => {
   assert.equal(none.status, STATUS.BALANCED)
 })
 
+test('cash sales raise expected: the real check against the POS Z-report', () => {
+  // Seb's model: today's POS cash sales are what the drawer SHOULD hold on
+  // top of opening. expected = opening + sales - expense - drop.
+  // Opening €500, €300 cash sales, count €800 -> balanced.
+  const r = reconcileDay({ actual: '800', cashSales: '300' }, 50000)
+  assert.equal(r.expectedCents, 80000)
+  assert.equal(r.salesCents, 30000)
+  assert.equal(r.varianceCents, 0)
+  assert.equal(r.status, STATUS.BALANCED)
+  // Missing sale shows up as short, not balanced:
+  // 500 + 300 expected, counted 750 -> €50 short.
+  const missing = reconcileDay({ actual: '750', cashSales: '300' }, 50000)
+  assert.equal(missing.status, STATUS.SHORT)
+  assert.equal(missing.varianceCents, -5000)
+})
+
 test('black is unrung cash IN: raises expected, stays in its own column', () => {
   // Seb's model: black = cash that went INTO the till without a receipt
   // (tracked on the guy's table). It is part of the till, so the books

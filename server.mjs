@@ -84,6 +84,7 @@ ensureColumn('entries', 'takeout_cents', 'INTEGER NOT NULL DEFAULT 0')
 ensureColumn('entries', 'opening_cents', 'INTEGER')
 ensureColumn('entries', 'black_cents', 'INTEGER NOT NULL DEFAULT 0')
 ensureColumn('entries', 'pre_takeout_cents', 'INTEGER NOT NULL DEFAULT 0')
+ensureColumn('entries', 'sales_cents', 'INTEGER NOT NULL DEFAULT 0')
 
 // Migration: older databases have state.books_balance_cents / baseline_cents.
 // Rename to the dynamic opening model on first run.
@@ -197,6 +198,7 @@ function upsertEntry(entry) {
          expected_cents = @expected_cents, variance_cents = @variance_cents,
          status = @status, opening_cents = @opening_cents, takeout_cents = @takeout_cents,
          black_cents = @black_cents, pre_takeout_cents = @pre_takeout_cents,
+         sales_cents = @sales_cents,
          updated_at = @updated_at
        WHERE id = @id`,
     ).run({
@@ -214,16 +216,17 @@ function upsertEntry(entry) {
       takeout_cents: entry.takeout_cents,
       black_cents: entry.black_cents,
       pre_takeout_cents: entry.pre_takeout_cents,
+      sales_cents: entry.sales_cents,
       updated_at: entry.updated_at,
     })
   } else {
     db.prepare(
       `INSERT INTO entries (date, actual_cents, cash_removed_cents, cash_added_cents,
         card_transfer_cents, declared_note, denominations, expected_cents, variance_cents, status,
-        opening_cents, takeout_cents, black_cents, pre_takeout_cents, created_at, updated_at)
+        opening_cents, takeout_cents, black_cents, pre_takeout_cents, sales_cents, created_at, updated_at)
        VALUES (@date, @actual_cents, @cash_removed_cents, @cash_added_cents,
         @card_transfer_cents, @declared_note, @denominations, @expected_cents, @variance_cents,
-        @status, @opening_cents, @takeout_cents, @black_cents, @pre_takeout_cents, @created_at, @updated_at)`,
+        @status, @opening_cents, @takeout_cents, @black_cents, @pre_takeout_cents, @sales_cents, @created_at, @updated_at)`,
     ).run(entry)
   }
 }
@@ -351,6 +354,7 @@ async function handlePostEntry(req) {
       preTakeout: body.preTakeout,
       cashAdded: body.cashAdded ?? 0,
       cardTransfer: body.cardTransfer ?? 0,
+      cashSales: body.cashSales ?? 0,
       declared,
       denominations,
       firstDay,
@@ -374,6 +378,7 @@ async function handlePostEntry(req) {
     takeout_cents: takeoutCents,
     black_cents: result.blackCents,
     pre_takeout_cents: result.preTakeoutCents,
+    sales_cents: result.salesCents,
     created_at: nowIso(),
     updated_at: nowIso(),
   }
@@ -406,6 +411,7 @@ function entryToView(row) {
     cashRemoved: centsToEuros(row.cash_removed_cents),
     black: centsToEuros(row.black_cents ?? 0),
     preTakeout: centsToEuros(row.pre_takeout_cents ?? 0),
+    cashSales: centsToEuros(row.sales_cents ?? 0),
     cashAdded: centsToEuros(row.cash_added_cents),
     cardTransfer: centsToEuros(row.card_transfer_cents),
     declared: row.declared_note,
@@ -508,6 +514,7 @@ async function handlePostReconcile(req) {
       preTakeout: body.preTakeout !== undefined ? body.preTakeout : centsToEuros(row.pre_takeout_cents ?? 0),
       cashAdded: body.cashAdded !== undefined ? body.cashAdded : centsToEuros(row.cash_added_cents),
       cardTransfer: body.cardTransfer !== undefined ? body.cardTransfer : centsToEuros(row.card_transfer_cents),
+      cashSales: body.cashSales !== undefined ? body.cashSales : centsToEuros(row.sales_cents ?? 0),
       declared,
     },
     openingCents,
@@ -528,6 +535,7 @@ async function handlePostReconcile(req) {
     takeout_cents: takeoutCents,
     black_cents: result.blackCents,
     pre_takeout_cents: result.preTakeoutCents,
+    sales_cents: result.salesCents,
     created_at: row.created_at,
     updated_at: nowIso(),
   }
@@ -636,6 +644,7 @@ async function handlePatchEntry(req, date) {
       preTakeout: body.preTakeout ?? centsToEuros(row.pre_takeout_cents ?? 0),
       cashAdded: body.cashAdded ?? centsToEuros(row.cash_added_cents),
       cardTransfer: body.cardTransfer ?? centsToEuros(row.card_transfer_cents),
+      cashSales: body.cashSales ?? centsToEuros(row.sales_cents ?? 0),
       declared: body.declared ?? row.declared_note,
       denominations: denomObj && Object.keys(denomObj).length ? denomObj : undefined,
     },
@@ -657,6 +666,7 @@ async function handlePatchEntry(req, date) {
     takeout_cents: takeoutCents,
     black_cents: result.blackCents,
     pre_takeout_cents: result.preTakeoutCents,
+    sales_cents: result.salesCents,
     created_at: row.created_at,
     updated_at: nowIso(),
   }

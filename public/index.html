@@ -245,6 +245,10 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
         <label>Card sales (for the record)</label>
         <input id="card" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
 
+        <label for="cashSales">Cash sales today (from POS)</label>
+        <input id="cashSales" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+        <div class="baseline-hint">Today's cash takings per the till. They raise today's target.</div>
+
         <label for="black">Black — cash in without a receipt</label>
         <input id="black" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
         <div class="baseline-hint">Unrung cash that went into the till. It raises today's target.</div>
@@ -386,6 +390,7 @@ function setVerdict(status, varianceCents, label, openingCash, actualCents, expe
 
 function expectedCentsNow() {
   return Math.round(currentOpeningCash * 100)
+    + Math.round(salesValue() * 100)
     + Math.round(totalAddedValue() * 100)
     + Math.round(Number((document.getElementById('black')?.value || '').replace(',', '.')) * 100 || 0)
     - Math.round(totalExpenseValue() * 100)
@@ -421,7 +426,7 @@ function clearEntryForm() {
     const input = document.querySelector(`[data-denom="${d.id}"]`);
     if (input) input.value = '';
   }
-  for (const id of ['expense', 'added', 'card', 'black', 'preTakeout', 'takeout', 'declared']) {
+  for (const id of ['expense', 'added', 'card', 'cashSales', 'black', 'preTakeout', 'takeout', 'declared']) {
     const input = document.getElementById(id);
     if (input) input.value = '';
   }
@@ -482,6 +487,11 @@ function addExtraRow(containerId, value, ariaLabel) {
     if (Number.isFinite(n)) wrap.querySelector('input').value = n.toFixed(2);
   }
   document.getElementById(containerId).append(wrap);
+}
+
+// Cash sales today (from POS): single field, raises the target.
+function salesValue() {
+  return sumMoneyInputs([document.getElementById('cashSales')]);
 }
 
 // Till expenses: first line #expense, extras in #extraExpenses.
@@ -792,6 +802,8 @@ function buildLedgerRow(e, prevEntry) {
     if (added) added.value = Number(e.cashAdded).toFixed(2);
     const card = document.getElementById('card');
     if (card) card.value = Number(e.cardTransfer).toFixed(2);
+    const cashSales = document.getElementById('cashSales');
+    if (cashSales) cashSales.value = Number(e.cashSales ?? 0).toFixed(2);
     const black = document.getElementById('black');
     if (black) black.value = Number(e.black ?? 0).toFixed(2);
     const preTakeout = document.getElementById('preTakeout');
@@ -858,8 +870,28 @@ document.getElementById('addAdded').addEventListener('click', () => addExtraRow(
 document.getElementById('addDrop').addEventListener('click', () => addExtraRow('extraDrops', undefined, 'Additional cash drop'));
 document.getElementById('addTakeout').addEventListener('click', () => addExtraRow('extraTakeouts', undefined, 'Additional taken out at close'));
 document.addEventListener('input', (event) => {
-  if (event.target.matches('#expense, #added, #black, #preTakeout, #takeout, #extraExpenses input, #extraAdds input, #extraDrops input, #extraTakeouts input')) {
+  if (event.target.matches('#expense, #added, #card, #cashSales, #black, #preTakeout, #takeout, #extraExpenses input, #extraAdds input, #extraDrops input, #extraTakeouts input')) {
     updateCheckPreview();
+  }
+});
+
+// Tap-to-blank: a field pre-filled with "0.00" clears itself as soon as you
+// type, so you start from scratch (never "0.003"). Only the exact zero string
+// triggers this — a real value like "12.50" is left alone.
+document.addEventListener('focusin', (event) => {
+  const el = event.target;
+  if (el instanceof HTMLInputElement && el.type === 'text' && el.value === '0.00') {
+    // Select everything: the first typed key replaces the whole zero.
+    el.select();
+    let done = false;
+    const blank = () => {
+      if (done) return;
+      done = true;
+      el.value = '';
+      updateCheckPreview();
+    };
+    el.addEventListener('keydown', blank, { once: true });
+    el.addEventListener('input', blank, { once: true });
   }
 });
 
@@ -875,6 +907,7 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     expense: totalExpenseValue().toFixed(2),
     cashAdded: totalAddedValue().toFixed(2),
     cardTransfer: document.getElementById('card').value,
+    cashSales: document.getElementById('cashSales').value,
     black: document.getElementById('black').value,
     preTakeout: totalPreTakeoutValue().toFixed(2),
     takeout: totalTakeoutValue().toFixed(2),

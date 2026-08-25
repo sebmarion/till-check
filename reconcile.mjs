@@ -120,7 +120,7 @@ export function denominationsToCents(counts) {
 }
 
 export function reconcileDay(
-  { actual, expense, cashRemoved = 0, black = 0, preTakeout = 0, cashAdded = 0, cardTransfer = 0, declared = "", denominations, firstDay = false },
+  { actual, expense, cashRemoved = 0, black = 0, preTakeout = 0, cashAdded = 0, cardTransfer = 0, cashSales = 0, declared = "", denominations, firstDay = false },
   openingCents = 0,
 ) {
   // If denominations are provided, they define the actual count.
@@ -130,6 +130,7 @@ export function reconcileDay(
   const preTakeoutCents = eurosToCents(preTakeout);
   const addedCents = eurosToCents(cashAdded);
   const cardCents = eurosToCents(cardTransfer);
+  const salesCents = eurosToCents(cashSales);
   const declaredNote = String(declared ?? "");
 
   let effectiveOpening = openingCents;
@@ -137,14 +138,14 @@ export function reconcileDay(
   if (firstDay) {
     // First-ever entry: the operator only knows what was LEFT after drops
     // and expenses. Derive the opening that makes this day balance:
-    //   opening = actual - added - black + removed + preTakeout
+    //   opening = actual - added - black - sales + removed + preTakeout
     derivedOpeningCents =
-      actualCents - addedCents - blackCents + removedCents + preTakeoutCents;
+      actualCents - addedCents - blackCents - salesCents + removedCents + preTakeoutCents;
     effectiveOpening = derivedOpeningCents;
   }
 
   const expectedCents =
-    effectiveOpening + addedCents + blackCents - removedCents - preTakeoutCents;
+    effectiveOpening + salesCents + addedCents + blackCents - removedCents - preTakeoutCents;
   const varianceCents = actualCents - expectedCents;
 
   const status =
@@ -156,6 +157,7 @@ export function reconcileDay(
     removedCents,
     addedCents,
     cardCents,
+    salesCents,
     blackCents,
     preTakeoutCents,
     declared: declaredNote,
