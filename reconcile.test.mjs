@@ -134,6 +134,43 @@ test('cash sales raise expected: the real check against the POS Z-report', () =>
   assert.equal(missing.varianceCents, -5000)
 })
 
+test('matching cash/card differences suggest a POS payment-method mistake', () => {
+  const markedCash = reconcileDay(
+    { actual: '490', posCardSales: '100', cardBilled: '110' },
+    50000,
+  )
+  assert.equal(markedCash.posCardCents, 10000)
+  assert.equal(markedCash.cardBilledCents, 11000)
+  assert.equal(markedCash.cardVarianceCents, 1000)
+  assert.equal(markedCash.varianceCents, -1000)
+  assert.equal(
+    markedCash.discrepancyReason,
+    'Likely €10.00 card sale recorded as cash in POS.',
+  )
+
+  const markedCard = reconcileDay(
+    { actual: '510', posCardSales: '110', cardBilled: '100' },
+    50000,
+  )
+  assert.equal(
+    markedCard.discrepancyReason,
+    'Likely €10.00 cash sale recorded as card in POS.',
+  )
+})
+
+test('card figures do not change cash and no reason is invented without an exact offset', () => {
+  const unrelated = reconcileDay(
+    { actual: '490', posCardSales: '100', cardBilled: '109' },
+    50000,
+  )
+  assert.equal(unrelated.expectedCents, 50000, 'card money never changes the drawer target')
+  assert.equal(unrelated.discrepancyReason, '', '€9 card difference does not explain €10 cash missing')
+
+  const notRecorded = reconcileDay({ actual: '490', posCardSales: '100' }, 50000)
+  assert.equal(notRecorded.cardBilledCents, null)
+  assert.equal(notRecorded.discrepancyReason, '')
+})
+
 test('black is unrung cash IN: raises expected, stays in its own column', () => {
   // Seb's model: black = cash that went INTO the till without a receipt
   // (tracked on the guy's table). It is part of the till, so the books

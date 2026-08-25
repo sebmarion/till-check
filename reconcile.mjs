@@ -15,7 +15,9 @@
 //   - preTakeout    cash drop taken out BEFORE counting — the count already
 //                   reflects it, so it reduces expected (own column)
 //   - cashAdded     cash moved IN during the shift (loan, bank)
-//   - cardTransfer  card revenue moved to the bank (logged; does NOT touch till cash)
+//   - posCardSales  card sales classified by the POS (logged; does NOT touch till cash)
+//   - cardTransfer  legacy alias for posCardSales
+//   - cardBilled    amount actually charged on the card terminal
 //   - declared      free-text note for declared/unaccounted cash
 //   - firstDay      first-ever entry: no known opening, so opening is derived
 //                   from this day's own numbers and the day balances by design
@@ -81,7 +83,9 @@ export function centsToEuros(cents) {
  * @param {string|number} [input.cashRemoved] legacy alias for expense
  * @param {string|number} [input.black]       undeclared cash out (own column)
  * @param {string|number} [input.cashAdded]   cash moved IN during the shift
- * @param {string|number} [input.cardTransfer] card revenue moved to bank (logged)
+ * @param {string|number} [input.posCardSales] card sales classified by the POS
+ * @param {string|number} [input.cardTransfer] legacy alias for posCardSales
+ * @param {string|number} [input.cardBilled] actual amount charged on the card terminal
  * @param {string}        [input.declared]    declared-cash note
  * @param {object}        [input.denominations] counts by denomination
  * @param {number} openingCents   opening cash carried from yesterday (cents)
@@ -120,7 +124,7 @@ export function denominationsToCents(counts) {
 }
 
 export function reconcileDay(
-  { actual, expense, cashRemoved = 0, black = 0, preTakeout = 0, cashAdded = 0, cardTransfer = 0, cashSales = 0, declared = "", denominations, firstDay = false },
+  { actual, expense, cashRemoved = 0, black = 0, preTakeout = 0, cashAdded = 0, posCardSales, cardTransfer = 0, cardBilled, cashSales = 0, declared = "", denominations, firstDay = false },
   openingCents = 0,
 ) {
   // If denominations are provided, they define the actual count.
@@ -129,7 +133,10 @@ export function reconcileDay(
   const blackCents = eurosToCents(black);
   const preTakeoutCents = eurosToCents(preTakeout);
   const addedCents = eurosToCents(cashAdded);
-  const cardCents = eurosToCents(cardTransfer);
+  const posCardCents = eurosToCents(posCardSales ?? cardTransfer);
+  const cardBilledCents = cardBilled === undefined || cardBilled === null || String(cardBilled).trim() === ''
+    ? null
+    : eurosToCents(cardBilled);
   const salesCents = eurosToCents(cashSales);
   const declaredNote = String(declared ?? "");
 
@@ -147,6 +154,15 @@ export function reconcileDay(
   const expectedCents =
     effectiveOpening + salesCents + addedCents + blackCents - removedCents - preTakeoutCents;
   const varianceCents = actualCents - expectedCents;
+  const cardVarianceCents = cardBilledCents === null ? null : cardBilledCents - posCardCents;
+
+  let discrepancyReason = '';
+  if (varianceCents !== 0 && cardVarianceCents === -varianceCents) {
+    const amount = centsToEuros(Math.abs(varianceCents));
+    discrepancyReason = varianceCents < 0
+      ? `Likely €${amount} card sale recorded as cash in POS.`
+      : `Likely €${amount} cash sale recorded as card in POS.`;
+  }
 
   const status =
     varianceCents < 0 ? STATUS.SHORT : varianceCents > 0 ? STATUS.OVER : STATUS.BALANCED;
@@ -156,7 +172,11 @@ export function reconcileDay(
     actualCents,
     removedCents,
     addedCents,
-    cardCents,
+    cardCents: posCardCents,
+    posCardCents,
+    cardBilledCents,
+    cardVarianceCents,
+    discrepancyReason,
     salesCents,
     blackCents,
     preTakeoutCents,

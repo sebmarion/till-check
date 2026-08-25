@@ -56,6 +56,8 @@ CREATE TABLE IF NOT EXISTS entries (
   cash_removed_cents INTEGER NOT NULL DEFAULT 0,
   cash_added_cents INTEGER NOT NULL DEFAULT 0,
   card_transfer_cents INTEGER NOT NULL DEFAULT 0,
+  card_billed_cents INTEGER,
+  discrepancy_reason TEXT NOT NULL DEFAULT '',
   declared_note TEXT NOT NULL DEFAULT '',
   denominations TEXT NOT NULL DEFAULT '',
   expected_cents INTEGER NOT NULL,
@@ -85,6 +87,8 @@ ensureColumn('entries', 'opening_cents', 'INTEGER')
 ensureColumn('entries', 'black_cents', 'INTEGER NOT NULL DEFAULT 0')
 ensureColumn('entries', 'pre_takeout_cents', 'INTEGER NOT NULL DEFAULT 0')
 ensureColumn('entries', 'sales_cents', 'INTEGER NOT NULL DEFAULT 0')
+ensureColumn('entries', 'card_billed_cents', 'INTEGER')
+ensureColumn('entries', 'discrepancy_reason', "TEXT NOT NULL DEFAULT ''")
 
 // Migration: older databases have state.books_balance_cents / baseline_cents.
 // Rename to the dynamic opening model on first run.
@@ -194,6 +198,7 @@ function upsertEntry(entry) {
       `UPDATE entries SET
          actual_cents = @actual_cents, cash_removed_cents = @cash_removed_cents,
          cash_added_cents = @cash_added_cents, card_transfer_cents = @card_transfer_cents,
+         card_billed_cents = @card_billed_cents, discrepancy_reason = @discrepancy_reason,
          declared_note = @declared_note, denominations = @denominations,
          expected_cents = @expected_cents, variance_cents = @variance_cents,
          status = @status, opening_cents = @opening_cents, takeout_cents = @takeout_cents,
@@ -207,6 +212,8 @@ function upsertEntry(entry) {
       cash_removed_cents: entry.cash_removed_cents,
       cash_added_cents: entry.cash_added_cents,
       card_transfer_cents: entry.card_transfer_cents,
+      card_billed_cents: entry.card_billed_cents,
+      discrepancy_reason: entry.discrepancy_reason,
       declared_note: entry.declared_note,
       denominations: entry.denominations,
       expected_cents: entry.expected_cents,
@@ -222,10 +229,12 @@ function upsertEntry(entry) {
   } else {
     db.prepare(
       `INSERT INTO entries (date, actual_cents, cash_removed_cents, cash_added_cents,
-        card_transfer_cents, declared_note, denominations, expected_cents, variance_cents, status,
+        card_transfer_cents, card_billed_cents, discrepancy_reason, declared_note,
+        denominations, expected_cents, variance_cents, status,
         opening_cents, takeout_cents, black_cents, pre_takeout_cents, sales_cents, created_at, updated_at)
        VALUES (@date, @actual_cents, @cash_removed_cents, @cash_added_cents,
-        @card_transfer_cents, @declared_note, @denominations, @expected_cents, @variance_cents,
+        @card_transfer_cents, @card_billed_cents, @discrepancy_reason, @declared_note,
+        @denominations, @expected_cents, @variance_cents,
         @status, @opening_cents, @takeout_cents, @black_cents, @pre_takeout_cents, @sales_cents, @created_at, @updated_at)`,
     ).run(entry)
   }
@@ -353,7 +362,8 @@ async function handlePostEntry(req) {
       black: body.black,
       preTakeout: body.preTakeout,
       cashAdded: body.cashAdded ?? 0,
-      cardTransfer: body.cardTransfer ?? 0,
+      posCardSales: body.posCardSales ?? body.cardTransfer ?? 0,
+      cardBilled: body.cardBilled,
       cashSales: body.cashSales ?? 0,
       declared,
       denominations,
@@ -368,7 +378,9 @@ async function handlePostEntry(req) {
     actual_cents: result.actualCents,
     cash_removed_cents: result.removedCents,
     cash_added_cents: result.addedCents,
-    card_transfer_cents: result.cardCents,
+    card_transfer_cents: result.posCardCents,
+    card_billed_cents: result.cardBilledCents,
+    discrepancy_reason: result.discrepancyReason,
     declared_note: result.declared,
     denominations: denominations ? JSON.stringify(denominations) : '',
     expected_cents: result.expectedCents,
@@ -413,7 +425,15 @@ function entryToView(row) {
     preTakeout: centsToEuros(row.pre_takeout_cents ?? 0),
     cashSales: centsToEuros(row.sales_cents ?? 0),
     cashAdded: centsToEuros(row.cash_added_cents),
+    posCardSales: centsToEuros(row.card_transfer_cents),
     cardTransfer: centsToEuros(row.card_transfer_cents),
+    cardBilled: row.card_billed_cents === null || row.card_billed_cents === undefined
+      ? null
+      : centsToEuros(row.card_billed_cents),
+    cardVariance: row.card_billed_cents === null || row.card_billed_cents === undefined
+      ? null
+      : centsToEuros(row.card_billed_cents - row.card_transfer_cents),
+    discrepancyReason: row.discrepancy_reason ?? '',
     declared: row.declared_note,
     denominations,
     expected: centsToEuros(row.expected_cents),
@@ -513,7 +533,10 @@ async function handlePostReconcile(req) {
       black: body.black !== undefined ? body.black : centsToEuros(row.black_cents ?? 0),
       preTakeout: body.preTakeout !== undefined ? body.preTakeout : centsToEuros(row.pre_takeout_cents ?? 0),
       cashAdded: body.cashAdded !== undefined ? body.cashAdded : centsToEuros(row.cash_added_cents),
-      cardTransfer: body.cardTransfer !== undefined ? body.cardTransfer : centsToEuros(row.card_transfer_cents),
+      posCardSales: body.posCardSales !== undefined ? body.posCardSales
+        : body.cardTransfer !== undefined ? body.cardTransfer : centsToEuros(row.card_transfer_cents),
+      cardBilled: body.cardBilled !== undefined ? body.cardBilled
+        : row.card_billed_cents === null ? null : centsToEuros(row.card_billed_cents),
       cashSales: body.cashSales !== undefined ? body.cashSales : centsToEuros(row.sales_cents ?? 0),
       declared,
     },
@@ -525,7 +548,9 @@ async function handlePostReconcile(req) {
     actual_cents: result.actualCents,
     cash_removed_cents: result.removedCents,
     cash_added_cents: result.addedCents,
-    card_transfer_cents: result.cardCents,
+    card_transfer_cents: result.posCardCents,
+    card_billed_cents: result.cardBilledCents,
+    discrepancy_reason: result.discrepancyReason,
     declared_note: result.declared,
     denominations: row.denominations || '',
     expected_cents: result.expectedCents,
@@ -643,7 +668,9 @@ async function handlePatchEntry(req, date) {
       black: body.black ?? centsToEuros(row.black_cents ?? 0),
       preTakeout: body.preTakeout ?? centsToEuros(row.pre_takeout_cents ?? 0),
       cashAdded: body.cashAdded ?? centsToEuros(row.cash_added_cents),
-      cardTransfer: body.cardTransfer ?? centsToEuros(row.card_transfer_cents),
+      posCardSales: body.posCardSales ?? body.cardTransfer ?? centsToEuros(row.card_transfer_cents),
+      cardBilled: body.cardBilled !== undefined ? body.cardBilled
+        : row.card_billed_cents === null ? null : centsToEuros(row.card_billed_cents),
       cashSales: body.cashSales ?? centsToEuros(row.sales_cents ?? 0),
       declared: body.declared ?? row.declared_note,
       denominations: denomObj && Object.keys(denomObj).length ? denomObj : undefined,
@@ -656,7 +683,9 @@ async function handlePatchEntry(req, date) {
     actual_cents: result.actualCents,
     cash_removed_cents: result.removedCents,
     cash_added_cents: result.addedCents,
-    card_transfer_cents: result.cardCents,
+    card_transfer_cents: result.posCardCents,
+    card_billed_cents: result.cardBilledCents,
+    discrepancy_reason: result.discrepancyReason,
     declared_note: result.declared,
     denominations: denomObj ? JSON.stringify(denomObj) : '',
     expected_cents: result.expectedCents,

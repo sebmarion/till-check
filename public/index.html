@@ -224,9 +224,9 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
     </div>
 
     <details id="adjustments" class="section-card entry-adjustments">
-      <summary><span class="section-title">Step 2: Cash in or out?</span><span class="section-hint">Only if needed</span></summary>
+      <summary><span class="section-title">Step 2: Sales and cash movements</span><span class="section-hint">POS totals + adjustments</span></summary>
       <div class="section-body">
-        <div class="baseline-hint">Open this only if cash was added, spent, dropped, or taken out during the shift.</div>
+        <div class="baseline-hint">Enter the POS cash/card totals and the card-terminal total. Add cash movements only when needed.</div>
         <div class="row2">
           <div>
             <label for="expense">Till expense</label>
@@ -242,12 +242,21 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
           </div>
         </div>
 
-        <label>Card sales (for the record)</label>
-        <input id="card" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
-
         <label for="cashSales">Cash sales today (from POS)</label>
         <input id="cashSales" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
         <div class="baseline-hint">Today's cash takings per the till. They raise today's target.</div>
+
+        <div class="row2">
+          <div>
+            <label for="card">Card sales today (from POS)</label>
+            <input id="card" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+          </div>
+          <div>
+            <label for="cardBilled">Actually charged on card terminal</label>
+            <input id="cardBilled" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
+          </div>
+        </div>
+        <div id="paymentCheck" class="baseline-hint hidden"></div>
 
         <label for="black">Black — cash in without a receipt</label>
         <input id="black" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
@@ -308,7 +317,8 @@ footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 2
         <div data-glossary="cash-drop"><dt>Cash drop</dt><dd>Cash taken out of the drawer BEFORE counting (e.g. to the safe). The count is whatever is left afterwards, so it lowers the target.</dd></div>
         <div data-glossary="taken-out-at-close"><dt>Taken out at close</dt><dd>Cash removed AFTER counting (usually to the safe). Does not change today's result — it becomes tomorrow's opening.</dd></div>
         <div data-glossary="cash-added"><dt>Cash added</dt><dd>Cash put into the drawer during the shift (change loan, bank withdrawal). Raises the target.</dd></div>
-        <div data-glossary="card-sales"><dt>Card sales</dt><dd>Card revenue, for the record only. Card money never touches the drawer, so it never changes the target.</dd></div>
+        <div data-glossary="card-sales"><dt>Card sales (POS)</dt><dd>What the POS says was paid by card. Card money never changes the drawer target.</dd></div>
+        <div data-glossary="card-billed"><dt>Actually charged on card terminal</dt><dd>The card-terminal total. If its difference from POS card sales exactly offsets the cash difference, the app records the likely cash/card marking mistake.</dd></div>
       </dl>
     </div>
   </details>
@@ -397,6 +407,48 @@ function expectedCentsNow() {
     - Math.round(totalPreTakeoutValue() * 100);
 }
 
+function optionalMoneyCents(id) {
+  const raw = (document.getElementById(id)?.value || '').trim().replace(',', '.');
+  if (raw === '') return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? Math.round(value * 100) : null;
+}
+
+// Live mirror of the server's exact-offset rule. The server remains
+// authoritative and stores the reason with the entry.
+function updatePaymentCheck(cashVarianceCents, hasCount) {
+  const out = document.getElementById('paymentCheck');
+  const posCardCents = optionalMoneyCents('card');
+  const billedCardCents = optionalMoneyCents('cardBilled');
+  if (posCardCents === null && billedCardCents === null) {
+    out.classList.add('hidden');
+    out.textContent = '';
+    return;
+  }
+  out.classList.remove('hidden');
+  if (posCardCents === null || billedCardCents === null) {
+    out.textContent = 'Enter both card totals to check the cash/card split.';
+    return;
+  }
+  if (!hasCount) {
+    out.textContent = 'Enter the drawer count to check whether the card difference explains it.';
+    return;
+  }
+  const cardVarianceCents = billedCardCents - posCardCents;
+  if (cashVarianceCents !== 0 && cardVarianceCents === -cashVarianceCents) {
+    const amount = euroFmt(Math.abs(cashVarianceCents) / 100);
+    out.textContent = cashVarianceCents < 0
+      ? `Suggested reason: Likely ${amount} card sale recorded as cash in POS.`
+      : `Suggested reason: Likely ${amount} cash sale recorded as card in POS.`;
+    return;
+  }
+  if (cardVarianceCents === 0) {
+    out.textContent = '✓ POS card and card-terminal totals match.';
+    return;
+  }
+  out.textContent = `Card difference ${euroFmt(cardVarianceCents / 100)} does not exactly explain the cash difference.`;
+}
+
 function updateCheckPreview() {
   const expected = expectedCentsNow();
   const actual = denomTotalCents();
@@ -406,9 +458,11 @@ function updateCheckPreview() {
   if (!hasCount) {
     live.className = 'live-check neutral';
     live.textContent = 'Enter your count above to compare.';
+    updatePaymentCheck(null, false);
     return;
   }
   const variance = actual - expected;
+  updatePaymentCheck(variance, true);
   if (variance === 0) {
     live.className = 'live-check balanced';
     live.textContent = '✓ MATCHES — your count is correct';
@@ -426,7 +480,7 @@ function clearEntryForm() {
     const input = document.querySelector(`[data-denom="${d.id}"]`);
     if (input) input.value = '';
   }
-  for (const id of ['expense', 'added', 'card', 'cashSales', 'black', 'preTakeout', 'takeout', 'declared']) {
+  for (const id of ['expense', 'added', 'card', 'cardBilled', 'cashSales', 'black', 'preTakeout', 'takeout', 'declared']) {
     const input = document.getElementById(id);
     if (input) input.value = '';
   }
@@ -763,6 +817,12 @@ function buildLedgerRow(e, prevEntry) {
     li.append(badge);
   }
 
+  if (e.discrepancyReason) {
+    const reason = document.createElement('div'); reason.className = 'declared';
+    reason.textContent = 'Suggested reason: ' + e.discrepancyReason;
+    li.append(reason);
+  }
+
   // Declared note
   if (e.declared) {
     const dec = document.createElement('div'); dec.className = 'declared';
@@ -801,7 +861,11 @@ function buildLedgerRow(e, prevEntry) {
     const added = document.getElementById('added');
     if (added) added.value = Number(e.cashAdded).toFixed(2);
     const card = document.getElementById('card');
-    if (card) card.value = Number(e.cardTransfer).toFixed(2);
+    if (card) card.value = Number(e.posCardSales ?? e.cardTransfer).toFixed(2);
+    const cardBilled = document.getElementById('cardBilled');
+    if (cardBilled) cardBilled.value = e.cardBilled === null || e.cardBilled === undefined
+      ? ''
+      : Number(e.cardBilled).toFixed(2);
     const cashSales = document.getElementById('cashSales');
     if (cashSales) cashSales.value = Number(e.cashSales ?? 0).toFixed(2);
     const black = document.getElementById('black');
@@ -813,7 +877,7 @@ function buildLedgerRow(e, prevEntry) {
     const declared = document.getElementById('declared');
     if (declared) declared.value = e.declared || '';
     const adjustments = document.getElementById('adjustments');
-    if (adjustments && (Number(e.expense ?? e.cashRemoved) !== 0 || Number(e.black) !== 0 || Number(e.preTakeout) !== 0 || Number(e.cashAdded) !== 0 || Number(e.cardTransfer) !== 0 || e.declared)) {
+    if (adjustments && (Number(e.expense ?? e.cashRemoved) !== 0 || Number(e.black) !== 0 || Number(e.preTakeout) !== 0 || Number(e.cashAdded) !== 0 || Number(e.posCardSales ?? e.cardTransfer) !== 0 || (e.cardBilled !== null && e.cardBilled !== undefined) || e.declared)) {
       adjustments.open = true;
     }
     // Show the entry card and scroll to it.
@@ -870,7 +934,7 @@ document.getElementById('addAdded').addEventListener('click', () => addExtraRow(
 document.getElementById('addDrop').addEventListener('click', () => addExtraRow('extraDrops', undefined, 'Additional cash drop'));
 document.getElementById('addTakeout').addEventListener('click', () => addExtraRow('extraTakeouts', undefined, 'Additional taken out at close'));
 document.addEventListener('input', (event) => {
-  if (event.target.matches('#expense, #added, #card, #cashSales, #black, #preTakeout, #takeout, #extraExpenses input, #extraAdds input, #extraDrops input, #extraTakeouts input')) {
+  if (event.target.matches('#expense, #added, #card, #cardBilled, #cashSales, #black, #preTakeout, #takeout, #extraExpenses input, #extraAdds input, #extraDrops input, #extraTakeouts input')) {
     updateCheckPreview();
   }
 });
@@ -906,7 +970,8 @@ document.getElementById('checkBtn').addEventListener('click', async () => {
     actual: hasDenomInput ? null : (editingDate ? undefined : '0'),
     expense: totalExpenseValue().toFixed(2),
     cashAdded: totalAddedValue().toFixed(2),
-    cardTransfer: document.getElementById('card').value,
+    posCardSales: document.getElementById('card').value,
+    cardBilled: document.getElementById('cardBilled').value,
     cashSales: document.getElementById('cashSales').value,
     black: document.getElementById('black').value,
     preTakeout: totalPreTakeoutValue().toFixed(2),

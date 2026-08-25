@@ -111,7 +111,7 @@ test('new day starts with an empty count form and no verdict', async () => {
   for (const input of await page.locator('.denom-input').all()) {
     assert.equal(await input.inputValue(), '', 'denomination field must be empty')
   }
-  for (const id of ['black', 'preTakeout', 'takeout', 'expense', 'added', 'card']) {
+  for (const id of ['black', 'preTakeout', 'takeout', 'expense', 'added', 'card', 'cardBilled']) {
     assert.equal(await page.locator(`#${id}`).inputValue(), '', `#${id} must be empty`)
   }
   assert.ok(await page.locator('#verdict').isHidden(), 'verdict must stay hidden before saving')
@@ -464,5 +464,29 @@ test('delete removes the day from history after confirmation', async () => {
     return hist.entries.map((e) => e.date);
   });
   assert.ok(!dates.includes(marker), 'deleted day must vanish from history');
+});
+
+test('POS card vs actual card billing suggests, saves, and re-fills a matching reason', async () => {
+  await gotoApp();
+  await page.locator('#adjustments summary').click();
+  await page.locator('#cashSales').fill('100');
+  await page.locator('#card').fill('100');
+  await page.locator('#cardBilled').fill('110');
+  await setCount('50', 7);
+  await setCount('20', 2);
+  const suggestion = await page.locator('#paymentCheck').innerText();
+  assert.match(suggestion, /€10\.00 card sale recorded as cash in POS/);
+
+  await page.locator('#checkBtn').click();
+  await page.waitForTimeout(500);
+  const recentRows = await page.locator('#ledger li').allInnerTexts();
+  const matchingReason = recentRows.find((text) => text.includes('€10.00 card sale recorded as cash in POS'));
+  assert.ok(matchingReason, `the suggested reason must be recorded in history: ${JSON.stringify(recentRows)}`);
+  const row = page.locator('#ledger li', { hasText: '€10.00 card sale recorded as cash in POS' }).first();
+
+  await row.locator('button', { hasText: 'Edit' }).click();
+  await page.waitForTimeout(200);
+  assert.equal(await page.locator('#card').inputValue(), '100.00');
+  assert.equal(await page.locator('#cardBilled').inputValue(), '110.00');
 });
 
