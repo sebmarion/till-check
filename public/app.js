@@ -415,8 +415,11 @@ function preview() {
     : money(f.expected);
   const source = state.openingSource;
   if (source?.provisional) {
-    const gap = source.gapDays ? ` · ${source.gapDays} uncounted day${source.gapDays === 1 ? "" : "s"} in between` : "";
-    $("openingWarning").textContent = `Opening ${money(state.opening)} carried from ${dateLabel(source.date)}${source.confirmed ? "" : " · saved but not confirmed"}${gap}.`;
+    const gap = source.gapDays
+      ? ` · ${source.gapDays} uncounted day${source.gapDays === 1 ? "" : "s"} in between`
+      : "";
+    $("openingWarning").textContent =
+      `Opening ${money(state.opening)} carried from ${dateLabel(source.date)}${source.confirmed ? "" : " · saved but not confirmed"}${gap}.`;
     $("openingWarning").className = "check-line over";
   } else {
     $("openingWarning").className = "check-line neutral hidden";
@@ -466,9 +469,19 @@ function preview() {
           money(f.cardVariance) +
           " · terminal minus " +
           (f.outside ? "POS and tips." : "POS.");
-    if (f.variance && f.cardVariance === -f.variance)
+    if (f.variance && Math.sign(f.variance) !== Math.sign(f.cardVariance)) {
+      const offset = Math.min(Math.abs(f.variance), Math.abs(f.cardVariance));
+      const combined = f.variance + f.cardVariance;
+      const direction =
+        f.variance < 0
+          ? "card sale marked as cash in POS"
+          : "cash sale marked as card in POS";
+      cardStatus = combined === 0 ? "balanced" : "over";
       cardText +=
-        " Possible POS payment-method mix-up. Check the receipts before correcting it.";
+        combined === 0
+          ? ` · ✓ Combined takings match. Likely ${money(offset)} ${direction}.`
+          : ` · Likely about ${money(offset)} ${direction}. After offsetting cash/card, ${money(Math.abs(combined))} still differs.`;
+    }
   }
   $("paymentCheck").className = "check-line " + cardStatus;
   $("paymentCheck").textContent = cardText;

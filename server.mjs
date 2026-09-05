@@ -215,7 +215,9 @@ function previousEntry(date) {
 }
 function previousConfirmed(date) {
   return db
-    .prepare("SELECT * FROM entries WHERE date<? AND confirmed_at IS NOT NULL ORDER BY date DESC LIMIT 1")
+    .prepare(
+      "SELECT * FROM entries WHERE date<? AND confirmed_at IS NOT NULL ORDER BY date DESC LIMIT 1",
+    )
     .get(date);
 }
 function getOpeningForDate(date, useExisting = true) {
@@ -237,11 +239,27 @@ function getOpeningForDate(date, useExisting = true) {
 function openingSourceForDate(date) {
   const previous = previousEntry(date);
   if (previous) {
-    const days = Math.round((Date.parse(date + "T12:00:00Z") - Date.parse(previous.date + "T12:00:00Z")) / 86400000);
-    return { date: previous.date, confirmed: !!previous.confirmed_at, gapDays: Math.max(0, days - 1), provisional: !previous.confirmed_at || days > 1 };
+    const days = Math.round(
+      (Date.parse(date + "T12:00:00Z") -
+        Date.parse(previous.date + "T12:00:00Z")) /
+        86400000,
+    );
+    return {
+      date: previous.date,
+      confirmed: !!previous.confirmed_at,
+      gapDays: Math.max(0, days - 1),
+      provisional: !previous.confirmed_at || days > 1,
+    };
   }
   const state = getState();
-  return state ? { date: state.openingDate, confirmed: state.source === "confirmed", gapDays: null, provisional: state.source !== "confirmed" } : null;
+  return state
+    ? {
+        date: state.openingDate,
+        confirmed: state.source === "confirmed",
+        gapDays: null,
+        provisional: state.source !== "confirmed",
+      }
+    : null;
 }
 function setState(cents, date, source = "confirmed") {
   db.prepare(
@@ -428,7 +446,16 @@ function entryToView(row) {
     row.card_billed_cents === null
       ? null
       : row.card_billed_cents - expectedCard;
-  const match = cv === null ? null : cv === 0 && row.variance_cents === 0;
+  const combinedVariance = cv === null ? null : row.variance_cents + cv;
+  const paymentMethodOffset =
+    cv === null ||
+    row.variance_cents === 0 ||
+    cv === 0 ||
+    Math.sign(row.variance_cents) === Math.sign(cv)
+      ? 0
+      : Math.min(Math.abs(row.variance_cents), Math.abs(cv));
+  const paymentMethodLikely = paymentMethodOffset > 0;
+  const match = combinedVariance === null ? null : combinedVariance === 0;
   return {
     ...inputs,
     date: row.date,
@@ -456,8 +483,23 @@ function entryToView(row) {
     cardMatches: cv === null ? null : cv === 0,
     overallMatches: match,
     overallStatus:
-      match === null ? "not_checked" : match ? "matches" : "not_matches",
-    discrepancyReason: row.discrepancy_reason,
+      match === null
+        ? "not_checked"
+        : match
+          ? "matches"
+          : paymentMethodLikely
+            ? "payment_mix_suspected"
+            : "not_matches",
+    combinedVariance:
+      combinedVariance === null ? null : centsToEuros(combinedVariance),
+    combinedMatches: match,
+    paymentMethodOffset: centsToEuros(paymentMethodOffset),
+    paymentMethodLikely,
+    discrepancyReason: paymentMethodLikely
+      ? combinedVariance === 0
+        ? `Likely €${centsToEuros(paymentMethodOffset)} ${row.variance_cents < 0 ? "card sale recorded as cash in POS" : "cash sale recorded as card in POS"}; combined cash + card takings match.`
+        : `Likely about €${centsToEuros(paymentMethodOffset)} ${row.variance_cents < 0 ? "card sale recorded as cash in POS" : "cash sale recorded as card in POS"}; after offsetting cash/card, €${centsToEuros(Math.abs(combinedVariance))} still differs.`
+      : row.discrepancy_reason,
   };
 }
 // Recalculate dependent openings after explicit mutations, never at startup.

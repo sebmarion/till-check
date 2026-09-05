@@ -291,22 +291,45 @@ export function reconcileDay(
   const cashMatches = varianceCents === 0;
   const cardMatches =
     cardVarianceCents === null ? null : cardVarianceCents === 0;
-  const overallMatches =
-    cardMatches === null ? null : cashMatches && cardMatches;
+  // A POS payment-method mistake moves the same amount between cash and card.
+  // Cash can therefore be short while the terminal is over (or vice versa)
+  // even though total takings reconcile.  The combined variance is invariant
+  // to that classification error: (actual cash - expected cash) +
+  // (terminal card - expected card).
+  const combinedVarianceCents =
+    cardVarianceCents === null ? null : varianceCents + cardVarianceCents;
+  const paymentMethodOffsetCents =
+    cardVarianceCents === null ||
+    varianceCents === 0 ||
+    cardVarianceCents === 0 ||
+    Math.sign(varianceCents) === Math.sign(cardVarianceCents)
+      ? 0
+      : Math.min(Math.abs(varianceCents), Math.abs(cardVarianceCents));
+  const paymentMethodLikely = paymentMethodOffsetCents > 0;
+  const combinedMatches =
+    combinedVarianceCents === null ? null : combinedVarianceCents === 0;
+  const overallMatches = cardMatches === null ? null : combinedMatches;
   const overallStatus =
     overallMatches === true
       ? "matches"
       : overallMatches === false
-        ? "not_matches"
+        ? paymentMethodLikely
+          ? "payment_mix_suspected"
+          : "not_matches"
         : "not_checked";
 
   let discrepancyReason = "";
-  if (varianceCents !== 0 && cardVarianceCents === -varianceCents) {
-    const amount = centsToEuros(Math.abs(varianceCents));
-    discrepancyReason =
+  if (paymentMethodLikely) {
+    const amount = centsToEuros(paymentMethodOffsetCents);
+    const residual = Math.abs(combinedVarianceCents);
+    const direction =
       varianceCents < 0
-        ? `Likely €${amount} card sale recorded as cash in POS.`
-        : `Likely €${amount} cash sale recorded as card in POS.`;
+        ? "card sale recorded as cash in POS"
+        : "cash sale recorded as card in POS";
+    discrepancyReason =
+      residual === 0
+        ? `Likely €${amount} ${direction}; combined cash + card takings match.`
+        : `Likely about €${amount} ${direction}; after offsetting cash/card, €${centsToEuros(residual)} still differs.`;
   }
 
   const status =
@@ -331,6 +354,10 @@ export function reconcileDay(
     cardMatches,
     overallMatches,
     overallStatus,
+    combinedVarianceCents,
+    combinedMatches,
+    paymentMethodOffsetCents,
+    paymentMethodLikely,
     discrepancyReason,
     cardCashTransactions: cardCash,
     cardCashGivenCents,
