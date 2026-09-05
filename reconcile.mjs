@@ -288,6 +288,11 @@ export function reconcileDay(
     posCardCents + (tipsOutsidePos ? cardCashGivenCents : 0);
   const cardVarianceCents =
     cardBilledCents === null ? null : cardBilledCents - expectedCardCents;
+  const swappedCardVarianceCents =
+    cardBilledCents === null
+      ? null
+      : posCardCents -
+        (cardBilledCents + (tipsOutsidePos ? cardCashGivenCents : 0));
   const cashMatches = varianceCents === 0;
   const cardMatches =
     cardVarianceCents === null ? null : cardVarianceCents === 0;
@@ -298,6 +303,15 @@ export function reconcileDay(
   // (terminal card - expected card).
   const combinedVarianceCents =
     cardVarianceCents === null ? null : varianceCents + cardVarianceCents;
+  const swappedCombinedVarianceCents =
+    swappedCardVarianceCents === null
+      ? null
+      : varianceCents + swappedCardVarianceCents;
+  const cardTotalsMayBeReversed =
+    combinedVarianceCents !== null &&
+    swappedCombinedVarianceCents !== null &&
+    Math.abs(swappedCombinedVarianceCents) + 100 <
+      Math.abs(combinedVarianceCents);
   const paymentMethodOffsetCents =
     cardVarianceCents === null ||
     varianceCents === 0 ||
@@ -350,6 +364,9 @@ export function reconcileDay(
     expectedCardCents,
     tipsOutsidePos,
     cardVarianceCents,
+    swappedCardVarianceCents,
+    swappedCombinedVarianceCents,
+    cardTotalsMayBeReversed,
     cashMatches,
     cardMatches,
     overallMatches,

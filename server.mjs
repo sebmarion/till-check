@@ -446,7 +446,18 @@ function entryToView(row) {
     row.card_billed_cents === null
       ? null
       : row.card_billed_cents - expectedCard;
+  const swappedCv =
+    row.card_billed_cents === null
+      ? null
+      : row.card_transfer_cents -
+        (row.card_billed_cents + (row.tips_outside_pos ? given : 0));
   const combinedVariance = cv === null ? null : row.variance_cents + cv;
+  const swappedCombinedVariance =
+    swappedCv === null ? null : row.variance_cents + swappedCv;
+  const cardTotalsMayBeReversed =
+    combinedVariance !== null &&
+    swappedCombinedVariance !== null &&
+    Math.abs(swappedCombinedVariance) + 100 < Math.abs(combinedVariance);
   const paymentMethodOffset =
     cv === null ||
     row.variance_cents === 0 ||
@@ -493,6 +504,12 @@ function entryToView(row) {
     combinedVariance:
       combinedVariance === null ? null : centsToEuros(combinedVariance),
     combinedMatches: match,
+    swappedCardVariance: swappedCv === null ? null : centsToEuros(swappedCv),
+    swappedCombinedVariance:
+      swappedCombinedVariance === null
+        ? null
+        : centsToEuros(swappedCombinedVariance),
+    cardTotalsMayBeReversed,
     paymentMethodOffset: centsToEuros(paymentMethodOffset),
     paymentMethodLikely,
     discrepancyReason: paymentMethodLikely

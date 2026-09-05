@@ -494,25 +494,45 @@ function preview() {
   } else {
     hide("combinedCheck", false);
     const combined = f.variance + f.cardVariance;
+    const swappedCardVariance =
+      f.pos === null || f.billed === null
+        ? null
+        : f.pos - f.billed - (f.outside ? f.tipCents : 0);
+    const swappedCombined =
+      swappedCardVariance === null ? null : f.variance + swappedCardVariance;
+    const reversedLikely =
+      swappedCombined !== null &&
+      Math.abs(swappedCombined) + 100 < Math.abs(combined);
+    const displayCard = reversedLikely ? swappedCardVariance : f.cardVariance;
+    const displayCombined = reversedLikely ? swappedCombined : combined;
     const opposite =
       f.variance !== 0 &&
-      f.cardVariance !== 0 &&
-      Math.sign(f.variance) !== Math.sign(f.cardVariance);
+      displayCard !== 0 &&
+      Math.sign(f.variance) !== Math.sign(displayCard);
     const offset = opposite
-      ? Math.min(Math.abs(f.variance), Math.abs(f.cardVariance))
+      ? Math.min(Math.abs(f.variance), Math.abs(displayCard))
       : 0;
     $("combinedCash").textContent = money(f.variance);
-    $("combinedCard").textContent = money(f.cardVariance);
-    $("combinedNet").textContent = money(combined);
+    $("combinedCardLabel").textContent = reversedLikely
+      ? "Card difference if totals swapped"
+      : "Card difference";
+    $("combinedCard").textContent = money(displayCard);
+    $("combinedNet").textContent = money(displayCombined);
     const box = $("combinedCheck");
     box.className =
       "combined-check " +
-      (combined === 0
+      (displayCombined === 0
         ? "combined-ok"
         : opposite
           ? "combined-mix"
           : "combined-bad");
-    if (combined === 0) {
+    if (reversedLikely) {
+      $("combinedTitle").textContent = "Card totals may be reversed";
+      $("combinedDetail").textContent =
+        `As entered, the combined difference is ${money(Math.abs(combined))}. ` +
+        `If POS card and terminal totals were swapped, the net is ${money(Math.abs(swappedCombined))} ` +
+        `(${swappedCombined >= 0 ? "over" : "short"}). Check the two card figures before confirming.`;
+    } else if (displayCombined === 0) {
       $("combinedTitle").textContent = "✓ Total takings reconcile";
       $("combinedDetail").textContent = offset
         ? `Cash and card cancel exactly. Likely ${money(offset)} was marked under the wrong payment method in the POS.`
@@ -521,11 +541,11 @@ function preview() {
       $("combinedTitle").textContent = "Likely payment-method mix-up";
       $("combinedDetail").textContent =
         `${money(offset)} of the cash/card differences cancel each other. ` +
-        `${money(Math.abs(combined))} remains unexplained overall.`;
+        `${money(Math.abs(displayCombined))} remains unexplained overall.`;
     } else {
       $("combinedTitle").textContent = "Total takings still do not reconcile";
       $("combinedDetail").textContent =
-        `Cash and card differences point the same way. Net unexplained difference: ${money(Math.abs(combined))}.`;
+        `Cash and card differences point the same way. Net unexplained difference: ${money(Math.abs(displayCombined))}.`;
     }
   }
   $("movementTotal").textContent = [

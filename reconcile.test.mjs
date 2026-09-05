@@ -498,3 +498,23 @@ test("partial cash/card offset identifies likely mix-up and residual discrepancy
   assert.equal(r.overallStatus, "payment_mix_suspected");
   assert.match(r.discrepancyReason, /20\.35 still differs/);
 });
+
+test("reversed card totals are detected when swapping them greatly improves reconciliation", () => {
+  const r = reconcileDay(
+    {
+      actual: "188.10",
+      cashSales: "350.20",
+      black: "760.15",
+      preTakeout: "745",
+      posCardSales: "6219.95",
+      cardBilled: "5828.20",
+    },
+    16000,
+  );
+  assert.equal(r.varianceCents, -33725);
+  assert.equal(r.cardVarianceCents, -39175);
+  assert.equal(r.combinedVarianceCents, -72900);
+  assert.equal(r.swappedCardVarianceCents, 39175);
+  assert.equal(r.swappedCombinedVarianceCents, 5450);
+  assert.equal(r.cardTotalsMayBeReversed, true);
+});
