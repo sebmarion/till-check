@@ -636,20 +636,33 @@ async function readJson(req) {
   return body;
 }
 function guardOrigin(req) {
-  if (req.headers["sec-fetch-site"] === "cross-site")
-    throw new ApiError(403, "Cross-site changes are not allowed.");
+  const fetchSite = req.headers["sec-fetch-site"];
+  if (fetchSite === "cross-site")
+    throw new ApiError(
+      403,
+      "This change was blocked because it came from another site. Reload Till Check and try again.",
+    );
   if (req.headers.origin) {
+    let originHost;
+    try {
+      originHost = new URL(req.headers.origin).host;
+    } catch {
+      throw new ApiError(
+        403,
+        "This page could not be verified. Reload Till Check and try again.",
+      );
+    }
+    // Browsers provide Sec-Fetch-Site before nginx rewrites the upstream Host.
+    // Trust the browser's same-origin/same-site signal; otherwise compare hosts.
+    if (fetchSite === "same-origin" || fetchSite === "same-site") return;
     const hosts = [req.headers.host, req.headers["x-forwarded-host"]].filter(
       Boolean,
     );
-    let host;
-    try {
-      host = new URL(req.headers.origin).host;
-    } catch {
-      throw new ApiError(403, "Invalid origin.");
-    }
-    if (!hosts.includes(host))
-      throw new ApiError(403, "Open Till Check directly to make changes.");
+    if (!hosts.includes(originHost))
+      throw new ApiError(
+        403,
+        "This page is no longer connected correctly. Reload Till Check, then try again. Your entries are still here.",
+      );
   }
 }
 async function handle(req, res) {

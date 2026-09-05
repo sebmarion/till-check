@@ -159,6 +159,16 @@ for (const body of [
       assert.equal((await get("state")).data.revision, 0);
     },
   );
+test("same-origin browser writes survive a reverse proxy that rewrites Host", async () => {
+  const result = await post(
+    "opening",
+    { opening: "100", date: DAY },
+    { Origin: "https://zeus.example.ts.net", "Sec-Fetch-Site": "same-origin" },
+  );
+  assert.equal(result.status, 200);
+  assert.equal((await get("state?date=" + DAY)).data.openingCash, "100.00");
+});
+
 test("cross-site mutations are blocked", async () => {
   const result = await post(
     "opening",
@@ -200,22 +210,22 @@ test("history pagination does not repeat or hide entries", async () => {
   assert.equal(second.hasMore, false);
 });
 
-test('latest saved physical count carries forward even when unconfirmed', async () => {
-  await post('entry', { date: DAY, opening: '100', actual: '125' })
-  const next = await post('entry', { date: NEXT, actual: '125' })
-  assert.equal(next.data.opening, '125.00')
-  assert.equal(next.data.variance, '0.00')
-  const state = await get('state?date=' + NEXT)
-  assert.equal(state.data.openingSource.date, DAY)
-  assert.equal(state.data.openingSource.confirmed, false)
-  assert.equal(state.data.openingSource.provisional, true)
-})
+test("latest saved physical count carries forward even when unconfirmed", async () => {
+  await post("entry", { date: DAY, opening: "100", actual: "125" });
+  const next = await post("entry", { date: NEXT, actual: "125" });
+  assert.equal(next.data.opening, "125.00");
+  assert.equal(next.data.variance, "0.00");
+  const state = await get("state?date=" + NEXT);
+  assert.equal(state.data.openingSource.date, DAY);
+  assert.equal(state.data.openingSource.confirmed, false);
+  assert.equal(state.data.openingSource.provisional, true);
+});
 
-test('editing an unconfirmed physical count cascades into later openings', async () => {
-  await post('entry', { date: DAY, opening: '100', actual: '125' })
-  await post('entry', { date: NEXT, actual: '125' })
-  await patch(DAY, { actual: '130' })
-  const next = await get('entry/' + NEXT)
-  assert.equal(next.data.opening, '130.00')
-  assert.equal(next.data.variance, '-5.00')
-})
+test("editing an unconfirmed physical count cascades into later openings", async () => {
+  await post("entry", { date: DAY, opening: "100", actual: "125" });
+  await post("entry", { date: NEXT, actual: "125" });
+  await patch(DAY, { actual: "130" });
+  const next = await get("entry/" + NEXT);
+  assert.equal(next.data.opening, "130.00");
+  assert.equal(next.data.variance, "-5.00");
+});
