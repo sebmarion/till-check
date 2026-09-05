@@ -326,8 +326,12 @@
               <div class="summary-panel">
                 <p class="eyebrow">YOUR DAY, AT A GLANCE</p>
                 <h2 id="summaryHeading">The cash check</h2>
-                <div id="openingWarning" class="check-line neutral hidden" role="status"></div>
-              <div id="liveCheck" class="result neutral" role="status">
+                <div
+                  id="openingWarning"
+                  class="check-line neutral hidden"
+                  role="status"
+                ></div>
+                <div id="liveCheck" class="result neutral" role="status">
                   <span id="resultIcon" aria-hidden="true">…</span
                   ><strong id="resultTitle">Ready when you are</strong>
                   <p id="resultDetail">
@@ -348,6 +352,29 @@
                     <dd id="varianceOut">—</dd>
                   </div>
                 </dl>
+                <section
+                  id="combinedCheck"
+                  class="combined-check hidden"
+                  aria-live="polite"
+                >
+                  <p class="eyebrow">CASH + CARD TOGETHER</p>
+                  <strong id="combinedTitle">—</strong>
+                  <p id="combinedDetail"></p>
+                  <dl class="combined-grid">
+                    <div>
+                      <dt>Cash difference</dt>
+                      <dd id="combinedCash">—</dd>
+                    </div>
+                    <div>
+                      <dt>Card difference</dt>
+                      <dd id="combinedCard">—</dd>
+                    </div>
+                    <div>
+                      <dt>Net difference</dt>
+                      <dd id="combinedNet">—</dd>
+                    </div>
+                  </dl>
+                </section>
                 <details id="mathDetails" class="compact-details">
                   <summary>How the expected cash is calculated</summary>
                   <dl id="cashMath" class="summary-numbers small"></dl>

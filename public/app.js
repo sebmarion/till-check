@@ -485,6 +485,49 @@ function preview() {
   }
   $("paymentCheck").className = "check-line " + cardStatus;
   $("paymentCheck").textContent = cardText;
+
+  // Make the end-of-day truth explicit: cash and card can be individually
+  // wrong because a sale was classified under the wrong payment method.
+  // Their signed variances cancel when total takings are actually right.
+  if (f.cardVariance === null || f.variance === null || state.baseline) {
+    hide("combinedCheck");
+  } else {
+    hide("combinedCheck", false);
+    const combined = f.variance + f.cardVariance;
+    const opposite =
+      f.variance !== 0 &&
+      f.cardVariance !== 0 &&
+      Math.sign(f.variance) !== Math.sign(f.cardVariance);
+    const offset = opposite
+      ? Math.min(Math.abs(f.variance), Math.abs(f.cardVariance))
+      : 0;
+    $("combinedCash").textContent = money(f.variance);
+    $("combinedCard").textContent = money(f.cardVariance);
+    $("combinedNet").textContent = money(combined);
+    const box = $("combinedCheck");
+    box.className =
+      "combined-check " +
+      (combined === 0
+        ? "combined-ok"
+        : opposite
+          ? "combined-mix"
+          : "combined-bad");
+    if (combined === 0) {
+      $("combinedTitle").textContent = "✓ Total takings reconcile";
+      $("combinedDetail").textContent = offset
+        ? `Cash and card cancel exactly. Likely ${money(offset)} was marked under the wrong payment method in the POS.`
+        : "Cash and card are both correct in total.";
+    } else if (opposite) {
+      $("combinedTitle").textContent = "Likely payment-method mix-up";
+      $("combinedDetail").textContent =
+        `${money(offset)} of the cash/card differences cancel each other. ` +
+        `${money(Math.abs(combined))} remains unexplained overall.`;
+    } else {
+      $("combinedTitle").textContent = "Total takings still do not reconcile";
+      $("combinedDetail").textContent =
+        `Cash and card differences point the same way. Net unexplained difference: ${money(Math.abs(combined))}.`;
+    }
+  }
   $("movementTotal").textContent = [
     f.black,
     f.added,

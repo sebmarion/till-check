@@ -1175,3 +1175,61 @@ footer span:first-child {
 .count-total button {
   min-height: 44px;
 }
+
+.combined-check {
+  margin: 18px 0;
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px solid #ffffff24;
+}
+.combined-check .eyebrow {
+  margin-bottom: 8px;
+}
+.combined-check > strong {
+  display: block;
+  font-size: 18px;
+  line-height: 1.35;
+}
+.combined-check > p:not(.eyebrow) {
+  margin: 8px 0 14px;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.combined-grid {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.combined-grid > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+}
+.combined-grid dt {
+  color: inherit;
+  opacity: 0.75;
+}
+.combined-grid dd {
+  margin: 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.combined-ok {
+  background: #ddefd7;
+  color: #163d2e;
+}
+.combined-mix {
+  background: #fff0c9;
+  color: #65410c;
+}
+.combined-bad {
+  background: #ffded5;
+  color: #812a22;
+}
+.combined-ok .eyebrow,
+.combined-mix .eyebrow,
+.combined-bad .eyebrow {
+  color: inherit;
+  opacity: 0.7;
+}
