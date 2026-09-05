@@ -197,6 +197,39 @@ test("date arrows navigate without moving or copying the saved entry", async () 
     () => document.querySelector("#actual").value === "300.00",
   );
 });
+test("mobile date picker stays clear of the next-day button", async () => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const geometry = await page.evaluate(() => {
+    const picker = document.querySelector("#entryDate").getBoundingClientRect();
+    const next = document.querySelector("#nextDay").getBoundingClientRect();
+    const previous = document
+      .querySelector("#previousDay")
+      .getBoundingClientRect();
+    return {
+      pickerWidth: picker.width,
+      nextGap: next.left - picker.right,
+      previousGap: picker.left - previous.right,
+      nextWidth: next.width,
+    };
+  });
+  assert.ok(
+    geometry.pickerWidth <= 170,
+    `picker is too wide: ${geometry.pickerWidth}px`,
+  );
+  assert.ok(
+    geometry.nextGap >= 10,
+    `next-day tap gap is too small: ${geometry.nextGap}px`,
+  );
+  assert.ok(
+    geometry.previousGap >= 10,
+    `previous-day tap gap is too small: ${geometry.previousGap}px`,
+  );
+  assert.ok(
+    geometry.nextWidth >= 48,
+    "next-day button keeps a generous tap target",
+  );
+});
+
 test("an unsaved draft survives reload and must be explicitly restored", async () => {
   await total("285,50");
   await go();

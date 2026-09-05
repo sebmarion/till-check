@@ -989,10 +989,19 @@ footer span:first-child {
   }
   .date-nav {
     margin-top: 20px;
-    justify-content: space-between;
+    justify-content: center;
+    gap: 12px;
+  }
+  .date-nav > .icon-button {
+    flex: 0 0 48px;
+    width: 48px;
+    min-width: 48px;
   }
   .date-current {
-    flex: 1;
+    flex: 0 0 170px;
+    min-width: 0;
+    max-width: 170px;
+    padding: 0 6px;
   }
   .date-current strong {
     font-size: 15px;
@@ -1120,6 +1129,13 @@ footer span:first-child {
   }
 }
 @media (max-width: 359px) {
+  .date-nav {
+    gap: 8px;
+  }
+  .date-current {
+    flex-basis: 148px;
+    max-width: 148px;
+  }
   .shell {
     padding: 0 12px;
   }
