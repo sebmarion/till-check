@@ -650,12 +650,43 @@ function preview() {
     state.busy || !state.loaded || !!(state.entry?.confirmed && !state.dirty);
   hide("confirmBtn", !state.entry || state.dirty || state.entry.confirmed);
   hide("savedResult", !state.entry || state.dirty);
+  renderTakingsBanner();
   if (state.entry)
     $("savedResult").textContent = state.entry.confirmed
       ? "Confirmed. " +
         money(parseMoney(state.entry.remaining)) +
         " was left for the next opening."
       : "Count saved. Review it, then confirm the amount left in the drawer.";
+}
+function takingsCard(entry, compact = false) {
+  const t = entry.takings;
+  if (!t) return null;
+  const card = node("section", "takings-card" + (compact ? " compact" : ""));
+  card.setAttribute("aria-label", "Takings for " + dateLabel(entry.date));
+  const label = t.source === "actual" ? t.differenceCents === 0 ? "Actual takings" : "Takings accounted for" : t.source === "recorded" ? "Recorded takings" : "Takings unavailable";
+  const lead = node("div", "takings-lead");
+  lead.append(node("span", "takings-label", label), node("strong", "takings-total", t.totalCents === null ? "—" : money(t.totalCents)));
+  lead.append(node("small", "takings-caption", "Before business costs · recorded tips excluded"));
+  const split = node("dl", "takings-split");
+  for (const [label, amount] of [["Cash", t.cashCents], ["Card", t.cardCents]]) {
+    const cell = node("div");
+    cell.append(node("dt", "", label + (t.source === "recorded" ? " · recorded" : "")), node("dd", "", amount === null ? "—" : money(amount)));
+    split.append(cell);
+  }
+  const messages = {derived_opening:"Opening float was estimated; actual takings are not independently checked.",provisional_opening:"Opening is provisional; showing recorded takings.",missing_cash:"A known opening and cash count are needed to check actual takings.",missing_terminal:"Terminal total missing; showing recorded takings, not verified collections.",cash_needs_review:"Cash movements need review; showing recorded takings.",tips_exceed_terminal:"Paid-out card tips exceed the terminal total; review this entry.",invalid_record:"Some saved amounts need review."};
+  const status = node("div", "takings-status " + (t.differenceCents === 0 ? "matched" : t.differenceCents < 0 ? "short" : "review"));
+  status.textContent = t.reason ? messages[t.reason] : t.differenceCents === null ? "Recorded card total needs review." : t.differenceCents === 0 ? "Cash + card match recorded takings" : money(Math.abs(t.differenceCents)) + (t.differenceCents < 0 ? " less" : " more") + " than recorded · to reconcile";
+  const detail = node("details", "takings-detail");
+  detail.append(node("summary", "", "How this is calculated"), node("p", "", "Cash counted − opening float − float added + till expenses + cash drops before counting + card tips paid from the drawer. Card = terminal total − those paid-out tips. Other recorded cash income is included once; closing withdrawals do not reduce takings. Unexplained differences are not proof of extra sales. This is not profit; stock, staff and other business costs are not deducted."));
+  if (t.recordedCents !== null) detail.append(node("p", "", "Recorded takings, excluding these tips: " + money(t.recordedCents) + "."));
+  if (t.tipsCents > 0) detail.append(node("p", "", "Card tips excluded: " + money(t.tipsCents) + "."));
+  card.append(lead, split, status, detail);return card;
+}
+function renderTakingsBanner() {
+  const visible = state.loaded && !state.dirty && state.entry?.confirmed && state.entry?.takings;
+  hide("dayTakings", !visible);
+  $("dayTakings").replaceChildren();
+  if (visible) $("dayTakings").append(takingsCard(state.entry));
 }
 function capture() {
   const values = {};
@@ -768,6 +799,7 @@ async function loadDay(date, push = true) {
   writeDraft();
   const id = ++state.loadId;
   state.loaded = false;
+  hide("dayTakings");
   setBusy(true);
   hide("error");
   $("connection").textContent = "Loading…";
@@ -1119,8 +1151,9 @@ function renderHistory() {
           " left in drawer",
       ),
     );
-    const amount = node("div", "amount", money(parseMoney(entry.actual)));
-    row.append(title, amount);
+    row.append(title);
+    const takings = takingsCard(entry, true);
+    if (takings) row.append(takings);
     const badges = node("div", "status-badges");
     badges.append(
       node(
@@ -1149,7 +1182,9 @@ function renderHistory() {
             : "Card difference " + money(parseMoney(entry.cardVariance)),
       ),
     );
-    row.append(badges);
+    const reconciliation = node("details", "history-reconciliation");
+    reconciliation.append(node("summary", "", "Cash / card differences"), badges);
+    row.append(reconciliation);
     if (entry.declared) row.append(node("p", "history-note", entry.declared));
     const actions = node("div", "row-actions");
     const open = node("button", "secondary", "Open count");

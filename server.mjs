@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { summarizeTakings } from "./takings.mjs";
 // Till Check — single-file, zero-dependency server.
 //
 // - Node stdlib only (node:http, node:sqlite, node:fs). No framework, no deps.
@@ -467,7 +468,7 @@ function entryToView(row) {
       : Math.min(Math.abs(row.variance_cents), Math.abs(cv));
   const paymentMethodLikely = paymentMethodOffset > 0;
   const match = combinedVariance === null ? null : combinedVariance === 0;
-  return {
+  const view = {
     ...inputs,
     date: row.date,
     cashRemoved: inputs.expense,
@@ -518,6 +519,10 @@ function entryToView(row) {
         : `Likely about €${centsToEuros(paymentMethodOffset)} ${row.variance_cents < 0 ? "card sale recorded as cash in POS" : "cash sale recorded as card in POS"}; after offsetting cash/card, €${centsToEuros(Math.abs(combinedVariance))} still differs.`
       : row.discrepancy_reason,
   };
+  const prior = row.opening_mode === "auto" ? previousEntry(row.date) : null;
+  const openingProvisional = !!prior && (!prior.confirmed_at ||
+    Date.parse(row.date + "T12:00:00Z") - Date.parse(prior.date + "T12:00:00Z") > 86400000);
+  return { ...view, takings: summarizeTakings(view, { openingProvisional }) };
 }
 // Recalculate dependent openings after explicit mutations, never at startup.
 function syncFollowing(fromDate) {
@@ -699,7 +704,7 @@ async function handle(req, res) {
       ok,
       db: ok,
       service: "till-check",
-      version: "0.2.0",
+      version: "0.2.1",
     });
     return;
   }

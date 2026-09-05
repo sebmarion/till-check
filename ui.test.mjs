@@ -411,3 +411,45 @@ test("confirm dialog makes SHORT and EXTRA explicit", async () => {
   assert.match(text, /Confirm & save/);
   await page.click("#dialogCancel");
 });
+
+async function closedTakings({terminal='516.20'}={}) {
+  const input={date:DAY,actual:'277.30',cashSales:'26.50',black:'0',preTakeout:'50',posCardSales:'518'};
+  if (terminal!==null) input.cardBilled=terminal;
+  const saved=await fx.request('POST','/api/entry',input);assert.equal(saved.status,200);
+  const closed=await fx.request('POST','/api/confirm',{date:DAY,takeout:'100'});assert.equal(closed.status,200);
+  await go();
+}
+test('closed date leads with takings and only the essential cash/card split',async()=>{
+  await closedTakings();
+  assert.equal(await page.locator('#dayTakings .takings-total').innerText(),'€543.50');
+  assert.deepEqual(await page.locator('#dayTakings .takings-split dd').allInnerTexts(),['€27.30','€516.20']);
+  assert.match(await page.locator('#dayTakings .takings-status').innerText(),/€1.00 less/);
+  assert.match(await page.locator('#dayTakings .takings-caption').innerText(),/Before business costs/);
+  assert.equal(await page.locator('#dayTakings details').getAttribute('open'),null);
+});
+test('history dates get the same takings hero rather than a cash-drawer headline',async()=>{
+  await closedTakings();await page.click('#historyTab');
+  const row=page.locator(`.history-row[data-date="${DAY}"]`);await row.waitFor();
+  assert.equal(await row.locator('.takings-total').innerText(),'€543.50');
+  assert.match(await row.innerText(),/€177.30 left in drawer/);
+});
+test('missing terminal remains a clearly labelled recorded total',async()=>{
+  await closedTakings({terminal:null});
+  assert.equal(await page.locator('#dayTakings .takings-label').innerText(),'Recorded takings');
+  assert.equal(await page.locator('#dayTakings .takings-total').innerText(),'€544.50');
+  assert.match(await page.locator('#dayTakings .takings-status').innerText(),/Terminal total missing/);
+});
+test('unsaved corrections cannot masquerade as a confirmed new earnings figure',async()=>{
+  await closedTakings();await page.fill('#cashSales','30');
+  assert.equal(await page.locator('#dayTakings').isVisible(),false);
+});
+test('closed date summary fits 320, 390, 768 and 1440px without clipping',async()=>{
+  await closedTakings();for(const width of [320,390,768,1440]){
+    await page.setViewportSize({width,height:900});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    const card=await page.locator('#dayTakings .takings-card').boundingBox();
+    for(const el of await page.locator('#dayTakings .takings-total,#dayTakings .takings-split dd').all()){
+      const box=await el.boundingBox();assert.ok(box.x>=card.x&&box.x+box.width<=card.x+card.width+1);
+    }
+  }
+});
