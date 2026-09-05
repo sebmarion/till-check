@@ -83,10 +83,18 @@ function showError(error) {
   $("connection").textContent = navigator.onLine
     ? "Needs attention"
     : "Offline";
+  if (error.status === 403) {
+    $("retryLoad").textContent = "Reload app";
+    $("retryLoad").onclick = () => location.reload();
+  } else {
+    $("retryLoad").textContent = "Reload latest";
+    $("retryLoad").onclick = () => loadDay(state.date).catch(showError);
+  }
 }
 async function api(path, method = "GET", body, revision = state.revision) {
   const headers = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (method !== "GET") headers["X-Till-Client"] = "till-check-v1";
   if (method !== "GET" && revision !== null)
     headers["If-Match"] = String(revision);
   const controller = new AbortController(),
@@ -1401,7 +1409,5 @@ async function init() {
   await loadDay(/^\d{4}-\d{2}-\d{2}$/.test(date) ? date : state.today);
   $("exportLink").href = BASE + "api/export.csv";
 }
-$("retryLoad").onclick = () => {
-  (state.denoms.length ? loadDay(state.date) : init()).catch(showError);
-};
+
 init().catch(showError);

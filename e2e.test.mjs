@@ -93,7 +93,10 @@ function stopOwnServer() {
 async function req(method, path, body) {
   const opts = {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(method === "GET" ? {} : { "X-Till-Client": "till-check-v1" }),
+    },
   };
   if (body) opts.body = JSON.stringify(body);
   const res = await fetch(BASE + path, opts);
@@ -389,7 +392,10 @@ serialTest(
 serialTest("POST /entry with invalid JSON returns 400", async () => {
   const res = await fetch(BASE + "/entry", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Till-Client": "till-check-v1",
+    },
     body: "not json",
   });
   assert.equal(res.status, 400);
@@ -526,7 +532,10 @@ serialTest("POST /reconcile without date returns 400", async () => {
 serialTest("POST /reconcile with invalid JSON returns 400", async () => {
   const res = await fetch(BASE + "/reconcile", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Till-Client": "till-check-v1",
+    },
     body: "not json",
   });
   assert.equal(res.status, 400);
@@ -1389,7 +1398,10 @@ serialTest(
   async () => {
     const res = await fetch(`${BASE.replace(/\/api$/, "")}/api/opening`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Till-Client": "till-check-v1",
+      },
       body: JSON.stringify({ opening: "garbage" }),
     });
     assert.equal(res.status, 400);
@@ -1438,7 +1450,10 @@ serialTest("POST /entry/:date/move with invalid JSON returns 400", async () => {
   await req("POST", "/entry", { date: day, actual: "50" });
   const res = await fetch(`${BASE}/entry/${day}/move`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Till-Client": "till-check-v1",
+    },
     body: "{broken",
   });
   assert.equal(res.status, 400);
@@ -1461,7 +1476,10 @@ serialTest("PATCH /entry/:date with invalid JSON returns 400", async () => {
   await req("POST", "/entry", { date: day, actual: "50" });
   const res = await fetch(`${BASE}/entry/${day}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Till-Client": "till-check-v1",
+    },
     body: "not json",
   });
   assert.equal(res.status, 400);

@@ -181,11 +181,30 @@ test("cross-site mutations are blocked", async () => {
   const result = await post(
     "opening",
     { opening: "100" },
-    { Origin: "https://untrusted.invalid" },
+    { Origin: "https://untrusted.invalid", "Sec-Fetch-Site": "cross-site" },
   );
   assert.equal(result.status, 403);
   assert.equal((await get("state")).data.hasOpening, false);
 });
+
+test("already-open Safari JSON sessions remain compatible without the new client header", async () => {
+  const res = await fetch(fx.base + "/api/opening", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ opening: "100", date: DAY }),
+  });
+  assert.equal(res.status, 200);
+});
+
+test("non-JSON mutation without the Till Check client header is rejected", async () => {
+  const res = await fetch(fx.base + "/api/opening", {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ opening: "100", date: DAY }),
+  });
+  assert.equal(res.status, 403);
+});
+
 test("all euro denominations, subpath assets and export remain available", async () => {
   const denoms = (await get("denominations")).data.denominations;
   assert.equal(denoms.length, 15);

@@ -49,7 +49,11 @@ export async function startFixture() {
     async request(method, path, body, headers = {}) {
       const res = await fetch(base + path, {
         method,
-        headers: { "Content-Type": "application/json", ...headers },
+        headers: {
+          "Content-Type": "application/json",
+          ...(method === "GET" ? {} : { "X-Till-Client": "till-check-v1" }),
+          ...headers,
+        },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
       const data = await res.json();

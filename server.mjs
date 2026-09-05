@@ -635,45 +635,29 @@ async function readJson(req) {
     throw new ApiError(400, "Send a JSON object.");
   return body;
 }
-function guardOrigin(req) {
-  const fetchSite = req.headers["sec-fetch-site"];
-  if (fetchSite === "cross-site")
+function guardWrite(req) {
+  // Write requests from our app carry a non-simple custom header. A foreign
+  // web page cannot send this header cross-origin unless we explicitly allow
+  // a CORS preflight, which Till Check never does. This avoids brittle Safari
+  // Origin/Sec-Fetch-Site behaviour behind nginx while preserving CSRF safety.
+  if (req.headers["sec-fetch-site"] === "cross-site")
     throw new ApiError(
       403,
-      "This request came from another site and was blocked. Reload Till Check and try again.",
+      "This change was blocked because it came from another site.",
     );
+  if (req.headers["x-till-client"] === "till-check-v1") return;
 
-  if (!req.headers.origin) return;
+  // Backward compatibility for an already-open pre-fix Safari tab. A browser
+  // cannot send application/json cross-origin without a CORS preflight, and
+  // this server does not answer CORS preflights. This lets an old same-origin
+  // Till Check page finish its save/confirm without trusting Origin headers.
+  const contentType = String(req.headers["content-type"] || "").toLowerCase();
+  if (contentType.startsWith("application/json")) return;
 
-  let originHost;
-  try {
-    originHost = new URL(req.headers.origin).host;
-  } catch {
-    throw new ApiError(
-      403,
-      "This page could not be verified. Reload Till Check and try again.",
-    );
-  }
-
-  if (fetchSite === "same-origin" || fetchSite === "same-site") return;
-
-  // iOS Safari can omit Sec-Fetch-Site. Behind nginx, req.headers.host is the
-  // internal upstream address, not the public browser origin, so comparing the
-  // two directly creates a false 403. Accept the known private Till Check host
-  // explicitly, while keeping arbitrary external origins blocked.
-  const publicHosts = new Set(
-    [
-      process.env.TILL_PUBLIC_HOST || "zeus.tailfad2e3.ts.net",
-      req.headers["x-forwarded-host"],
-      req.headers.host,
-    ].filter(Boolean),
+  throw new ApiError(
+    403,
+    "This Till Check page is out of date. Reload the app once, then try again. Your entries are still here.",
   );
-
-  if (!publicHosts.has(originHost))
-    throw new ApiError(
-      403,
-      "This request came from an unexpected site and was blocked. Reload Till Check and try again.",
-    );
 }
 
 async function handle(req, res) {
@@ -829,7 +813,7 @@ async function handle(req, res) {
   }
   if (!["POST", "PATCH", "DELETE"].includes(method))
     throw new ApiError(404, "Not found.");
-  guardOrigin(req);
+  guardWrite(req);
   const body = method === "DELETE" ? {} : await readJson(req);
   let result;
   if (pathname === "/api/opening" && method === "POST") {
