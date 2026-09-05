@@ -1,1037 +1,445 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#f4f1ea">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f8f5b'/%3E%3Cpath d='M8 16h16M16 8v16' stroke='white' stroke-width='3'/%3E%3C/svg%3E">
-<title>Till Check</title>
-<style>
-:root {
-  --bg: #f4f1ea;
-  --card: #ffffff;
-  --ink: #1f2421;
-  --muted: #5f6b64;
-  --line: #e4e0d6;
-  --green: #2f8f5b;
-  --green-bg: #e7f5ec;
-  --amber: #b07d1e;
-  --amber-bg: #fbf0d9;
-  --red: #b23b30;
-  --red-bg: #f8e3e0;
-  --accent: #1f2421;
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
-body {
-  font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background: var(--bg);
-  color: var(--ink);
-  padding: 12px 16px;
-  padding-bottom: 32px;
-  -webkit-font-smoothing: antialiased;
-}
-.wrap { max-width: 520px; margin: 0 auto; }
-.topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin: 4px 0 16px; }
-.eyebrow { font-size: 11px; line-height: 1; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 5px; }
-h1 { font-size: 22px; line-height: 1.1; font-weight: 650; margin: 0; letter-spacing: -0.2px; }
-.baseline-status { display: inline-flex; align-items: center; gap: 7px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12px; white-space: nowrap; background: rgba(255,255,255,0.55); }
-.baseline-status strong { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 650; }
-.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
-.status-dot.ready { background: var(--green); }
-.card {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 16px;
-  margin-bottom: 14px;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.02);
-}
-.label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 10px; }
-
-/* Verdict — decision front and center */
-.verdict { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; margin-bottom: 14px; }
-.verdict .badge { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; flex: none; }
-.verdict .body { flex: 1; }
-.verdict .amount { font-size: 26px; font-weight: 650; line-height: 1.1; }
-.verdict .sub { font-size: 13px; color: var(--muted); }
-.verdict.balanced { background: var(--green-bg); }
-.verdict.balanced .amount { color: var(--green); }
-.verdict.short { background: var(--red-bg); }
-.verdict.short .amount { color: var(--red); }
-.verdict.over { background: var(--amber-bg); }
-.verdict.over .amount { color: var(--amber); }
-.verdict .badge.balanced { background: var(--green); color: #fff; }
-.verdict .badge.short { background: var(--red); color: #fff; }
-.verdict .badge.over { background: var(--amber); color: #fff; }
-.count-guide { padding: 14px 16px; margin: 0 0 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); }
-.count-guide .step { font-size: 11px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); }
-.count-guide h2 { font-size: 21px; margin: 3px 0 2px; letter-spacing: -0.2px; }
-.count-guide p { margin: 0; color: var(--muted); font-size: 14px; }
-.expected-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--line); }
-.expected-row span { color: var(--muted); font-size: 14px; }
-.expected-row span small { font-size: 11px; }
-.expected-row strong { font-size: 22px; font-variant-numeric: tabular-nums; }
-.live-check { margin-top: 10px; padding: 10px 12px; border-radius: 10px; font-weight: 650; font-size: 15px; }
-.live-check.neutral { background: #eceae4; color: var(--muted); font-weight: 500; }
-.live-check.balanced { background: var(--green-bg); color: var(--green); }
-.live-check.short { background: var(--red-bg); color: var(--red); }
-.live-check.over { background: var(--amber-bg); color: var(--amber); }
-
-label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
-input {
-  width: 100%; font-size: 17px; padding: 12px; border: 1px solid var(--line);
-  border-radius: 10px; background: #fff; color: var(--ink);
-}
-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-textarea, select { width: 100%; font: inherit; font-size: 15px; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; resize: vertical; min-height: 44px; background: #fff; color: var(--ink); }
-select { resize: none; }
-textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-button {
-  width: 100%; font-size: 16px; font-weight: 600; padding: 14px; border: 0; border-radius: 12px;
-  background: var(--accent); color: #fff; cursor: pointer; margin-top: 16px;
-}
-button.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; }
-button.ghost.small { width: auto; font-size: 12px; padding: 4px 8px; margin-top: 6px; }
-button.ghost.danger { color: var(--red); border-color: #e8c2be; }
-button:active { transform: translateY(1px); }
-.extra-expense-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
-.extra-expense-row input { flex: 1; min-width: 0; margin-top: 0; }
-.extra-expense-row button.ghost.small { flex-shrink: 0; }
-
-/* Denomination counter */
-.denom-list { list-style: none; margin: 0 0 12px; padding: 0; }
-.denom-row {
-  display: grid; grid-template-columns: 72px 1fr 56px; gap: 10px; align-items: center;
-  padding: 10px 0; border-bottom: 1px solid var(--line);
-}
-.denom-row:last-child { border-bottom: 0; }
-.denom-label { font-size: 15px; font-weight: 500; }
-.denom-input {
-  width: 100%; font-size: 17px; padding: 12px 10px; border: 1px solid var(--line);
-  border-radius: 8px; background: #fff; text-align: center; min-height: 44px;
-}
-.denom-total { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
-.denom-sum {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 0; margin-top: 8px; font-size: 15px;
-}
-.denom-sum .total { font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
-
-/* Ledger — full record */
-.ledger { list-style: none; margin: 0; padding: 0; }
-.ledger li {
-  padding: 12px 0; border-bottom: 1px solid var(--line);
-}
-.ledger li:last-child { border-bottom: 0; }
-.ledger .row1 { display: flex; justify-content: space-between; align-items: center; }
-.ledger .date { color: var(--muted); font-size: 13px; }
-.ledger .var { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px; padding: 5px 9px; border-radius: 8px; }
-.ledger .var.short { color: var(--red); background: var(--red-bg); }
-.ledger .var.over { color: var(--amber); background: var(--amber-bg); }
-.ledger .var.balanced { color: var(--green); background: var(--green-bg); }
-.ledger .status-word { font-weight: 700; letter-spacing: 0.2px; }
-.details { font-size: 13px; color: var(--muted); margin-top: 6px; }
-.balance-band { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 7px 10px; border-radius: 8px; background: var(--bg); font-size: 13px; }
-.balance-band .bal-start, .balance-band .bal-end { font-variant-numeric: tabular-nums; font-weight: 600; }
-.balance-band .bal-start { color: var(--green); }
-.balance-band .bal-end { color: var(--ink); }
-.denom-break { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
-.ledger .declared { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; }
-.confirmed-flag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--green); margin-top: 6px; }
-.gap-flag { font-size: 11px; color: var(--amber); margin-top: 6px; }
-.unconfirmed-flag { font-size: 11px; color: var(--amber); margin-top: 6px; }
-.ledger li { display: flex; flex-direction: column; }
-.ledger li > .row1 { width: 100%; }
-
-.baseline-hint { font-size: 14px; color: var(--muted); margin-top: 8px; }
-.section-card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; margin-bottom: 10px; overflow: hidden; }
-.section-card > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 54px; padding: 14px 16px; cursor: pointer; list-style: none; }
-.section-card > summary::-webkit-details-marker { display: none; }
-.section-card > summary::after { content: '+'; color: var(--muted); font-size: 21px; font-weight: 400; line-height: 1; }
-.section-card[open] > summary::after { content: '−'; }
-.section-card[open] > summary { border-bottom: 1px solid var(--line); }
-.section-title { font-size: 16px; font-weight: 600; }
-.section-hint { color: var(--muted); font-size: 12px; margin-left: auto; }
-.section-body { padding: 0 16px 16px; }
-.entry-adjustments { margin: 14px 0 0; }
-.entry-adjustments > summary { min-height: 48px; padding: 11px 12px; }
-.entry-adjustments .section-body { padding: 0 12px 12px; }
-.section-body > .label:first-child { margin-top: 15px; }
-.section-body .card { border: 0; box-shadow: none; padding: 0; margin: 0; }
-.summary-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; padding: 14px 0 2px; }
-.summary-item { padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
-.summary-item .value { display: block; font-size: 18px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.summary-item .caption { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
-.section-body .ledger { margin-top: 8px; }
-.glossary { margin: 0; }
-.glossary > div { padding: 10px 0; border-bottom: 1px solid var(--line); }
-.glossary > div:last-child { border-bottom: 0; }
-.glossary dt { font-weight: 650; font-size: 14px; }
-.glossary dd { margin: 3px 0 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
-.hidden { display: none !important; }
-footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 24px; }
-@media (max-width: 380px) {
-  body { padding-left: 12px; padding-right: 12px; }
-  .baseline-status { padding-left: 7px; padding-right: 7px; }
-  .section-hint { display: none; }
-}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <header class="topbar">
-    <div>
-      <div class="eyebrow" id="dayHeading">Cash drawer · today</div>
-      <h1>Till Check</h1>
-    </div>
-    <div class="baseline-status"><span class="status-dot"></span><span>Opening cash <strong id="baselineOut">—</strong></span></div>
-  </header>
-
-  <!-- Opening cash (first run only) -->
-  <div id="setup" class="card hidden">
-    <div class="label">Opening cash</div>
-    <label>How much cash is in the drawer right now?</label>
-    <input id="setupAmount" type="text" inputmode="decimal" placeholder="e.g. 500" autocomplete="off">
-    <button id="setupBtn">Start checking</button>
-    <div class="baseline-hint">Enter this once. Tomorrow it will automatically carry forward from your last count.</div>
-  </div>
-
-  <!-- Daily entry -->
-  <div id="entryCard" class="card hidden">
-    <div class="count-guide">
-      <div class="step">Step 1 of 3</div>
-      <h2>Count the drawer</h2>
-      <p>Enter how many notes and coins are physically in the drawer.</p>
-      <div class="expected-row">
-        <span>Target for today's count <small>(not your count)</small></span>
-        <strong id="expectedNow">€0.00</strong>
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#153c35" />
+    <meta
+      name="description"
+      content="Count your drawer, check the difference, and close the day with confidence."
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23153c35'/%3E%3Cpath d='m8 16 5 5 11-11' stroke='%23fff' fill='none' stroke-width='3'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+    <title>Till Check · Cash, accounted for.</title>
+  </head>
+  <body>
+    <a class="skip" href="#workspace">Skip to cash count</a>
+    <div class="shell">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="Till Check home"
+          ><span class="brand-icon" aria-hidden="true">✓</span
+          ><span>Till Check<small>Cash, accounted for.</small></span></a
+        ><span class="local-label"
+          ><span class="dot"></span>On Zeus · Barcelona time</span
+        >
+      </header>
+      <nav class="tabs" aria-label="Workspace">
+        <button id="countTab" class="tab active" aria-current="page">
+          Daily count</button
+        ><button id="historyTab" class="tab">History &amp; records</button
+        ><span id="connection" class="connection" role="status"
+          >Connecting…</span
+        >
+      </nav>
+      <div id="notice" class="notice hidden" role="status">
+        <span id="noticeText"></span
+        ><button id="noticeAction" class="text-button hidden"></button
+        ><button
+          id="dismissNotice"
+          class="icon-button"
+          aria-label="Dismiss message"
+        >
+          ×
+        </button>
       </div>
-      <div id="liveCheck" class="live-check neutral">Enter your count above to compare.</div>
-    </div>
-
-    <div class="label">Your notes and coins</div>
-
-    <label for="entryDate">Reconciliation date</label>
-    <input id="entryDate" type="date" autocomplete="off">
-    <div class="baseline-hint">Choose yesterday or an earlier day when catching up.</div>
-
-    <div class="denom-list" id="denomList"></div>
-    <div class="denom-sum">
-      <span>Counted total</span>
-      <span class="total" id="denomTotal">€0.00</span>
-    </div>
-
-    <details id="adjustments" class="section-card entry-adjustments">
-      <summary><span class="section-title">Step 2: Sales and cash movements</span><span class="section-hint">POS totals + adjustments</span></summary>
-      <div class="section-body">
-        <div class="baseline-hint">Enter the POS cash/card totals and the card-terminal total. Add cash movements only when needed.</div>
-        <div class="row2">
-          <div>
-            <label for="expense">Till expense</label>
-            <input id="expense" type="text" inputmode="decimal" placeholder="e.g. 20.00" autocomplete="off">
-            <div id="extraExpenses"></div>
-            <button type="button" id="addExpense" class="ghost small">+ Add another</button>
+      <div id="error" class="notice error hidden" role="alert">
+        <span id="errorText"></span
+        ><button id="retryLoad" class="text-button">Reload latest</button>
+      </div>
+      <main id="workspace" tabindex="-1">
+        <section id="countView" aria-label="Daily cash reconciliation">
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">THE DAILY CLOSE</p>
+              <h1>A clear end to your day.</h1>
+              <p class="subtitle">
+                Count what is there. Understand the difference.
+              </p>
+            </div>
+            <div class="date-nav" role="group" aria-label="Reconciliation day">
+              <button
+                id="previousDay"
+                class="icon-button"
+                aria-label="Previous day"
+              >
+                ‹</button
+              ><label class="date-current" for="entryDate"
+                ><strong id="dayRelative">Today</strong
+                ><span id="dayCalendar"></span
+                ><input
+                  id="entryDate"
+                  type="date"
+                  aria-label="Selected reconciliation date" /></label
+              ><button id="nextDay" class="icon-button" aria-label="Next day">
+                ›
+              </button>
+            </div>
           </div>
-          <div>
-            <label for="added">Cash added during shift</label>
-            <input id="added" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
-            <div id="extraAdds"></div>
-            <button type="button" id="addAdded" class="ghost small">+ Add another</button>
+          <div id="draftBanner" class="notice hidden">
+            <span>A count was left unfinished on this device.</span
+            ><button id="restoreDraft" class="text-button">Restore draft</button
+            ><button id="discardDraft" class="text-button">Discard</button>
           </div>
+          <div id="setup" class="panel setup hidden">
+            <div>
+              <p class="eyebrow">ONE-TIME SETUP</p>
+              <h2>Start with a known balance.</h2>
+              <p>
+                Enter the cash in the drawer
+                <strong>before this day's sales and movements</strong>. The next
+                opening carries forward from each confirmed count.
+              </p>
+            </div>
+            <label for="setupAmount"
+              >Opening cash (€)<input
+                id="setupAmount"
+                inputmode="decimal"
+                placeholder="e.g. 200,00"
+                autocomplete="off" /></label
+            ><button id="setupBtn" class="primary">Set opening balance</button
+            ><button id="unknownOpening" class="text-button">
+              I only know the closing count
+            </button>
+          </div>
+          <div id="entryCard" class="workspace-grid hidden">
+            <div class="workflow">
+              <section class="panel" aria-labelledby="countHeading">
+                <div class="section-heading">
+                  <span class="step">01</span>
+                  <div>
+                    <h2 id="countHeading">Count the drawer</h2>
+                    <p>Cash physically here, before the closing withdrawal.</p>
+                  </div>
+                  <span id="entryStatus" class="pill">New count</span>
+                </div>
+                <div
+                  class="segmented"
+                  role="group"
+                  aria-label="Counting method"
+                >
+                  <button id="denomMode" aria-pressed="true">
+                    Notes &amp; coins</button
+                  ><button id="totalMode" aria-pressed="false">
+                    Enter a total
+                  </button>
+                </div>
+                <div id="denomPanel">
+                  <div class="group-title">
+                    Banknotes <span>Number of notes, not their value</span>
+                  </div>
+                  <div id="notes" class="denom-grid"></div>
+                  <details id="largeNotes" class="compact-details">
+                    <summary>€100, €200 &amp; €500 notes</summary>
+                    <div id="largeNotesList" class="denom-grid"></div>
+                  </details>
+                  <div class="group-title">
+                    Coins <span>Every cent counts</span>
+                  </div>
+                  <div id="coins" class="denom-grid coin-grid"></div>
+                </div>
+                <div id="totalPanel" class="hidden">
+                  <label for="actual">Counted cash (€)</label
+                  ><input
+                    id="actual"
+                    class="total-input"
+                    type="text"
+                    inputmode="decimal"
+                    placeholder="0,00"
+                    autocomplete="off"
+                  />
+                  <p class="hint">
+                    Enter your counted total. Enter 0 explicitly for an empty
+                    drawer.
+                  </p>
+                </div>
+                <div class="count-total">
+                  <span>Counted total</span
+                  ><strong id="denomTotal">€0.00</strong
+                  ><button id="emptyDrawer" class="text-button">
+                    Drawer is empty
+                  </button>
+                </div>
+              </section>
+              <section class="panel" aria-labelledby="salesHeading">
+                <div class="section-heading">
+                  <span class="step">02</span>
+                  <div>
+                    <h2 id="salesHeading">Sales &amp; cash movements</h2>
+                    <p>Use the totals for the selected day.</p>
+                  </div>
+                </div>
+                <label for="cashSales">Cash sales · POS (€)</label
+                ><input
+                  id="cashSales"
+                  inputmode="decimal"
+                  placeholder="0,00"
+                  autocomplete="off"
+                />
+                <p class="hint">
+                  Cash takings only. Do not include card payments.
+                </p>
+                <div class="row2">
+                  <div>
+                    <label for="card">Card sales · POS (€)</label
+                    ><input
+                      id="card"
+                      inputmode="decimal"
+                      placeholder="Not entered"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div>
+                    <label for="cardBilled">Card terminal total (€)</label
+                    ><input
+                      id="cardBilled"
+                      inputmode="decimal"
+                      placeholder="Not entered"
+                      autocomplete="off"
+                    />
+                  </div>
+                </div>
+                <div id="paymentCheck" class="check-line neutral">
+                  Card totals are optional. Both are needed for a card check.
+                </div>
+                <details id="adjustments" class="movement-details">
+                  <summary>
+                    Cash movements
+                    <span id="movementTotal">Only when needed</span>
+                  </summary>
+                  <div class="movement-body">
+                    <label for="black">Other cash income · unrung (€)</label
+                    ><input
+                      id="black"
+                      inputmode="decimal"
+                      placeholder="0,00"
+                      autocomplete="off"
+                    />
+                    <p class="hint">
+                      Money received outside the POS cash total. Keep the
+                      supporting record; do not count it twice.
+                    </p>
+                    <label for="preTakeout"
+                      >Cash removed before counting (€)</label
+                    ><input
+                      id="preTakeout"
+                      inputmode="decimal"
+                      placeholder="0,00"
+                      autocomplete="off"
+                    />
+                    <div id="extraDrops"></div>
+                    <button id="addDrop" class="text-button">
+                      + Add another cash drop
+                    </button>
+                    <div class="row2">
+                      <div>
+                        <label for="expense">Paid from the drawer (€)</label
+                        ><input
+                          id="expense"
+                          inputmode="decimal"
+                          placeholder="0,00"
+                          autocomplete="off"
+                        />
+                        <div id="extraExpenses"></div>
+                        <button id="addExpense" class="text-button">
+                          + Add an expense
+                        </button>
+                      </div>
+                      <div>
+                        <label for="added"
+                          >Cash added · float / change (€)</label
+                        ><input
+                          id="added"
+                          inputmode="decimal"
+                          placeholder="0,00"
+                          autocomplete="off"
+                        />
+                        <div id="extraAdds"></div>
+                        <button id="addAdded" class="text-button">
+                          + Add cash in
+                        </button>
+                      </div>
+                    </div>
+                    <div class="group-title">Card tips paid in cash</div>
+                    <p class="hint">
+                      Tips charged on the terminal but taken from the drawer.
+                      Enter only the cash handed out.
+                    </p>
+                    <div id="cardCashRows"></div>
+                    <button id="addCardCash" class="text-button">
+                      + Add a tip
+                    </button>
+                    <label class="checkbox-label"
+                      ><input id="tipsOutsidePos" type="checkbox" />These tips
+                      are extra to the POS card total</label
+                    >
+                    <p class="hint">
+                      Select only when the POS card total excludes these tips.
+                      We then add them when comparing with the terminal.
+                    </p>
+                  </div>
+                </details>
+              </section>
+              <section class="panel" aria-labelledby="closeHeading">
+                <div class="section-heading">
+                  <span class="step">03</span>
+                  <div>
+                    <h2 id="closeHeading">Leave tomorrow ready</h2>
+                    <p>The closing withdrawal happens after the count.</p>
+                  </div>
+                </div>
+                <label for="takeout">Take out after counting (€)</label
+                ><input
+                  id="takeout"
+                  inputmode="decimal"
+                  placeholder="0,00"
+                  autocomplete="off"
+                />
+                <div id="extraTakeouts"></div>
+                <button id="addTakeout" class="text-button">
+                  + Add another withdrawal
+                </button>
+                <div class="remaining">
+                  <span>Left in the drawer</span
+                  ><strong id="remaining">—</strong>
+                </div>
+                <label for="declared">Notes &amp; explanation</label
+                ><textarea
+                  id="declared"
+                  rows="3"
+                  maxlength="4000"
+                  placeholder="Explain any difference or cash movement…"
+                ></textarea>
+                <p class="hint">
+                  Confirming accepts the physical count. It never hides a
+                  discrepancy.
+                </p>
+              </section>
+            </div>
+            <aside class="summary-column" aria-labelledby="summaryHeading">
+              <div class="summary-panel">
+                <p class="eyebrow">YOUR DAY, AT A GLANCE</p>
+                <h2 id="summaryHeading">The cash check</h2>
+                <div id="liveCheck" class="result neutral" role="status">
+                  <span id="resultIcon" aria-hidden="true">…</span
+                  ><strong id="resultTitle">Ready when you are</strong>
+                  <p id="resultDetail">
+                    Enter your count to see the difference.
+                  </p>
+                </div>
+                <dl class="summary-numbers">
+                  <div>
+                    <dt>Counted</dt>
+                    <dd id="actualOut">—</dd>
+                  </div>
+                  <div>
+                    <dt>Expected in the drawer</dt>
+                    <dd id="expectedNow">—</dd>
+                  </div>
+                  <div class="difference">
+                    <dt>Difference</dt>
+                    <dd id="varianceOut">—</dd>
+                  </div>
+                </dl>
+                <details id="mathDetails" class="compact-details">
+                  <summary>How the expected cash is calculated</summary>
+                  <dl id="cashMath" class="summary-numbers small"></dl>
+                </details>
+                <div
+                  id="savedResult"
+                  class="saved-result hidden"
+                  role="status"
+                ></div>
+                <button id="confirmBtn" class="primary hidden">
+                  Review &amp; confirm day
+                </button>
+                <p class="summary-footnote">
+                  A saved count is a draft until confirmed. Cash left after the
+                  closing withdrawal becomes the next opening.
+                </p>
+              </div>
+            </aside>
+          </div>
+          <div id="saveBar" class="save-bar hidden">
+            <div>
+              <span class="eyebrow">COUNTED CASH</span
+              ><strong id="stickyTotal">€0.00</strong
+              ><span id="saveStatus">Nothing saved yet</span>
+            </div>
+            <button id="checkBtn" class="primary">
+              Save &amp; check <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        </section>
+        <section
+          id="historyView"
+          class="hidden"
+          aria-label="History and records"
+        >
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">THE PAPER TRAIL</p>
+              <h1>Every day, accounted for.</h1>
+              <p class="subtitle">
+                Review a count without accidentally moving or replacing it.
+              </p>
+            </div>
+            <a
+              id="exportLink"
+              class="secondary button-link"
+              href="api/export.csv"
+              download
+              >Export CSV ↓</a
+            >
+          </div>
+          <div id="historyStats" class="history-stats"></div>
+          <div id="ledger" class="history-list"></div>
+          <button id="loadMore" class="secondary hidden">
+            Load earlier days
+          </button>
+          <details id="auditDetails" class="panel">
+            <summary>Recent change history</summary>
+            <div id="auditList" class="audit-list"></div>
+          </details>
+        </section>
+      </main>
+      <footer>
+        <span>Till Check</span
+        ><span
+          >Private on Zeus. Amounts in euros. Dates in Barcelona time.</span
+        >
+      </footer>
+    </div>
+    <dialog
+      id="actionDialog"
+      aria-labelledby="dialogTitle"
+      aria-describedby="dialogDescription"
+    >
+      <form method="dialog">
+        <p id="dialogEyebrow" class="eyebrow">REVIEW BEFORE CONTINUING</p>
+        <h2 id="dialogTitle"></h2>
+        <p id="dialogDescription"></p>
+        <div id="dialogContent"></div>
+        <div class="dialog-actions">
+          <button id="dialogCancel" value="cancel" class="secondary" autofocus>
+            Cancel</button
+          ><button id="dialogAccept" value="accept" class="primary">
+            Confirm
+          </button>
         </div>
-
-        <label for="cashSales">Cash sales today (from POS)</label>
-        <input id="cashSales" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
-        <div class="baseline-hint">Today's cash takings per the till. They raise today's target.</div>
-
-        <div class="row2">
-          <div>
-            <label for="card">Card sales today (from POS)</label>
-            <input id="card" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
-          </div>
-          <div>
-            <label for="cardBilled">Actually charged on card terminal</label>
-            <input id="cardBilled" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
-          </div>
-        </div>
-        <div id="paymentCheck" class="baseline-hint hidden"></div>
-
-        <label for="black">Black — cash in without a receipt</label>
-        <input id="black" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
-        <div class="baseline-hint">Unrung cash that went into the till. It raises today's target.</div>
-
-        <label for="preTakeout">Cash drop — taken out before counting</label>
-        <input id="preTakeout" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
-        <div id="extraDrops"></div>
-        <button type="button" id="addDrop" class="ghost small">+ Add another drop</button>
-        <div class="baseline-hint">Cash removed from the drawer before doing the count.</div>
-
-        <label for="takeout">Taken out at close</label>
-        <input id="takeout" type="text" inputmode="decimal" placeholder="0.00" autocomplete="off">
-        <div id="extraTakeouts"></div>
-        <button type="button" id="addTakeout" class="ghost small">+ Add another</button>
-        <div class="baseline-hint">Cash leaving the drawer after counting becomes tomorrow's opening.</div>
-
-        <label for="declared">Reason / note</label>
-        <textarea id="declared" placeholder="e.g. bags of ice"></textarea>
-      </div>
-    </details>
-
-    <button id="checkBtn">Step 3: Save count &amp; see if it matches</button>
-    <div class="baseline-hint">This saves today's count and tells you clearly if the cash matches the books.</div>
-
-    <!-- Verdict: right under the save button so the answer is where you're looking -->
-    <div id="verdict" class="verdict balanced hidden">
-      <div class="badge balanced" id="vBadge">✓</div>
-      <div class="body">
-        <div class="amount" id="vAmount">MATCHES</div>
-        <div class="sub" id="vSub">Matches — your count and the books agree</div>
-      </div>
-    </div>
-
-    <button id="confirmBtn" class="ghost hidden">Confirm day</button>
-  </div>
-
-  <!-- History (collapsed by default; today/yesterday shown in Recent) -->
-  <div id="historyCard" class="card hidden">
-    <div class="label">Recent</div>
-    <ul id="ledger" class="ledger"></ul>
-    <details id="historyMore" class="section-card hidden">
-      <summary><span class="section-title">Earlier history</span><span class="section-hint">Days before yesterday</span></summary>
-      <div class="section-body">
-        <ul id="ledgerOlder" class="ledger"></ul>
-      </div>
-    </details>
-  </div>
-
-  <details id="glossary" class="section-card">
-    <summary><span class="section-title">What do these mean?</span><span class="section-hint">Field definitions</span></summary>
-    <div class="section-body">
-      <dl class="glossary">
-        <div data-glossary="counted"><dt>Counted</dt><dd>The cash physically in the drawer after you count it. This is your starting point every day.</dd></div>
-        <div data-glossary="target"><dt>Target</dt><dd>What the books say should be in the drawer. It is NOT your count — it is what you compare against.</dd></div>
-        <div data-glossary="till-expense"><dt>Till expense</dt><dd>Cash spent straight from the drawer (ice, supplies, payouts). Lowers the target. Keep the receipt or note why.</dd></div>
-        <div data-glossary="black"><dt>Black</dt><dd>Cash that went INTO the till without a receipt — unrung income, tracked on the side table. Raises the target because it is real cash in the drawer.</dd></div>
-        <div data-glossary="cash-drop"><dt>Cash drop</dt><dd>Cash taken out of the drawer BEFORE counting (e.g. to the safe). The count is whatever is left afterwards, so it lowers the target.</dd></div>
-        <div data-glossary="taken-out-at-close"><dt>Taken out at close</dt><dd>Cash removed AFTER counting (usually to the safe). Does not change today's result — it becomes tomorrow's opening.</dd></div>
-        <div data-glossary="cash-added"><dt>Cash added</dt><dd>Cash put into the drawer during the shift (change loan, bank withdrawal). Raises the target.</dd></div>
-        <div data-glossary="card-sales"><dt>Card sales (POS)</dt><dd>What the POS says was paid by card. Card money never changes the drawer target.</dd></div>
-        <div data-glossary="card-billed"><dt>Actually charged on card terminal</dt><dd>The card-terminal total. If its difference from POS card sales exactly offsets the cash difference, the app records the likely cash/card marking mistake.</dd></div>
-      </dl>
-    </div>
-  </details>
-
-  <footer>Till Check · one drawer, one owner, one machine</footer>
-</div>
-
-<script>
-// Base for API calls: relative to this page's own directory, so the app
-// works whether it is served at the root (/) or behind a prefix (/till/).
-const PAGE_DIR = (function () {
-  const p = location.pathname.replace(/[^/]*$/, '');
-  return p.endsWith('/') ? p : p + '/';
-})();
-const API = {
-  state: PAGE_DIR + 'api/state',
-  entry: PAGE_DIR + 'api/entry',
-  confirm: PAGE_DIR + 'api/confirm',
-  reconcile: PAGE_DIR + 'api/reconcile',
-  history: PAGE_DIR + 'api/history',
-  opening: PAGE_DIR + 'api/opening',
-  denominations: PAGE_DIR + 'api/denominations',
-  entryById: (date) => PAGE_DIR + 'api/entry/' + date,
-};
-const euroFmt = (v) => {
-  const n = Number(v);
-  const sign = n < 0 ? '−' : '';
-  return sign + '€' + Math.abs(n).toFixed(2);
-};
-const today = () => {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-const selectedDate = () => document.getElementById('entryDate').value || today();
-const pretty = (d) => d ? d.slice(8, 10) + '/' + d.slice(5, 7) : d;
-
-function updateDayHeading() {
-  const date = selectedDate();
-  document.getElementById('dayHeading').textContent =
-    date === today() ? 'Cash drawer · today' : 'Cash drawer · ' + pretty(date);
-}
-
-async function req(method, url, body) {
-  const res = await fetch(url, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw Object.assign(new Error(data.error || res.status), { status: res.status });
-  return data;
-}
-
-let DENOMS = [];
-let editingDate = null; // When set, the check button PATCHes this date instead of POSTing today.
-let currentOpeningCash = 0;
-let hasCheckedCurrentForm = false; // A saved history row is not a fresh check result.
-
-function setVerdict(status, varianceCents, label, openingCash, actualCents, expectedCents) {
-  const el = document.getElementById('verdict');
-  el.classList.remove('hidden');
-  el.className = 'verdict ' + status;
-  const badge = document.getElementById('vBadge');
-  badge.textContent = status === 'balanced' ? '✓' : status === 'short' ? '−' : '+';
-  badge.className = 'badge ' + status;
-  const amount = Math.abs(varianceCents);
-  document.getElementById('vAmount').textContent = status === 'balanced'
-    ? 'MATCHES'
-    : status === 'short' ? euroFmt(amount / 100) + ' CASH MISSING' : euroFmt(amount / 100) + ' EXTRA CASH';
-  let sub = label;
-  if (actualCents !== undefined && expectedCents !== undefined) {
-    sub += '  ·  Counted ' + euroFmt(actualCents / 100) + '  ·  Expected ' + euroFmt(expectedCents / 100);
-  }
-  document.getElementById('vSub').textContent = sub;
-}
-
-function expectedCentsNow() {
-  return Math.round(currentOpeningCash * 100)
-    + Math.round(salesValue() * 100)
-    + Math.round(totalAddedValue() * 100)
-    + Math.round(Number((document.getElementById('black')?.value || '').replace(',', '.')) * 100 || 0)
-    - Math.round(totalExpenseValue() * 100)
-    - Math.round(totalPreTakeoutValue() * 100);
-}
-
-function optionalMoneyCents(id) {
-  const raw = (document.getElementById(id)?.value || '').trim().replace(',', '.');
-  if (raw === '') return null;
-  const value = Number(raw);
-  return Number.isFinite(value) ? Math.round(value * 100) : null;
-}
-
-// Live mirror of the server's exact-offset rule. The server remains
-// authoritative and stores the reason with the entry.
-function updatePaymentCheck(cashVarianceCents, hasCount) {
-  const out = document.getElementById('paymentCheck');
-  const posCardCents = optionalMoneyCents('card');
-  const billedCardCents = optionalMoneyCents('cardBilled');
-  if (posCardCents === null && billedCardCents === null) {
-    out.classList.add('hidden');
-    out.textContent = '';
-    return;
-  }
-  out.classList.remove('hidden');
-  if (posCardCents === null || billedCardCents === null) {
-    out.textContent = 'Enter both card totals to check the cash/card split.';
-    return;
-  }
-  if (!hasCount) {
-    out.textContent = 'Enter the drawer count to check whether the card difference explains it.';
-    return;
-  }
-  const cardVarianceCents = billedCardCents - posCardCents;
-  if (cashVarianceCents !== 0 && cardVarianceCents === -cashVarianceCents) {
-    const amount = euroFmt(Math.abs(cashVarianceCents) / 100);
-    out.textContent = cashVarianceCents < 0
-      ? `Suggested reason: Likely ${amount} card sale recorded as cash in POS.`
-      : `Suggested reason: Likely ${amount} cash sale recorded as card in POS.`;
-    return;
-  }
-  if (cardVarianceCents === 0) {
-    out.textContent = '✓ POS card and card-terminal totals match.';
-    return;
-  }
-  out.textContent = `Card difference ${euroFmt(cardVarianceCents / 100)} does not exactly explain the cash difference.`;
-}
-
-function updateCheckPreview() {
-  const expected = expectedCentsNow();
-  const actual = denomTotalCents();
-  document.getElementById('expectedNow').textContent = euroFmt(expected / 100);
-  const live = document.getElementById('liveCheck');
-  const hasCount = Object.values(getDenomCounts()).some((n) => n > 0);
-  if (!hasCount) {
-    live.className = 'live-check neutral';
-    live.textContent = 'Enter your count above to compare.';
-    updatePaymentCheck(null, false);
-    return;
-  }
-  const variance = actual - expected;
-  updatePaymentCheck(variance, true);
-  if (variance === 0) {
-    live.className = 'live-check balanced';
-    live.textContent = '✓ MATCHES — your count is correct';
-  } else if (variance < 0) {
-    live.className = 'live-check short';
-    live.textContent = euroFmt(Math.abs(variance) / 100) + ' CASH MISSING — you counted less than the books expect';
-  } else {
-    live.className = 'live-check over';
-    live.textContent = euroFmt(variance / 100) + ' EXTRA CASH — you counted more than the books expect';
-  }
-}
-
-function clearEntryForm() {
-  for (const d of DENOMS) {
-    const input = document.querySelector(`[data-denom="${d.id}"]`);
-    if (input) input.value = '';
-  }
-  for (const id of ['expense', 'added', 'card', 'cardBilled', 'cashSales', 'black', 'preTakeout', 'takeout', 'declared']) {
-    const input = document.getElementById(id);
-    if (input) input.value = '';
-  }
-  for (const id of ['extraExpenses', 'extraAdds', 'extraDrops', 'extraTakeouts']) {
-    const container = document.getElementById(id);
-    if (container) container.innerHTML = '';
-  }
-  const adjustments = document.getElementById('adjustments');
-  if (adjustments) adjustments.open = false;
-  editingDate = null;
-  hasCheckedCurrentForm = false;
-  document.getElementById('verdict').classList.add('hidden');
-  document.getElementById('confirmBtn').classList.add('hidden');
-  updateDenomTotal();
-}
-
-function denomLabel(id) {
-  return DENOMS.find((d) => d.id === id)?.label || id;
-}
-
-// --- Repeatable money rows ---------------------------------------------------
-// Till expenses, cash drops and cash-ins can each happen several times a day.
-// Each gets its own input line; they are summed on save. The first line is a
-// fixed input; extras live in a container div and reuse .extra-expense-row.
-
-// Generic helpers shared by every repeatable field.
-function sumMoneyInputs(inputs) {
-  // Sum inputs as euros; empty/invalid lines count as 0.
-  return inputs.reduce((sum, inp) => {
-    const raw = (inp?.value || '').trim().replace(',', '.');
-    const n = Number(raw);
-    return sum + (raw !== '' && Number.isFinite(n) ? n : 0);
-  }, 0);
-}
-
-function makeMoneyRow(ariaLabel) {
-  const wrap = document.createElement('div');
-  wrap.className = 'extra-expense-row';
-  const inp = document.createElement('input');
-  inp.type = 'text';
-  inp.inputMode = 'decimal';
-  inp.placeholder = '0.00';
-  inp.autocomplete = 'off';
-  inp.setAttribute('aria-label', ariaLabel);
-  const rm = document.createElement('button');
-  rm.type = 'button';
-  rm.className = 'ghost small danger';
-  rm.textContent = 'Remove';
-  rm.addEventListener('click', () => { wrap.remove(); updateCheckPreview(); });
-  wrap.append(inp, rm);
-  return wrap;
-}
-
-function addExtraRow(containerId, value, ariaLabel) {
-  const wrap = makeMoneyRow(ariaLabel);
-  if (value !== undefined && value !== null) {
-    const n = Number(value);
-    if (Number.isFinite(n)) wrap.querySelector('input').value = n.toFixed(2);
-  }
-  document.getElementById(containerId).append(wrap);
-}
-
-// Cash sales today (from POS): single field, raises the target.
-function salesValue() {
-  return sumMoneyInputs([document.getElementById('cashSales')]);
-}
-
-// Till expenses: first line #expense, extras in #extraExpenses.
-function expenseInputs() {
-  return [document.getElementById('expense'),
-    ...document.querySelectorAll('#extraExpenses input')];
-}
-
-function totalExpenseValue() {
-  return sumMoneyInputs(expenseInputs());
-}
-
-// Cash added during the shift: first line #added, extras in #extraAdds.
-function addedInputs() {
-  return [document.getElementById('added'),
-    ...document.querySelectorAll('#extraAdds input')];
-}
-
-function totalAddedValue() {
-  return sumMoneyInputs(addedInputs());
-}
-
-// Cash drops (taken out before counting): first line #preTakeout,
-// extras in #extraDrops.
-function preTakeoutInputs() {
-  return [document.getElementById('preTakeout'),
-    ...document.querySelectorAll('#extraDrops input')];
-}
-
-function totalPreTakeoutValue() {
-  return sumMoneyInputs(preTakeoutInputs());
-}
-
-// Taken out at close: first line #takeout, extras in #extraTakeouts.
-function takeoutInputs() {
-  return [document.getElementById('takeout'),
-    ...document.querySelectorAll('#extraTakeouts input')];
-}
-
-function totalTakeoutValue() {
-  return sumMoneyInputs(takeoutInputs());
-}
-
-function buildDenomList() {
-  const list = document.getElementById('denomList');
-  list.innerHTML = '';
-  for (const d of DENOMS) {
-    const li = document.createElement('li');
-    li.className = 'denom-row';
-    li.innerHTML = `
-      <span class="denom-label">${d.label}</span>
-      <input class="denom-input" type="text" inputmode="numeric" placeholder="0"
-             data-denom="${d.id}" autocomplete="off">
-      <span class="denom-total" id="dt-${d.id}">€0.00</span>
-    `;
-    list.appendChild(li);
-  }
-  // Live-update the total as the owner types counts.
-  list.querySelectorAll('.denom-input').forEach((inp) => {
-    inp.addEventListener('input', () => updateDenomTotal());
-  });
-}
-
-function getDenomCounts() {
-  const counts = {};
-  for (const d of DENOMS) {
-    const inp = document.querySelector(`[data-denom="${d.id}"]`);
-    const raw = inp ? inp.value.trim() : '';
-    if (raw === '') { counts[d.id] = 0; continue; }
-    const n = Number(raw);
-    if (Number.isFinite(n) && n >= 0) counts[d.id] = Math.trunc(n);
-  }
-  return counts;
-}
-
-function denomTotalCents() {
-  const counts = getDenomCounts();
-  let total = 0;
-  for (const d of DENOMS) {
-    const n = counts[d.id] || 0;
-    total += n * d.valueCents;
-  }
-  return total;
-}
-
-function updateDenomTotal() {
-  const total = denomTotalCents();
-  document.getElementById('denomTotal').textContent = euroFmt(total / 100);
-  // Update per-denomination subtotals
-  const counts = getDenomCounts();
-  for (const d of DENOMS) {
-    const n = counts[d.id] || 0;
-    const span = document.getElementById('dt-' + d.id);
-    if (span) span.textContent = euroFmt((n * d.valueCents) / 100);
-  }
-  updateCheckPreview();
-}
-
-async function init() {
-  const dateInput = document.getElementById('entryDate');
-  dateInput.max = today();
-  if (!dateInput.value) dateInput.value = today();
-  updateDayHeading();
-
-  // Load denominations table
-  try {
-    const dres = await req('GET', API.denominations);
-    DENOMS = dres.denominations;
-    buildDenomList();
-  } catch (e) {
-    console.error('failed to load denominations', e);
-  }
-
-  const state = await req('GET', API.state);
-  const openingOut = document.getElementById('baselineOut');
-  document.querySelector('.status-dot').classList.toggle('ready', !!state.hasOpening);
-  openingOut.textContent = state.hasOpening ? euroFmt(Number(state.openingCash) || 0) : '—';
-  if (!state.hasOpening) {
-    // If the operator already has a count for today, skip the setup card —
-    // the server auto-seeds the opening from that count (neutral verdict).
-    if (state.hasTodayEntry) {
-      document.getElementById('entryCard').classList.remove('hidden')
-      await refresh()
-    } else {
-      document.getElementById('setup').classList.remove('hidden')
-    }
-    return
-  }
-  openingOut.textContent = euroFmt(Number(state.openingCash) || 0);
-  currentOpeningCash = Number(state.openingCash) || 0;
-  document.getElementById('entryCard').classList.remove('hidden');
-  await refresh();
-}
-
-async function refresh() {
-  const state = await req('GET', API.state);
-  document.querySelector('.status-dot').classList.toggle('ready', !!state.hasOpening);
-  document.getElementById('baselineOut').textContent = euroFmt(Number(state.openingCash) || 0);
-  // Load the selected day's entry if present, else show a clean form.
-  let selectedEntry = null;
-  try {
-    const hist = await req('GET', API.history);
-    selectedEntry = hist.entries.find((e) => e.date === selectedDate()) || null;
-    renderLedger(hist.entries);
-  } catch (e) { /* history optional on refresh */ }
-  currentOpeningCash = selectedEntry && selectedEntry.opening !== null && selectedEntry.opening !== undefined
-    ? Number(selectedEntry.opening)
-    : Number(state.openingCash) || 0;
-  document.getElementById('confirmBtn').classList.toggle('hidden', !selectedEntry || !hasCheckedCurrentForm);
-  document.getElementById('verdict').classList.toggle('hidden', !selectedEntry || !hasCheckedCurrentForm);
-  if (selectedEntry && hasCheckedCurrentForm) {
-    setVerdict(selectedEntry.status, Number(selectedEntry.variance) * 100,
-      verdictLabel(selectedEntry.status), selectedEntry.opening ?? state.openingCash,
-      Number(selectedEntry.actual) * 100, Number(selectedEntry.expected) * 100);
-  }
-  updateCheckPreview();
-}
-
-function verdictLabel(status) {
-  if (status === 'balanced') return 'Matches — your count and the books agree';
-  if (status === 'short') return 'Cash missing — the drawer has less than the books expect';
-  return 'Extra cash — the drawer has more than the books expect';
-}
-
-function renderLedger(entries) {
-  const card = document.getElementById('historyCard');
-  const ul = document.getElementById('ledger');
-  const ulOlder = document.getElementById('ledgerOlder');
-  const moreCard = document.getElementById('historyMore');
-  if (!entries.length) { card.classList.add('hidden'); return; }
-  card.classList.remove('hidden');
-  ul.innerHTML = '';
-  ulOlder.innerHTML = '';
-
-  // Determine "recent" = today + yesterday. Older goes into the collapsed
-  // "Earlier history" section (hidden by default).
-  const todayStr = today();
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yest = [
-    yesterday.getFullYear(),
-    String(yesterday.getMonth() + 1).padStart(2, '0'),
-    String(yesterday.getDate()).padStart(2, '0'),
-  ].join('-');
-  const recentDates = new Set([todayStr, yest]);
-
-  let recentCount = 0, olderCount = 0;
-  let prevEntry = null;
-  for (const e of entries.slice(0, 30)) {
-    const isRecent = recentDates.has(e.date);
-    const li = buildLedgerRow(e, prevEntry);
-    prevEntry = e;
-    if (isRecent) {
-      ul.append(li);
-      recentCount++;
-    } else {
-      ulOlder.append(li);
-      olderCount++;
-    }
-  }
-
-  // Show/hide the "Earlier history" section based on whether there are
-  // older entries to display.
-  if (olderCount > 0) {
-    moreCard.classList.remove('hidden');
-  } else {
-    moreCard.classList.add('hidden');
-  }
-
-  // If nothing recent, show the card but let the user expand "Earlier
-  // history" — or if there are no older entries either, hide the card.
-  if (recentCount === 0 && olderCount === 0) {
-    card.classList.add('hidden');
-  }
-}
-
-function buildLedgerRow(e, prevEntry) {
-  const li = document.createElement('li');
-  const row1 = document.createElement('div'); row1.className = 'row1';
-  const dateSpan = document.createElement('span'); dateSpan.className = 'date'; dateSpan.textContent = pretty(e.date);
-  const varSpan = document.createElement('span'); varSpan.className = 'var ' + e.status;
-  const variance = Math.abs(Number(e.variance));
-  varSpan.textContent = e.status === 'balanced'
-    ? '✓ MATCHES'
-    : e.status === 'short' ? euroFmt(variance) + ' CASH MISSING' : euroFmt(variance) + ' EXTRA CASH';
-  row1.append(dateSpan, varSpan);
-  li.append(row1);
-
-  // Gap detection: if the previous entry (older) is more than 24h before
-  // this entry (newer), flag the gap. The operator may have missed a day.
-  if (prevEntry) {
-    const gapDays = Math.abs((new Date(e.date) - new Date(prevEntry.date)) / 86400000);
-    if (gapDays > 1.5) {
-      const gap = document.createElement('div');
-      gap.className = 'gap-flag';
-      gap.textContent = '⚠ ' + Math.round(gapDays) + '-day gap';
-      li.append(gap);
-    }
-  }
-
-  // Unconfirmed nudge: if this entry is not confirmed and is not today,
-  // the baseline hasn't been updated. Nudge the operator.
-  if (!e.confirmed) {
-    const todayStr = today();
-    if (e.date !== todayStr) {
-      const nudge = document.createElement('div');
-      nudge.className = 'unconfirmed-flag';
-      nudge.textContent = '⚠ not confirmed';
-      li.append(nudge);
-    }
-  }
-
-  // Balance band: start → end for this day, at a glance.
-  const bal = document.createElement('div'); bal.className = 'balance-band';
-  const balStart = document.createElement('span'); balStart.className = 'bal-start';
-  balStart.textContent = 'Start ' + euroFmt(Number(e.opening ?? 0));
-  const balEnd = document.createElement('span'); balEnd.className = 'bal-end';
-  balEnd.textContent = 'End ' + euroFmt(Number(e.actual) - Number(e.takeout ?? 0));
-  bal.append(balStart, balEnd);
-  li.append(bal);
-
-  // Confirmed marker + reconcile affordance. A confirmed day can be
-  // re-reconciled (count corrected) without deleting — the books baseline
-  // is re-derived from the corrected figure.
-  if (e.confirmed) {
-    const badge = document.createElement('div');
-    badge.className = 'confirmed-flag';
-    badge.textContent = '✓ confirmed';
-    li.append(badge);
-  }
-
-  if (e.discrepancyReason) {
-    const reason = document.createElement('div'); reason.className = 'declared';
-    reason.textContent = 'Suggested reason: ' + e.discrepancyReason;
-    li.append(reason);
-  }
-
-  // Declared note
-  if (e.declared) {
-    const dec = document.createElement('div'); dec.className = 'declared';
-    dec.textContent = '“' + e.declared + '”';
-    li.append(dec);
-  }
-
-  // Edit button: pre-fill the entry form with this day's data.
-  const editBtn = document.createElement('button');
-  editBtn.className = 'ghost small';
-  editBtn.textContent = 'Edit';
-  editBtn.addEventListener('click', () => {
-    clearEntryForm();
-    document.getElementById('entryDate').value = e.date;
-    updateDayHeading();
-    // Pre-fill the denomination inputs from the entry's denominations.
-    if (e.denominations) {
-      for (const d of DENOMS) {
-        const inp = document.querySelector(`[data-denom="${d.id}"]`);
-        if (inp) inp.value = e.denominations[d.id] || '';
-      }
-      updateDenomTotal();
-    } else {
-      // The edited day has no stored count: clear the counters so the form
-      // can't silently reuse whatever was counted for a different day.
-      for (const d of DENOMS) {
-        const inp = document.querySelector(`[data-denom="${d.id}"]`);
-        if (inp) inp.value = '';
-      }
-      updateDenomTotal();
-    }
-    // Pre-fill the other fields.
-    const expense = document.getElementById('expense');
-    if (expense) expense.value = Number(e.expense ?? e.cashRemoved).toFixed(2);
-    document.getElementById('extraExpenses').innerHTML = '';
-    const added = document.getElementById('added');
-    if (added) added.value = Number(e.cashAdded).toFixed(2);
-    const card = document.getElementById('card');
-    if (card) card.value = Number(e.posCardSales ?? e.cardTransfer).toFixed(2);
-    const cardBilled = document.getElementById('cardBilled');
-    if (cardBilled) cardBilled.value = e.cardBilled === null || e.cardBilled === undefined
-      ? ''
-      : Number(e.cardBilled).toFixed(2);
-    const cashSales = document.getElementById('cashSales');
-    if (cashSales) cashSales.value = Number(e.cashSales ?? 0).toFixed(2);
-    const black = document.getElementById('black');
-    if (black) black.value = Number(e.black ?? 0).toFixed(2);
-    const preTakeout = document.getElementById('preTakeout');
-    if (preTakeout) preTakeout.value = Number(e.preTakeout ?? 0).toFixed(2);
-    const takeout = document.getElementById('takeout');
-    if (takeout) takeout.value = Number(e.takeout ?? 0).toFixed(2);
-    const declared = document.getElementById('declared');
-    if (declared) declared.value = e.declared || '';
-    const adjustments = document.getElementById('adjustments');
-    if (adjustments && (Number(e.expense ?? e.cashRemoved) !== 0 || Number(e.black) !== 0 || Number(e.preTakeout) !== 0 || Number(e.cashAdded) !== 0 || Number(e.posCardSales ?? e.cardTransfer) !== 0 || (e.cardBilled !== null && e.cardBilled !== undefined) || e.declared)) {
-      adjustments.open = true;
-    }
-    // Show the entry card and scroll to it.
-    document.getElementById('entryCard').classList.remove('hidden');
-    document.getElementById('entryCard').scrollIntoView({ behavior: 'smooth' });
-    // Mark that we're editing so the check button knows to PATCH, not POST.
-    editingDate = e.date;
-  });
-  li.append(editBtn);
-
-  // Delete button for this entry
-  const delBtn = document.createElement('button');
-  delBtn.className = 'ghost small danger';
-  delBtn.textContent = 'Delete day';
-  delBtn.addEventListener('click', async () => {
-    if (!confirm('Delete entry for ' + e.date + '?')) return;
-    try {
-      await req('DELETE', API.entryById(e.date));
-      await init();
-    } catch (err) { alert(err.message); }
-  });
-
-  // Reconcile button (confirmed days): correct the count without deleting.
-  if (e.confirmed) {
-    const reconBtn = document.createElement('button');
-    reconBtn.className = 'ghost small';
-    reconBtn.textContent = 'Reconcile';
-    reconBtn.addEventListener('click', async () => {
-      const raw = Number(e.actual);
-      const corrected = prompt('Corrected count for ' + e.date + ' (current ' + raw.toFixed(2) + ' €):', raw.toFixed(2));
-      if (corrected === null) return;
-      try {
-        await req('POST', API.reconcile, { date: e.date, actual: corrected });
-        await init();
-      } catch (err) { alert(err.message); }
-    });
-    li.append(reconBtn);
-  }
-
-  li.append(delBtn);
-  return li;
-}
-
-document.getElementById('setupBtn').addEventListener('click', async () => {
-  const raw = document.getElementById('setupAmount').value;
-  try {
-    await req('POST', API.opening, { opening: raw });
-    await init();
-  } catch (e) { alert(e.message); }
-});
-
-document.getElementById('addExpense').addEventListener('click', () => addExtraRow('extraExpenses'));
-document.getElementById('addAdded').addEventListener('click', () => addExtraRow('extraAdds', undefined, 'Additional cash added'));
-document.getElementById('addDrop').addEventListener('click', () => addExtraRow('extraDrops', undefined, 'Additional cash drop'));
-document.getElementById('addTakeout').addEventListener('click', () => addExtraRow('extraTakeouts', undefined, 'Additional taken out at close'));
-document.addEventListener('input', (event) => {
-  if (event.target.matches('#expense, #added, #card, #cardBilled, #cashSales, #black, #preTakeout, #takeout, #extraExpenses input, #extraAdds input, #extraDrops input, #extraTakeouts input')) {
-    updateCheckPreview();
-  }
-});
-
-// Tap-to-blank: a field pre-filled with "0.00" clears itself as soon as you
-// type, so you start from scratch (never "0.003"). Only the exact zero string
-// triggers this — a real value like "12.50" is left alone.
-document.addEventListener('focusin', (event) => {
-  const el = event.target;
-  if (el instanceof HTMLInputElement && el.type === 'text' && el.value === '0.00') {
-    // Select everything: the first typed key replaces the whole zero.
-    el.select();
-    let done = false;
-    const blank = () => {
-      if (done) return;
-      done = true;
-      el.value = '';
-      updateCheckPreview();
-    };
-    el.addEventListener('keydown', blank, { once: true });
-    el.addEventListener('input', blank, { once: true });
-  }
-});
-
-document.getElementById('checkBtn').addEventListener('click', async () => {
-  const counts = getDenomCounts();
-  const hasDenomInput = Object.values(counts).some((n) => n > 0);
-  // Count resolution: denominations define the count when present. When the
-  // boxes are empty AND we're editing, send no count at all — the stored one
-  // must survive untouched (an empty box is "not re-counted", never "zero").
-  // A brand-new day with nothing counted is genuinely zero.
-  const payload = {
-    actual: hasDenomInput ? null : (editingDate ? undefined : '0'),
-    expense: totalExpenseValue().toFixed(2),
-    cashAdded: totalAddedValue().toFixed(2),
-    posCardSales: document.getElementById('card').value,
-    cardBilled: document.getElementById('cardBilled').value,
-    cashSales: document.getElementById('cashSales').value,
-    black: document.getElementById('black').value,
-    preTakeout: totalPreTakeoutValue().toFixed(2),
-    takeout: totalTakeoutValue().toFixed(2),
-    declared: document.getElementById('declared').value,
-    denominations: hasDenomInput ? counts : null,
-  };
-  try {
-    let entry;
-    if (editingDate) {
-      // Editing an existing entry: PATCH it; if the date was changed in the
-      // picker, MOVE the entry to the new date instead of leaving a stale
-      // copy behind.
-      const targetDate = selectedDate();
-      if (targetDate !== editingDate) {
-        await req('POST', API.entryById(editingDate) + '/move', { date: targetDate });
-        entry = await req('GET', 'api/history')
-          .then((hist) => hist.entries.find((e) => e.date === targetDate));
-      } else {
-        entry = await req('PATCH', API.entryById(editingDate), payload);
-      }
-      editingDate = null; // Reset after save.
-    } else {
-      payload.date = selectedDate();
-      entry = await req('POST', API.entry, payload);
-    }
-    hasCheckedCurrentForm = true;
-    setVerdict(entry.status, Number(entry.variance) * 100, verdictLabel(entry.status),
-      Number(entry.opening), Number(entry.actual) * 100, Number(entry.expected) * 100);
-    document.getElementById('verdict').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    document.getElementById('confirmBtn').classList.remove('hidden');
-    await refresh();
-  } catch (e) { alert(e.message); }
-});
-
-document.getElementById('confirmBtn').addEventListener('click', async () => {
-  try {
-    await req('POST', API.confirm, { date: selectedDate() });
-    alert('Day confirmed.');
-    // Reset to today so the form is ready for the next day instead of
-    // lingering on the confirmed date (which would PATCH the wrong day).
-    document.getElementById('entryDate').value = today();
-    editingDate = null;
-    clearEntryForm();
-    await init();
-  } catch (e) { alert(e.message); }
-});
-
-document.getElementById('entryDate').addEventListener('change', async () => {
-  // Date change semantics: while EDITING an entry, the picker re-dates that
-  // entry (the move happens on save). With no edit in progress, switching
-  // days clears the form so one day's numbers can't leak into another.
-  if (!editingDate) {
-    clearEntryForm();
-  }
-  updateDayHeading();
-  await refresh();
-});
-
-init().catch((e) => console.error('init failed', e));
-</script>
-</body>
+      </form>
+    </dialog>
+    <noscript
+      ><p class="notice error">
+        Till Check needs JavaScript to save and reconcile counts. Please enable
+        JavaScript for this site.
+      </p></noscript
+    >
+  </body>
 </html>

@@ -1,14 +1,16 @@
 {
   "name": "till-check",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "A focused cash-drawer reconciliation app for restaurant owners.",
+  "description": "A private, auditable cash-drawer reconciliation app.",
   "type": "module",
-  "engines": {
-    "node": ">=22.5"
-  },
+  "engines": { "node": ">=22.16" },
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test reconcile.test.mjs"
-  }
+    "test": "node --test reconcile.test.mjs e2e.test.mjs regression.test.mjs",
+    "test:ui": "node --test ui.test.mjs",
+    "test:all": "npm test && npm run test:ui",
+    "test:links": "node --test zeus-home-links.test.mjs"
+  },
+  "devDependencies": { "playwright": "1.62.1" }
 }

@@ -10,12 +10,11 @@
 // Env:  TILL_PORT (default 3401), TILL_DB (default ./data/till.sqlite),
 //       TILL_BIND (default 127.0.0.1)
 
-import http from 'node:http'
-import fs from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { openSync } from 'node:fs'
-import { DatabaseSync } from 'node:sqlite'
+import http from "node:http";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { DatabaseSync } from "node:sqlite";
 import {
   reconcileDay,
   eurosToCents,
@@ -23,24 +22,24 @@ import {
   STATUS,
   DENOMINATIONS,
   InvalidAmountError,
-} from './reconcile.mjs'
+} from "./reconcile.mjs";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const PORT = Number(process.env.TILL_PORT || 3401)
-const HOST = process.env.TILL_BIND || '127.0.0.1'
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PORT = Number(process.env.TILL_PORT || 3401);
+const HOST = process.env.TILL_BIND || "127.0.0.1";
 const DB_PATH =
-  process.env.TILL_DB || path.join(__dirname, 'data', 'till.sqlite')
+  process.env.TILL_DB || path.join(__dirname, "data", "till.sqlite");
 
 // ---------------------------------------------------------------------------
 // Persistence (node:sqlite, WAL, single-file)
 // ---------------------------------------------------------------------------
 
-const dir = path.dirname(DB_PATH)
-fs.mkdirSync(dir, { recursive: true })
+const dir = path.dirname(DB_PATH);
+fs.mkdirSync(dir, { recursive: true });
 
-const db = new DatabaseSync(DB_PATH)
-db.exec('PRAGMA journal_mode = WAL;')
-db.exec('PRAGMA foreign_keys = ON;')
+const db = new DatabaseSync(DB_PATH, { timeout: 5000 });
+db.exec("PRAGMA journal_mode = WAL;");
+db.exec("PRAGMA foreign_keys = ON;");
 db.exec(`
 CREATE TABLE IF NOT EXISTS state (
   id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -67,39 +66,41 @@ CREATE TABLE IF NOT EXISTS entries (
   takeout_cents INTEGER NOT NULL DEFAULT 0,
   black_cents INTEGER NOT NULL DEFAULT 0,
   pre_takeout_cents INTEGER NOT NULL DEFAULT 0,
+  card_cash_transactions TEXT NOT NULL DEFAULT '[]',
   confirmed_at TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(date DESC);
-`)
+`);
 
 // Migration: add columns that may be missing from older databases.
 function ensureColumn(table, column, definition) {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all()
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
   if (!cols.some((c) => c.name === column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
 }
-ensureColumn('entries', 'denominations', "TEXT NOT NULL DEFAULT ''")
-ensureColumn('entries', 'takeout_cents', 'INTEGER NOT NULL DEFAULT 0')
-ensureColumn('entries', 'opening_cents', 'INTEGER')
-ensureColumn('entries', 'black_cents', 'INTEGER NOT NULL DEFAULT 0')
-ensureColumn('entries', 'pre_takeout_cents', 'INTEGER NOT NULL DEFAULT 0')
-ensureColumn('entries', 'sales_cents', 'INTEGER NOT NULL DEFAULT 0')
-ensureColumn('entries', 'card_billed_cents', 'INTEGER')
-ensureColumn('entries', 'discrepancy_reason', "TEXT NOT NULL DEFAULT ''")
+ensureColumn("entries", "denominations", "TEXT NOT NULL DEFAULT ''");
+ensureColumn("entries", "takeout_cents", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("entries", "opening_cents", "INTEGER");
+ensureColumn("entries", "black_cents", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("entries", "pre_takeout_cents", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("entries", "card_cash_transactions", "TEXT NOT NULL DEFAULT '[]'");
+ensureColumn("entries", "sales_cents", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("entries", "card_billed_cents", "INTEGER");
+ensureColumn("entries", "discrepancy_reason", "TEXT NOT NULL DEFAULT ''");
 
 // Migration: older databases have state.books_balance_cents / baseline_cents.
 // Rename to the dynamic opening model on first run.
 function migrateStateSchema() {
-  const cols = db.prepare('PRAGMA table_info(state)').all()
-  const hasOpening = cols.some((c) => c.name === 'opening_cents')
-  const hasBooks = cols.some((c) => c.name === 'books_balance_cents')
+  const cols = db.prepare("PRAGMA table_info(state)").all();
+  const hasOpening = cols.some((c) => c.name === "opening_cents");
+  const hasBooks = cols.some((c) => c.name === "books_balance_cents");
   if (!hasOpening && hasBooks) {
     // SQLite can't rename a column while keeping the same name in a CHECK;
     // rebuild the state row under the new column names.
-    db.exec('BEGIN IMMEDIATE')
+    db.exec("BEGIN IMMEDIATE");
     try {
       db.exec(`
         CREATE TABLE state_new (
@@ -113,268 +114,272 @@ function migrateStateSchema() {
           SELECT id, books_balance_cents, baseline_date, created_at, updated_at FROM state;
         DROP TABLE state;
         ALTER TABLE state_new RENAME TO state;
-      `)
-      db.exec('COMMIT')
+      `);
+      db.exec("COMMIT");
     } catch (err) {
-      db.exec('ROLLBACK')
+      db.exec("ROLLBACK");
       // Fail loud: a half-migrated DB must not boot into a broken service.
-      throw new Error(`state migration failed: ${err.message}`)
+      throw new Error(`state migration failed: ${err.message}`);
     }
   } else if (!hasOpening) {
     // A pre-existing table may hold rows; adding NOT NULL without a default
     // would fail, so backfill existing rows with 0 as part of the ADD.
     try {
-      db.exec('ALTER TABLE state ADD COLUMN opening_cents INTEGER NOT NULL DEFAULT 0')
-      db.exec("UPDATE state SET opening_cents = 0 WHERE opening_cents IS NULL")
-      db.exec('ALTER TABLE state ADD COLUMN opening_date TEXT')
+      db.exec(
+        "ALTER TABLE state ADD COLUMN opening_cents INTEGER NOT NULL DEFAULT 0",
+      );
+      db.exec("UPDATE state SET opening_cents = 0 WHERE opening_cents IS NULL");
+      db.exec("ALTER TABLE state ADD COLUMN opening_date TEXT");
     } catch (err) {
-      throw new Error(`state migration failed: ${err.message}`)
+      throw new Error(`state migration failed: ${err.message}`);
     }
   }
 }
 try {
-  migrateStateSchema()
+  migrateStateSchema();
 } catch (err) {
-  console.error(err.message)
-  process.exit(1)
+  console.error(err.message);
+  process.exit(1);
 }
 
-function nowIso() {
-  return new Date().toISOString()
+// Additive schema support for audit history. Existing values remain untouched.
+ensureColumn("entries", "opening_mode", "TEXT NOT NULL DEFAULT 'legacy'");
+ensureColumn("entries", "tips_outside_pos", "INTEGER NOT NULL DEFAULT 0");
+ensureColumn("state", "source", "TEXT NOT NULL DEFAULT 'legacy'");
+db.exec(`CREATE TABLE IF NOT EXISTS ledger_meta (
+  id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL);
+  INSERT OR IGNORE INTO ledger_meta VALUES(1,0);
+  CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    action TEXT NOT NULL, date TEXT, before_json TEXT NOT NULL,
+    after_json TEXT NOT NULL, created_at TEXT NOT NULL, revision INTEGER NOT NULL);`);
+const nowIso = () => new Date().toISOString();
+const todayKey = () =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+const revision = () =>
+  db.prepare("SELECT revision FROM ledger_meta WHERE id=1").get().revision;
+const rawState = () =>
+  db.prepare("SELECT * FROM state WHERE id=1").get() || null;
+const getRow = (date) =>
+  db.prepare("SELECT * FROM entries WHERE date=?").get(date) || null;
+class ApiError extends Error {
+  constructor(status, message, field) {
+    super(message);
+    this.status = status;
+    this.field = field;
+  }
 }
-
-function todayKey() {
-  // Local calendar date YYYY-MM-DD (matches the day the operator is counting).
-  return new Date().toISOString().slice(0, 10)
+function validDate(date) {
+  if (
+    typeof date !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
+    Number(date.slice(0, 4)) < 2000 ||
+    Number.isNaN(Date.parse(date + "T12:00:00Z")) ||
+    new Date(date + "T12:00:00Z").toISOString().slice(0, 10) !== date
+  )
+    throw new ApiError(400, "Choose a valid calendar date.", "date");
+  if (date > todayKey())
+    throw new ApiError(400, "You cannot count a future day.", "date");
+  return date;
 }
-
 function getState() {
-  const row = db
-    .prepare('SELECT opening_cents, opening_date FROM state WHERE id = 1')
-    .get()
-  if (row) {
+  const state = rawState();
+  if (state)
     return {
-      openingCents: row.opening_cents,
-      openingDate: row.opening_date,
-    }
-  }
-  return null
-}
-
-function getOpeningForDate(date) {
-  const existing = db
-    .prepare('SELECT opening_cents FROM entries WHERE date = ?')
-    .get(date)
-  if (existing?.opening_cents !== null && existing?.opening_cents !== undefined) {
-    return existing.opening_cents
-  }
-
-  // The carried opening (state) is authoritative whenever it exists and was
-  // set by this date or an earlier one — the normal forward path, plus a
-  // backfilled day whose successor was already confirmed. Only when state
-  // is NEWER than the requested date (a true backfill into history) do we
-  // reconstruct from the newest confirmed day before that date instead.
-  const state = getState()
-  const stateIsCurrent = state && (!state.openingDate || state.openingDate <= date)
-  if (stateIsCurrent) return state.openingCents
-  if (state) {
-    const previous = db.prepare(
-      `SELECT actual_cents, takeout_cents
-         FROM entries
-        WHERE date < ? AND confirmed_at IS NOT NULL
-        ORDER BY date DESC
-        LIMIT 1`,
-    ).get(date)
-    if (previous) return previous.actual_cents - previous.takeout_cents
-    return 0
-  }
-  return 0
-}
-
-function upsertEntry(entry) {
-  const existing = db.prepare('SELECT id FROM entries WHERE date = ?').get(entry.date)
-  if (existing) {
-    db.prepare(
-      `UPDATE entries SET
-         actual_cents = @actual_cents, cash_removed_cents = @cash_removed_cents,
-         cash_added_cents = @cash_added_cents, card_transfer_cents = @card_transfer_cents,
-         card_billed_cents = @card_billed_cents, discrepancy_reason = @discrepancy_reason,
-         declared_note = @declared_note, denominations = @denominations,
-         expected_cents = @expected_cents, variance_cents = @variance_cents,
-         status = @status, opening_cents = @opening_cents, takeout_cents = @takeout_cents,
-         black_cents = @black_cents, pre_takeout_cents = @pre_takeout_cents,
-         sales_cents = @sales_cents,
-         updated_at = @updated_at
-       WHERE id = @id`,
-    ).run({
-      id: existing.id,
-      actual_cents: entry.actual_cents,
-      cash_removed_cents: entry.cash_removed_cents,
-      cash_added_cents: entry.cash_added_cents,
-      card_transfer_cents: entry.card_transfer_cents,
-      card_billed_cents: entry.card_billed_cents,
-      discrepancy_reason: entry.discrepancy_reason,
-      declared_note: entry.declared_note,
-      denominations: entry.denominations,
-      expected_cents: entry.expected_cents,
-      variance_cents: entry.variance_cents,
-      status: entry.status,
-      opening_cents: entry.opening_cents,
-      takeout_cents: entry.takeout_cents,
-      black_cents: entry.black_cents,
-      pre_takeout_cents: entry.pre_takeout_cents,
-      sales_cents: entry.sales_cents,
-      updated_at: entry.updated_at,
-    })
-  } else {
-    db.prepare(
-      `INSERT INTO entries (date, actual_cents, cash_removed_cents, cash_added_cents,
-        card_transfer_cents, card_billed_cents, discrepancy_reason, declared_note,
-        denominations, expected_cents, variance_cents, status,
-        opening_cents, takeout_cents, black_cents, pre_takeout_cents, sales_cents, created_at, updated_at)
-       VALUES (@date, @actual_cents, @cash_removed_cents, @cash_added_cents,
-        @card_transfer_cents, @card_billed_cents, @discrepancy_reason, @declared_note,
-        @denominations, @expected_cents, @variance_cents,
-        @status, @opening_cents, @takeout_cents, @black_cents, @pre_takeout_cents, @sales_cents, @created_at, @updated_at)`,
-    ).run(entry)
-  }
-}
-
-// ---------------------------------------------------------------------------
-// HTTP plumbing
-// ---------------------------------------------------------------------------
-
-const SECURITY_HEADERS = {
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'Referrer-Policy': 'no-referrer',
-  'Cache-Control': 'no-store',
-}
-
-function sendJson(res, code, body) {
-  const payload = JSON.stringify(body)
-  res.writeHead(code, {
-    'Content-Type': 'application/json; charset=utf-8',
-    ...SECURITY_HEADERS,
-  })
-  res.end(payload)
-}
-
-function readBody(req, limit = 256 * 1024) {
-  return new Promise((resolve, reject) => {
-    let size = 0
-    const chunks = []
-    req.on('data', (chunk) => {
-      size += chunk.length
-      if (size > limit) {
-        reject(new Error('payload too large'))
-        req.destroy()
-        return
+      openingCents: state.opening_cents,
+      openingDate: state.opening_date,
+      source: state.source,
+    };
+  const row = db
+    .prepare(
+      "SELECT * FROM entries WHERE confirmed_at IS NOT NULL ORDER BY date DESC LIMIT 1",
+    )
+    .get();
+  return row
+    ? {
+        openingCents: row.actual_cents - row.takeout_cents,
+        openingDate: row.date,
+        source: "confirmed",
       }
-      chunks.push(chunk)
-    })
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf-8')))
-    req.on('error', reject)
-  })
+    : null;
 }
-
-function parseAmount(raw) {
-  if (raw === undefined || raw === null || raw === '') return 0
-  return eurosToCents(raw)
+function previousConfirmed(date) {
+  return db
+    .prepare(
+      "SELECT * FROM entries WHERE date<? AND confirmed_at IS NOT NULL ORDER BY date DESC LIMIT 1",
+    )
+    .get(date);
 }
-
-// ---------------------------------------------------------------------------
-// API handlers (pure; return { code, body })
-// ---------------------------------------------------------------------------
-
-function handleGetState() {
-  const state = getState()
-  const today = todayKey()
-  const todayRow = db.prepare('SELECT * FROM entries WHERE date = ?').get(today)
-  // Auto-seed: if there is no opening state yet, derive it from history —
-  // the newest confirmed day's actual minus takeout — so a backfilled or
-  // migrated ledger doesn't silently reconcile against today's raw count.
-  // With no history at all, start from €0 (the first count IS the start).
-  if (!state) {
-    const seed = db.prepare(
-      `SELECT actual_cents - takeout_cents AS opening, date
-         FROM entries
-        WHERE confirmed_at IS NOT NULL
-        ORDER BY date DESC
-        LIMIT 1`,
-    ).get()
-    const seedOpening = seed ? seed.opening : todayRow ? todayRow.actual_cents : 0
-    const seedDate = seed ? seed.date : todayRow ? today : null
-    db.prepare(
-      'INSERT INTO state (id, opening_cents, opening_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET opening_cents = excluded.opening_cents, opening_date = excluded.opening_date, updated_at = excluded.updated_at',
-    ).run(seedOpening, seedDate, nowIso(), nowIso())
-    return handleGetState()
-  }
+function getOpeningForDate(date, useExisting = true) {
+  const existing = useExisting && getRow(date);
+  if (existing && existing.opening_cents !== null)
+    return existing.opening_cents;
+  const previous = previousConfirmed(date),
+    state = getState();
+  if (
+    state &&
+    state.source !== "confirmed" &&
+    (!state.openingDate || state.openingDate <= date) &&
+    (!previous || state.openingDate > previous.date)
+  )
+    return state.openingCents;
+  if (previous) return previous.actual_cents - previous.takeout_cents;
+  return 0;
+}
+function setState(cents, date, source = "confirmed") {
+  db.prepare(
+    `INSERT INTO state(id,opening_cents,opening_date,created_at,updated_at,source) VALUES(1,?,?,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET opening_cents=excluded.opening_cents,opening_date=excluded.opening_date,updated_at=excluded.updated_at,source=excluded.source`,
+  ).run(cents, date, nowIso(), nowIso(), source);
+}
+function snapshot() {
   return {
-    hasOpening: state !== null,
-    openingCash: state ? centsToEuros(state.openingCents) : null,
-    openingDate: state ? state.openingDate : null,
-    today,
-    hasTodayEntry: !!todayRow,
+    state: rawState(),
+    entries: db.prepare("SELECT * FROM entries ORDER BY date").all(),
+  };
+}
+function writeRow(row) {
+  const keys = Object.keys(row).filter((k) => k !== "id");
+  if (row.id)
+    db.prepare(
+      "UPDATE entries SET " +
+        keys.map((k) => k + "=@" + k).join(",") +
+        " WHERE id=@id",
+    ).run(row);
+  else
+    db.prepare(
+      "INSERT INTO entries (" +
+        keys.join(",") +
+        ") VALUES (" +
+        keys.map((k) => "@" + k).join(",") +
+        ")",
+    ).run(row);
+  return getRow(row.date);
+}
+function transactionsFromRow(row) {
+  if (!row?.card_cash_transactions) return [];
+  return JSON.parse(row.card_cash_transactions).map((t) => ({
+    cardCharged:
+      t.cardChargeProvided !== false && t.cardChargedCents > t.cashGivenCents
+        ? centsToEuros(t.cardChargedCents)
+        : undefined,
+    cashGiven: centsToEuros(t.cashGivenCents),
+    extra: centsToEuros(t.cardChargedCents - t.cashGivenCents),
+    time: t.time || "",
+    reference: t.reference || "",
+  }));
+}
+function rowInputs(row) {
+  if (!row) return {};
+  return {
+    actual: centsToEuros(row.actual_cents),
+    expense: centsToEuros(row.cash_removed_cents),
+    cashAdded: centsToEuros(row.cash_added_cents),
+    posCardSales: centsToEuros(row.card_transfer_cents),
+    cardBilled:
+      row.card_billed_cents === null
+        ? null
+        : centsToEuros(row.card_billed_cents),
+    black: centsToEuros(row.black_cents),
+    preTakeout: centsToEuros(row.pre_takeout_cents),
+    cashSales: centsToEuros(row.sales_cents),
+    declared: row.declared_note,
+    cardCashTransactions: transactionsFromRow(row),
+    tipsOutsidePos: !!row.tips_outside_pos,
+  };
+}
+function makeEntry(body, date, row = null) {
+  const input = { ...rowInputs(row), ...body };
+  if (body.cashRemoved !== undefined && body.expense === undefined)
+    input.expense = body.cashRemoved;
+  if (body.cardTransfer !== undefined && body.posCardSales === undefined)
+    input.posCardSales = body.cardTransfer;
+  if (
+    input.declared !== undefined &&
+    (typeof input.declared !== "string" || input.declared.length > 4000)
+  )
+    throw new ApiError(
+      400,
+      "Notes must be text, up to 4,000 characters.",
+      "declared",
+    );
+  if (
+    body.tipsOutsidePos !== undefined &&
+    typeof body.tipsOutsidePos !== "boolean"
+  )
+    throw new ApiError(400, "Invalid card tip setting.");
+  let denoms = row?.denominations ? JSON.parse(row.denominations) : null;
+  if (body.denominations !== undefined) denoms = body.denominations;
+  else if (body.actual !== undefined) denoms = null;
+  if (
+    denoms !== null &&
+    denoms !== undefined &&
+    (typeof denoms !== "object" || Array.isArray(denoms))
+  ) {
+    throw new ApiError(
+      400,
+      "Denominations must be a count object.",
+      "denominations",
+    );
   }
-}
-
-function handleGetDenominations() {
-  return { code: 200, body: { denominations: DENOMINATIONS } }
-}
-
-function todayRowBefore(date) {
-  return !!db.prepare('SELECT id FROM entries WHERE date = ?').get(date)
-}
-
-async function handlePostEntry(req) {
-  const raw = await readBody(req)
-  let body
-  try {
-    body = JSON.parse(raw || '{}')
-  } catch {
-    return { code: 400, body: { error: 'invalid JSON body' } }
+  if (
+    body.actual !== undefined &&
+    !denoms &&
+    (body.actual === null || String(body.actual).trim() === "")
+  ) {
+    throw new ApiError(
+      400,
+      "Enter an explicit cash count, including 0 for an empty drawer.",
+      "actual",
+    );
   }
-  const today = body.date || todayKey()
-  const declared = typeof body.declared === 'string' ? body.declared : ''
-  const denominations =
-    body.denominations && typeof body.denominations === 'object'
-      ? body.denominations
-      : null
-  const state = getState()
-  // Opening resolution: an explicit body.opening wins (used by tests and
-  // power users); otherwise derive it from history/state for the date. A
-  // TRUE first entry (no state, no confirmed history, no explicit opening)
-  // has no knowable opening — the operator only knows what was left — so
-  // the day derives its own opening and balances by design.
-  const hasExplicitOpening = body.opening !== undefined
-  const hasHistory = !!db.prepare(
-    'SELECT id FROM entries WHERE confirmed_at IS NOT NULL LIMIT 1',
-  ).get()
-  const firstDay = !state && !hasHistory && !hasExplicitOpening && !todayRowBefore(today)
-  const openingCents = hasExplicitOpening
+  input.denominations = denoms;
+  if (
+    !row &&
+    !denoms &&
+    (body.actual === undefined || body.actual === null || body.actual === "")
+  )
+    throw new ApiError(
+      400,
+      "Enter a count, including an explicit 0 for an empty drawer.",
+      "actual",
+    );
+  const explicit = body.opening !== undefined;
+  const firstDay = !row && !getState() && !previousConfirmed(date) && !explicit;
+  const opening = explicit
     ? eurosToCents(body.opening)
-    : getOpeningForDate(today)
+    : getOpeningForDate(date);
+  if (explicit && opening < 0)
+    throw new ApiError(400, "Opening cash cannot be negative.", "opening");
   const result = reconcileDay(
     {
-      actual: body.actual,
-      expense: body.expense ?? body.cashRemoved ?? 0,
-      black: body.black,
-      preTakeout: body.preTakeout,
-      cashAdded: body.cashAdded ?? 0,
-      posCardSales: body.posCardSales ?? body.cardTransfer ?? 0,
-      cardBilled: body.cardBilled,
-      cashSales: body.cashSales ?? 0,
-      declared,
-      denominations,
+      ...input,
       firstDay,
+      denominations:
+        row && body.denominations === undefined && body.actual === undefined
+          ? undefined
+          : denoms,
     },
-    openingCents,
-  )
-  const takeoutCents = eurosToCents(body.takeout ?? 0)
-  const effectiveOpeningCents = result.openingCents ?? openingCents
-  const entry = {
-    date: today,
+    opening,
+  );
+  const takeout =
+    body.takeout !== undefined
+      ? eurosToCents(body.takeout)
+      : row?.takeout_cents || 0;
+  if (takeout < 0 || takeout > result.actualCents)
+    throw new ApiError(
+      400,
+      "After-count withdrawal must be between 0 and the cash counted.",
+      "takeout",
+    );
+  return {
+    ...(row || {}),
+    date,
     actual_cents: result.actualCents,
     cash_removed_cents: result.removedCents,
     cash_added_cents: result.addedCents,
@@ -382,490 +387,558 @@ async function handlePostEntry(req) {
     card_billed_cents: result.cardBilledCents,
     discrepancy_reason: result.discrepancyReason,
     declared_note: result.declared,
-    denominations: denominations ? JSON.stringify(denominations) : '',
+    denominations: denoms ? JSON.stringify(denoms) : "",
     expected_cents: result.expectedCents,
     variance_cents: result.varianceCents,
     status: result.status,
-    opening_cents: effectiveOpeningCents,
-    takeout_cents: takeoutCents,
+    opening_cents: result.openingCents,
+    takeout_cents: takeout,
     black_cents: result.blackCents,
     pre_takeout_cents: result.preTakeoutCents,
+    card_cash_transactions: JSON.stringify(result.cardCashTransactions),
     sales_cents: result.salesCents,
-    created_at: nowIso(),
+    confirmed_at: row?.confirmed_at || null,
+    created_at: row?.created_at || nowIso(),
     updated_at: nowIso(),
-  }
-  upsertEntry(entry)
-  // Seed the opening state on first run only when this entry is not older
-  // than an existing confirmed day; otherwise the seed would misdate the
-  // carried opening. handleGetState derives the correct seed from history.
-  if (!state) {
-    const priorConfirmed = db.prepare(
-      'SELECT id FROM entries WHERE confirmed_at IS NOT NULL AND date > ? LIMIT 1',
-    ).get(today)
-    if (!priorConfirmed) {
-      db.prepare(
-        'INSERT INTO state (id, opening_cents, opening_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET opening_cents = excluded.opening_cents, opening_date = excluded.opening_date, updated_at = excluded.updated_at',
-      ).run(result.actualCents, today, nowIso(), nowIso())
-    }
-  }
-  return { code: 200, body: entryToView(entry) }
+    opening_mode: explicit
+      ? "manual"
+      : row?.opening_mode || (firstDay ? "derived" : "auto"),
+    tips_outside_pos: input.tipsOutsidePos ? 1 : 0,
+  };
 }
-
 function entryToView(row) {
-  let denominations = null
-  if (row.denominations) {
-    try { denominations = JSON.parse(row.denominations) } catch { denominations = null }
-  }
+  const inputs = rowInputs(row),
+    stored = JSON.parse(row.card_cash_transactions || "[]");
+  const given = stored.reduce((s, t) => s + t.cashGivenCents, 0);
+  const expectedCard =
+    row.card_transfer_cents + (row.tips_outside_pos ? given : 0);
+  const cv =
+    row.card_billed_cents === null
+      ? null
+      : row.card_billed_cents - expectedCard;
+  const match = cv === null ? null : cv === 0 && row.variance_cents === 0;
   return {
+    ...inputs,
     date: row.date,
-    actual: centsToEuros(row.actual_cents),
-    expense: centsToEuros(row.cash_removed_cents),
-    cashRemoved: centsToEuros(row.cash_removed_cents),
-    black: centsToEuros(row.black_cents ?? 0),
-    preTakeout: centsToEuros(row.pre_takeout_cents ?? 0),
-    cashSales: centsToEuros(row.sales_cents ?? 0),
-    cashAdded: centsToEuros(row.cash_added_cents),
-    posCardSales: centsToEuros(row.card_transfer_cents),
-    cardTransfer: centsToEuros(row.card_transfer_cents),
-    cardBilled: row.card_billed_cents === null || row.card_billed_cents === undefined
-      ? null
-      : centsToEuros(row.card_billed_cents),
-    cardVariance: row.card_billed_cents === null || row.card_billed_cents === undefined
-      ? null
-      : centsToEuros(row.card_billed_cents - row.card_transfer_cents),
-    discrepancyReason: row.discrepancy_reason ?? '',
-    declared: row.declared_note,
-    denominations,
+    cashRemoved: inputs.expense,
+    cardTransfer: inputs.posCardSales,
+    denominations: row.denominations ? JSON.parse(row.denominations) : null,
     expected: centsToEuros(row.expected_cents),
     variance: centsToEuros(row.variance_cents),
     status: row.status,
-    opening: row.opening_cents !== null && row.opening_cents !== undefined ? centsToEuros(row.opening_cents) : null,
+    opening:
+      row.opening_cents === null ? null : centsToEuros(row.opening_cents),
     takeout: centsToEuros(row.takeout_cents),
+    remaining: centsToEuros(row.actual_cents - row.takeout_cents),
     confirmed: !!row.confirmed_at,
-  }
+    confirmedAt: row.confirmed_at,
+    updatedAt: row.updated_at,
+    baselineOnly: row.opening_mode === "derived",
+    cardCashGiven: centsToEuros(given),
+    cardCashExtra: centsToEuros(
+      stored.reduce((s, t) => s + t.cardChargedCents - t.cashGivenCents, 0),
+    ),
+    expectedCard: centsToEuros(expectedCard),
+    cardVariance: cv === null ? null : centsToEuros(cv),
+    cashMatches: row.variance_cents === 0,
+    cardMatches: cv === null ? null : cv === 0,
+    overallMatches: match,
+    overallStatus:
+      match === null ? "not_checked" : match ? "matches" : "not_matches",
+    discrepancyReason: row.discrepancy_reason,
+  };
 }
-
-async function handlePostConfirm(req) {
-  const raw = await readBody(req)
-  let body
-  try {
-    body = JSON.parse(raw || '{}')
-  } catch {
-    return { code: 400, body: { error: 'invalid JSON body' } }
-  }
-  const date = body.date || todayKey()
-  const row = db.prepare('SELECT * FROM entries WHERE date = ?').get(date)
-  if (!row) {
-    return { code: 404, body: { error: 'no entry for that date' } }
-  }
-  // Takeout is the cash removed AFTER the count. The remainder becomes
-  // tomorrow's opening cash. Stored takeout is already cents; only convert
-  // when the caller supplied a fresh euros value.
-  const takeoutCents =
-    body.takeout !== undefined ? eurosToCents(body.takeout) : row.takeout_cents
-  const openingCents = row.actual_cents - takeoutCents
-  const state = getState()
-  const advancesOpening = !state?.openingDate || date >= state.openingDate
-  // Confirming an older backfilled day must not roll a newer carried opening
-  // backward. It still marks the selected day as confirmed.
-  if (advancesOpening) {
-    db.prepare(
-      'INSERT INTO state (id, opening_cents, opening_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET opening_cents = excluded.opening_cents, opening_date = excluded.opening_date, updated_at = excluded.updated_at',
-    ).run(openingCents, date, nowIso(), nowIso())
-  }
-  db.prepare('UPDATE entries SET confirmed_at = ? WHERE date = ?').run(nowIso(), date)
-  return {
-    code: 200,
-    body: {
-      confirmed: true,
-      date,
-      takeout: centsToEuros(takeoutCents),
-      openingAdvanced: advancesOpening,
-      openingCash: centsToEuros(advancesOpening ? openingCents : state.openingCents),
-    },
-  }
-}
-
-// Reconcile a day: correct its count and let the books accept the correction.
-// This is the "confirmed was wrong" path — instead of deleting the entry and
-// re-entering, the operator corrects the actual (and/or the moves) and the
-// books baseline is re-derived from the corrected figure. If the entry being
-// reconciled is the one that last set the baseline, the baseline is updated
-// to the corrected actual; otherwise only the entry's reconciliation is
-// refreshed against the current books balance.
-async function handlePostReconcile(req) {
-  const raw = await readBody(req)
-  let body
-  try {
-    body = JSON.parse(raw || '{}')
-  } catch {
-    return { code: 400, body: { error: 'invalid JSON body' } }
-  }
-  const date = body.date
-  if (!date) return { code: 400, body: { error: 'date is required' } }
-  const row = db.prepare('SELECT * FROM entries WHERE date = ?').get(date)
-  if (!row) {
-    return { code: 404, body: { error: 'no entry for that date' } }
-  }
-
-  // Reconcile against the opening cash that was in effect when this day was
-  // counted. If the entry stored an opening, use it; otherwise fall back to
-  // the current opening state (or 0 on first run).
-  const state = getState()
-  let openingCents
-  if (row.opening_cents !== null && row.opening_cents !== undefined) {
-    openingCents = row.opening_cents
-  } else {
-    openingCents = state ? state.openingCents : 0
-  }
-
-  const declared = body.declared !== undefined ? body.declared : row.declared_note
-  // Takeout: a fresh euros value from the caller wins; otherwise the stored
-  // cents are kept as-is (already the right unit).
-  const takeoutCents =
-    body.takeout !== undefined ? eurosToCents(body.takeout) : row.takeout_cents
-  const result = reconcileDay(
-    {
-      actual: body.actual !== undefined ? body.actual : centsToEuros(row.actual_cents),
-      expense: body.expense !== undefined
-        ? body.expense
-        : body.cashRemoved !== undefined ? body.cashRemoved : centsToEuros(row.cash_removed_cents),
-      black: body.black !== undefined ? body.black : centsToEuros(row.black_cents ?? 0),
-      preTakeout: body.preTakeout !== undefined ? body.preTakeout : centsToEuros(row.pre_takeout_cents ?? 0),
-      cashAdded: body.cashAdded !== undefined ? body.cashAdded : centsToEuros(row.cash_added_cents),
-      posCardSales: body.posCardSales !== undefined ? body.posCardSales
-        : body.cardTransfer !== undefined ? body.cardTransfer : centsToEuros(row.card_transfer_cents),
-      cardBilled: body.cardBilled !== undefined ? body.cardBilled
-        : row.card_billed_cents === null ? null : centsToEuros(row.card_billed_cents),
-      cashSales: body.cashSales !== undefined ? body.cashSales : centsToEuros(row.sales_cents ?? 0),
-      declared,
-    },
-    openingCents,
-  )
-  const entry = {
-    id: row.id,
-    date,
-    actual_cents: result.actualCents,
-    cash_removed_cents: result.removedCents,
-    cash_added_cents: result.addedCents,
-    card_transfer_cents: result.posCardCents,
-    card_billed_cents: result.cardBilledCents,
-    discrepancy_reason: result.discrepancyReason,
-    declared_note: result.declared,
-    denominations: row.denominations || '',
-    expected_cents: result.expectedCents,
-    variance_cents: result.varianceCents,
-    status: result.status,
-    opening_cents: openingCents,
-    takeout_cents: takeoutCents,
-    black_cents: result.blackCents,
-    pre_takeout_cents: result.preTakeoutCents,
-    sales_cents: result.salesCents,
-    created_at: row.created_at,
-    updated_at: nowIso(),
-  }
-  upsertEntry(entry)
-
-  // If this entry is (or remains) the source of the opening state, fold the
-  // corrected actual (minus any takeout) into the opening balance so the
-  // books stay consistent.
-  if (state && state.openingDate === date) {
-    const openingCentsAfter = result.actualCents - takeoutCents
-    db.prepare(
-      'UPDATE state SET opening_cents = ?, updated_at = ? WHERE id = 1'
-    ).run(openingCentsAfter, nowIso())
-  }
-
-  return {
-    code: 200,
-    body: {
-      reconciled: true,
-      date,
-      actual: centsToEuros(result.actualCents),
-      expected: centsToEuros(result.expectedCents),
-      variance: centsToEuros(result.varianceCents),
+// Recalculate dependent openings after explicit mutations, never at startup.
+function syncFollowing(fromDate) {
+  for (const row of db
+    .prepare("SELECT * FROM entries WHERE date>? ORDER BY date")
+    .all(fromDate)) {
+    if (row.opening_mode === "manual") continue;
+    const previous = previousConfirmed(row.date);
+    if (!previous) continue;
+    const opening = previous.actual_cents - previous.takeout_cents;
+    if (row.opening_cents === opening) continue;
+    const result = reconcileDay(rowInputs(row), opening);
+    writeRow({
+      ...row,
+      opening_cents: opening,
+      expected_cents: result.expectedCents,
+      variance_cents: result.varianceCents,
       status: result.status,
-      openingCash: state && state.openingDate === date
-        ? centsToEuros(result.actualCents - takeoutCents)
-        : state ? centsToEuros(state.openingCents) : null,
-      openingDate: state && state.openingDate === date ? date : state?.openingDate ?? null,
-    },
+      discrepancy_reason: result.discrepancyReason,
+      updated_at: nowIso(),
+    });
   }
 }
-
-function handleGetHistory() {
-  const rows = db.prepare('SELECT * FROM entries ORDER BY date DESC LIMIT 90').all()
-  return { code: 200, body: { entries: rows.map(entryToView) } }
-}
-
-function handleDeleteEntry(date) {
-  const row = db.prepare('SELECT * FROM entries WHERE date = ?').get(date)
-  if (!row) return { code: 404, body: { error: 'no entry for that date' } }
-  const state = getState()
-  // If this was the entry that last set the opening state (confirmed),
-  // revert the opening to the newest confirmed entry BEFORE this date (its
-  // actual minus takeout), or clear the state when none remains. Keeps the
-  // running opening consistent with what actually backs it.
-  if (row.confirmed_at && state && state.openingDate === date) {
-    const prev = db.prepare(
-      `SELECT actual_cents, takeout_cents, date
-         FROM entries
-        WHERE date < ? AND confirmed_at IS NOT NULL
-        ORDER BY date DESC
-        LIMIT 1`,
-    ).get(date)
-    const newOpening = prev ? prev.actual_cents - prev.takeout_cents : 0
-    db.prepare(
-      'UPDATE state SET opening_cents = ?, opening_date = ?, updated_at = ? WHERE id = 1',
-    ).run(newOpening, prev ? prev.date : null, nowIso())
-  }
-  db.prepare('DELETE FROM entries WHERE date = ?').run(date)
-  return { code: 200, body: { deleted: true, date } }
-}
-
-async function handlePatchEntry(req, date) {
-  const row = db.prepare('SELECT * FROM entries WHERE date = ?').get(date)
-  if (!row) return { code: 404, body: { error: 'no entry for that date' } }
-  const raw = await readBody(req)
-  let body
-  try {
-    body = JSON.parse(raw || '{}')
-  } catch {
-    return { code: 400, body: { error: 'invalid JSON body' } }
-  }
-  const state = getState()
-  if (!state) return { code: 409, body: { error: 'no opening state set' } }
-  // Takeout: a fresh euros value from the caller wins; otherwise the stored
-  // cents are kept as-is (already the right unit).
-  const takeoutCents =
-    body.takeout !== undefined ? eurosToCents(body.takeout) : row.takeout_cents
-  // Denominations: preserve existing unless explicitly overridden.
-  let denomObj = null
-  try { denomObj = row.denominations ? JSON.parse(row.denominations) : null } catch { denomObj = null }
-  if (body.denominations !== undefined) {
-    denomObj = body.denominations && typeof body.denominations === 'object' ? body.denominations : null
-  }
-  // Use the entry's stored opening if present; otherwise fall back to the
-  // current opening state (or 0 on first run). A caller-supplied body.opening
-  // overrides the stored value — that is the correction path for a first-day
-  // entry whose original €0 opening was an artifact, not reality.
-  let openingCents
-  if (body.opening !== undefined) {
-    openingCents = eurosToCents(body.opening)
-  } else if (row.opening_cents !== null && row.opening_cents !== undefined) {
-    openingCents = row.opening_cents
-  } else {
-    openingCents = state.openingCents
-  }
-  const result = reconcileDay(
-    {
-      // Count: a caller-supplied value wins. An OMITTED count means "not
-      // re-counted" — the stored count must survive untouched. Only an
-      // explicit zero (or empty denominations object) zeroes the day.
-      actual: body.actual !== undefined ? body.actual
-        : denomObj ? undefined : centsToEuros(row.actual_cents),
-      expense: body.expense ?? body.cashRemoved ?? centsToEuros(row.cash_removed_cents),
-      black: body.black ?? centsToEuros(row.black_cents ?? 0),
-      preTakeout: body.preTakeout ?? centsToEuros(row.pre_takeout_cents ?? 0),
-      cashAdded: body.cashAdded ?? centsToEuros(row.cash_added_cents),
-      posCardSales: body.posCardSales ?? body.cardTransfer ?? centsToEuros(row.card_transfer_cents),
-      cardBilled: body.cardBilled !== undefined ? body.cardBilled
-        : row.card_billed_cents === null ? null : centsToEuros(row.card_billed_cents),
-      cashSales: body.cashSales ?? centsToEuros(row.sales_cents ?? 0),
-      declared: body.declared ?? row.declared_note,
-      denominations: denomObj && Object.keys(denomObj).length ? denomObj : undefined,
-    },
-    openingCents,
+function syncState(before) {
+  const latest = db
+      .prepare(
+        "SELECT * FROM entries WHERE confirmed_at IS NOT NULL ORDER BY date DESC LIMIT 1",
+      )
+      .get(),
+    state = rawState();
+  if (latest) {
+    if (state?.source === "manual" && state.opening_date > latest.date) return;
+    setState(latest.actual_cents - latest.takeout_cents, latest.date);
+  } else if (
+    state?.source === "confirmed" ||
+    (state &&
+      before?.entries.some(
+        (e) => e.confirmed_at && e.date === state.opening_date,
+      ))
   )
-  const entry = {
-    id: row.id,
-    date,
-    actual_cents: result.actualCents,
-    cash_removed_cents: result.removedCents,
-    cash_added_cents: result.addedCents,
-    card_transfer_cents: result.posCardCents,
-    card_billed_cents: result.cardBilledCents,
-    discrepancy_reason: result.discrepancyReason,
-    declared_note: result.declared,
-    denominations: denomObj ? JSON.stringify(denomObj) : '',
-    expected_cents: result.expectedCents,
-    variance_cents: result.varianceCents,
-    status: result.status,
-    opening_cents: openingCents,
-    takeout_cents: takeoutCents,
-    black_cents: result.blackCents,
-    pre_takeout_cents: result.preTakeoutCents,
-    sales_cents: result.salesCents,
-    created_at: row.created_at,
-    updated_at: nowIso(),
-  }
-  upsertEntry(entry)
-  return { code: 200, body: entryToView({ ...entry, confirmed_at: row.confirmed_at }) }
+    db.prepare("DELETE FROM state WHERE id=1").run();
 }
-
-// Move an entry to another date: full data preserved, old date freed.
-// Refuses to land on an occupied date (409) rather than overwriting.
-async function handleMoveEntry(req, date) {
-  const row = db.prepare('SELECT * FROM entries WHERE date = ?').get(date)
-  if (!row) return { code: 404, body: { error: 'no entry for that date' } }
-  const raw = await readBody(req)
-  let body
+function transact(req, action, date, fn) {
+  db.exec("BEGIN IMMEDIATE");
   try {
-    body = JSON.parse(raw || '{}')
-  } catch {
-    return { code: 400, body: { error: 'invalid JSON body' } }
-  }
-  const target = body.date
-  if (!target) return { code: 400, body: { error: 'date is required' } }
-  if (target === date) return { code: 200, body: entryToView(row) }
-  const occupied = db.prepare('SELECT id FROM entries WHERE date = ?').get(target)
-  if (occupied) {
-    return { code: 409, body: { error: `an entry for ${target} already exists` } }
-  }
-  db.exec('BEGIN IMMEDIATE')
-  try {
-    db.prepare('UPDATE entries SET date = ?, updated_at = ? WHERE id = ?')
-      .run(target, nowIso(), row.id)
-    // If this was the confirmed source of the carried opening, re-point the
-    // state at the new date so history stays consistent.
-    const state = getState()
-    if (state && state.openingDate === date && row.confirmed_at) {
-      db.prepare('UPDATE state SET opening_date = ?, updated_at = ? WHERE id = 1')
-        .run(target, nowIso())
-    }
-    db.exec('COMMIT')
+    const expected = req.headers["if-match"]?.replaceAll('"', "");
+    if (expected !== undefined && expected !== String(revision()))
+      throw new ApiError(
+        409,
+        "The ledger changed in another tab. Reload the latest values before saving.",
+        "revision",
+      );
+    const before = snapshot(),
+      result = fn(before),
+      after = snapshot(),
+      rev = revision() + 1;
+    db.prepare("UPDATE ledger_meta SET revision=? WHERE id=1").run(rev);
+    const id = db
+      .prepare(
+        "INSERT INTO audit_log(action,date,before_json,after_json,created_at,revision) VALUES(?,?,?,?,?,?)",
+      )
+      .run(
+        action,
+        date,
+        JSON.stringify(before),
+        JSON.stringify(after),
+        nowIso(),
+        rev,
+      ).lastInsertRowid;
+    db.exec("COMMIT");
+    return { ...result, revision: rev, auditId: Number(id) };
   } catch (err) {
-    try { db.exec('ROLLBACK') } catch { /* already rolled back */ }
-    console.error('move entry failed:', err)
-    throw err
+    db.exec("ROLLBACK");
+    throw err;
   }
-  const updated = db.prepare('SELECT * FROM entries WHERE date = ?').get(target)
-  return { code: 200, body: entryToView(updated) }
 }
-
-// ---------------------------------------------------------------------------
-// Router
-// ---------------------------------------------------------------------------
-
+const SECURITY_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Referrer-Policy": "no-referrer",
+  "Cache-Control": "no-store",
+  "Content-Security-Policy":
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+};
+function sendJson(res, code, body) {
+  res.writeHead(code, {
+    "Content-Type": "application/json; charset=utf-8",
+    ...SECURITY_HEADERS,
+    ETag: '"' + revision() + '"',
+  });
+  res.end(JSON.stringify(body));
+}
+async function readJson(req) {
+  if (
+    !(req.headers["content-type"] || "")
+      .toLowerCase()
+      .startsWith("application/json")
+  )
+    throw new ApiError(415, "Send application/json.");
+  let size = 0,
+    chunks = [];
+  for await (const chunk of req) {
+    size += chunk.length;
+    if (size > 256 * 1024)
+      throw new ApiError(413, "This request is too large.");
+    chunks.push(chunk);
+  }
+  let body;
+  try {
+    body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
+  } catch {
+    throw new ApiError(400, "Invalid JSON body.");
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body))
+    throw new ApiError(400, "Send a JSON object.");
+  return body;
+}
+function guardOrigin(req) {
+  if (req.headers["sec-fetch-site"] === "cross-site")
+    throw new ApiError(403, "Cross-site changes are not allowed.");
+  if (req.headers.origin) {
+    const hosts = [req.headers.host, req.headers["x-forwarded-host"]].filter(
+      Boolean,
+    );
+    let host;
+    try {
+      host = new URL(req.headers.origin).host;
+    } catch {
+      throw new ApiError(403, "Invalid origin.");
+    }
+    if (!hosts.includes(host))
+      throw new ApiError(403, "Open Till Check directly to make changes.");
+  }
+}
 async function handle(req, res) {
-  const url = new URL(req.url, 'http://127.0.0.1')
-  const pathname = url.pathname
-  const method = req.method
-
-  if (method === 'GET' && (pathname === '/' || pathname === '/index.html')) {
-    const html = fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf-8')
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...SECURITY_HEADERS })
-    res.end(html)
-    return
+  const url = new URL(req.url, "http://localhost"),
+    method = req.method;
+  let pathname = url.pathname;
+  if (pathname === "/till") {
+    res.writeHead(308, { Location: "/till/" });
+    res.end();
+    return;
   }
-
-  if (method === 'GET' && pathname === '/health') {
-    // Fail-closed health: the DB must exist AND answer a real query. A
-    // constant-true endpoint gives deploys a false green.
-    let dbOk = false
-    try {
-      dbOk = fs.existsSync(DB_PATH) && db.prepare('SELECT COUNT(*) AS n FROM entries').get().n >= 0
-    } catch {
-      dbOk = false
+  if (pathname.startsWith("/till/")) pathname = pathname.slice(5);
+  const assets = {
+    "/": "index.html",
+    "/index.html": "index.html",
+    "/app.js": "app.js",
+    "/styles.css": "styles.css",
+  };
+  if ((method === "GET" || method === "HEAD") && assets[pathname]) {
+    const name = assets[pathname],
+      file = path.join(__dirname, "public", name);
+    const type = name.endsWith(".js")
+      ? "text/javascript"
+      : name.endsWith(".css")
+        ? "text/css"
+        : "text/html";
+    res.writeHead(200, {
+      "Content-Type": type + "; charset=utf-8",
+      ...SECURITY_HEADERS,
+    });
+    res.end(method === "HEAD" ? undefined : fs.readFileSync(file));
+    return;
+  }
+  if (method === "GET" && pathname === "/health") {
+    const ok =
+      fs.existsSync(DB_PATH) &&
+      db.prepare("SELECT COUNT(*) AS n FROM entries").get().n >= 0;
+    sendJson(res, ok ? 200 : 503, {
+      ok,
+      db: ok,
+      service: "till-check",
+      version: "0.2.0",
+    });
+    return;
+  }
+  if (method === "GET") {
+    if (pathname === "/api/state") {
+      const date = validDate(url.searchParams.get("date") || todayKey()),
+        state = getState(),
+        row = getRow(date);
+      sendJson(res, 200, {
+        hasOpening: !!state,
+        openingCash: state ? centsToEuros(state.openingCents) : null,
+        openingDate: state?.openingDate || null,
+        selectedOpening: centsToEuros(getOpeningForDate(date)),
+        today: todayKey(),
+        timeZone: "Europe/Madrid",
+        hasTodayEntry: !!getRow(todayKey()),
+        entry: row ? entryToView(row) : null,
+        revision: revision(),
+      });
+      return;
     }
-    sendJson(res, dbOk ? 200 : 503, { ok: dbOk, service: 'till-check', db: dbOk })
-    return
-  }
-
-  if (pathname === '/api/state' && method === 'GET') {
-    const s = handleGetState()
-    sendJson(res, 200, s)
-    return
-  }
-
-  if (pathname === '/api/denominations' && method === 'GET') {
-    const r = handleGetDenominations()
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname === '/api/entry' && method === 'POST') {
-    const r = await handlePostEntry(req)
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname === '/api/confirm' && method === 'POST') {
-    const r = await handlePostConfirm(req)
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname === '/api/reconcile' && method === 'POST') {
-    const r = await handlePostReconcile(req)
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname === '/api/history' && method === 'GET') {
-    const r = handleGetHistory()
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname.startsWith('/api/entry/') && method === 'PATCH') {
-    const date = pathname.split('/').pop()
-    const r = await handlePatchEntry(req, decodeURIComponent(date))
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname.startsWith('/api/entry/') && pathname.endsWith('/move') && method === 'POST') {
-    const date = pathname.slice('/api/entry/'.length, -'/move'.length)
-    const r = await handleMoveEntry(req, decodeURIComponent(date))
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname.startsWith('/api/entry/') && method === 'DELETE') {
-    const date = pathname.split('/').pop()
-    const r = handleDeleteEntry(decodeURIComponent(date))
-    sendJson(res, r.code, r.body)
-    return
-  }
-
-  if (pathname === '/api/opening' && method === 'POST') {
-    // Set the opening cash for the next shift (e.g. first run or manual
-    // correction). Body: { opening, date }
-    const raw = await readBody(req)
-    let body
-    try {
-      body = JSON.parse(raw || '{}')
-    } catch {
-      sendJson(res, 400, { error: 'invalid JSON body' })
-      return
+    if (pathname === "/api/denominations") {
+      sendJson(res, 200, { denominations: DENOMINATIONS });
+      return;
     }
-    const openingCents = parseAmount(body.opening)
-    const openingDate = body.date || todayKey()
-    db.prepare(
-      'INSERT INTO state (id, opening_cents, opening_date, created_at, updated_at) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET opening_cents = excluded.opening_cents, opening_date = excluded.opening_date, updated_at = excluded.updated_at',
-    ).run(openingCents, openingDate, nowIso(), nowIso())
-    sendJson(res, 200, { ok: true, openingCash: centsToEuros(openingCents), openingDate })
-    return
+    if (pathname === "/api/history") {
+      const limit = Math.min(
+          200,
+          Math.max(1, Number(url.searchParams.get("limit")) || 90),
+        ),
+        before = url.searchParams.get("before") || "9999-12-31";
+      const rows = db
+        .prepare(
+          "SELECT * FROM entries WHERE date<? ORDER BY date DESC LIMIT ?",
+        )
+        .all(before, limit + 1);
+      sendJson(res, 200, {
+        entries: rows.slice(0, limit).map(entryToView),
+        hasMore: rows.length > limit,
+        revision: revision(),
+      });
+      return;
+    }
+    if (pathname === "/api/audit") {
+      sendJson(res, 200, {
+        events: db
+          .prepare(
+            "SELECT id,action,date,created_at AS createdAt,revision FROM audit_log ORDER BY id DESC LIMIT 50",
+          )
+          .all(),
+      });
+      return;
+    }
+    if (pathname === "/api/export.csv") {
+      const columns = [
+        "date",
+        "actual",
+        "expected",
+        "variance",
+        "opening",
+        "cashSales",
+        "expense",
+        "cashAdded",
+        "black",
+        "preTakeout",
+        "cardCashGiven",
+        "posCardSales",
+        "cardBilled",
+        "takeout",
+        "remaining",
+        "confirmed",
+        "declared",
+      ];
+      const cell = (value, key) => {
+        let text = String(value ?? "");
+        const first = text.trimStart()[0];
+        const formula =
+          first &&
+          (["=", "+", "@"].includes(first) ||
+            (key === "declared" && first === "-"));
+        if (formula || text.startsWith("\t") || text.startsWith("\r"))
+          text = "'" + text;
+        return '"' + text.replaceAll('"', '""') + '"';
+      };
+      const csv = [
+        columns.join(","),
+        ...db
+          .prepare("SELECT * FROM entries ORDER BY date")
+          .all()
+          .map((row) => {
+            const e = entryToView(row);
+            return columns.map((k) => cell(e[k], k)).join(",");
+          }),
+      ].join("\r\n");
+      res.writeHead(200, {
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": 'attachment; filename="till-history.csv"',
+        ...SECURITY_HEADERS,
+      });
+      res.end("\ufeff" + csv);
+      return;
+    }
+    const match = pathname.match(/^\/api\/entry\/([^/]+)$/);
+    if (match) {
+      const row = getRow(validDate(decodeURIComponent(match[1])));
+      if (!row) throw new ApiError(404, "No count saved for this day.");
+      sendJson(res, 200, entryToView(row));
+      return;
+    }
   }
-
-  sendJson(res, 404, { error: 'not found', path: pathname })
+  if (!["POST", "PATCH", "DELETE"].includes(method))
+    throw new ApiError(404, "Not found.");
+  guardOrigin(req);
+  const body = method === "DELETE" ? {} : await readJson(req);
+  let result;
+  if (pathname === "/api/opening" && method === "POST") {
+    const date = validDate(body.date || todayKey()),
+      opening = eurosToCents(body.opening);
+    if (
+      body.opening === undefined ||
+      body.opening === null ||
+      body.opening === "" ||
+      opening < 0
+    )
+      throw new ApiError(
+        400,
+        "Enter a non-negative opening balance.",
+        "opening",
+      );
+    result = transact(req, "opening", date, () => {
+      setState(opening, date, "manual");
+      return {
+        ok: true,
+        openingCash: centsToEuros(opening),
+        openingDate: date,
+      };
+    });
+  } else if (pathname === "/api/entry" && method === "POST") {
+    const date = validDate(body.date || todayKey());
+    result = transact(req, "save", date, (before) => {
+      const row = writeRow(makeEntry(body, date, getRow(date)));
+      syncFollowing(date);
+      if (row.confirmed_at) syncState(before);
+      return entryToView(getRow(date));
+    });
+  } else if (pathname === "/api/confirm" && method === "POST") {
+    const date = validDate(body.date || todayKey());
+    result = transact(req, "confirm", date, (before) => {
+      const row = getRow(date);
+      if (!row)
+        throw new ApiError(404, "Save a count before confirming this day.");
+      const takeout =
+        body.takeout === undefined
+          ? row.takeout_cents
+          : eurosToCents(body.takeout);
+      if (takeout < 0 || takeout > row.actual_cents)
+        throw new ApiError(
+          400,
+          "Withdrawal cannot exceed the count.",
+          "takeout",
+        );
+      writeRow({
+        ...row,
+        takeout_cents: takeout,
+        confirmed_at: nowIso(),
+        updated_at: nowIso(),
+      });
+      syncFollowing(date);
+      syncState(before);
+      const state = getState();
+      return {
+        confirmed: true,
+        date,
+        takeout: centsToEuros(takeout),
+        openingAdvanced: state?.openingDate === date,
+        openingCash: state ? centsToEuros(state.openingCents) : null,
+      };
+    });
+  } else if (pathname === "/api/reconcile" && method === "POST") {
+    const date = validDate(body.date);
+    result = transact(req, "correct", date, (before) => {
+      const row = getRow(date);
+      if (!row) throw new ApiError(404, "No entry for that day.");
+      writeRow(makeEntry(body, date, row));
+      syncFollowing(date);
+      syncState(before);
+      return {
+        ...entryToView(getRow(date)),
+        reconciled: true,
+        openingCash: getState() ? centsToEuros(getState().openingCents) : null,
+        openingDate: getState()?.openingDate || null,
+      };
+    });
+  } else if (pathname === "/api/undo" && method === "POST") {
+    result = transact(req, "undo", null, () => {
+      const audit = db
+        .prepare("SELECT * FROM audit_log WHERE id=?")
+        .get(Number(body.auditId));
+      if (!audit || audit.action !== "delete" || audit.revision !== revision())
+        throw new ApiError(
+          409,
+          "Undo is no longer safe because the ledger changed.",
+        );
+      const before = JSON.parse(audit.before_json),
+        after = JSON.parse(audit.after_json);
+      const removed = before.entries.filter(
+        (row) => !after.entries.some((e) => e.id === row.id),
+      );
+      for (const row of removed) {
+        const keys = Object.keys(row);
+        db.prepare(
+          "INSERT INTO entries (" +
+            keys.join(",") +
+            ") VALUES (" +
+            keys.map((k) => "@" + k).join(",") +
+            ")",
+        ).run(row);
+      }
+      for (const row of before.entries.filter((row) =>
+        after.entries.some((e) => e.id === row.id),
+      ))
+        writeRow(row);
+      if (before.state)
+        setState(
+          before.state.opening_cents,
+          before.state.opening_date,
+          before.state.source,
+        );
+      else db.prepare("DELETE FROM state WHERE id=1").run();
+      return { restored: true, date: audit.date };
+    });
+  } else {
+    const match = pathname.match(/^\/api\/entry\/([^/]+)(\/move)?$/);
+    if (!match) throw new ApiError(404, "Not found.");
+    const date = validDate(decodeURIComponent(match[1]));
+    if (method === "PATCH" && !match[2])
+      result = transact(req, "edit", date, (before) => {
+        const row = getRow(date);
+        if (!row) throw new ApiError(404, "No entry for that day.");
+        writeRow(makeEntry(body, date, row));
+        syncFollowing(date);
+        if (row.confirmed_at) syncState(before);
+        return entryToView(getRow(date));
+      });
+    else if (method === "DELETE" && !match[2])
+      result = transact(req, "delete", date, (before) => {
+        const row = getRow(date);
+        if (!row) throw new ApiError(404, "No entry for that day.");
+        db.prepare("DELETE FROM entries WHERE date=?").run(date);
+        syncFollowing(date);
+        syncState(before);
+        return { deleted: true, date };
+      });
+    else if (method === "POST" && match[2]) {
+      const target = validDate(body.date);
+      result = transact(req, "move", date, (before) => {
+        const row = getRow(date);
+        if (!row) throw new ApiError(404, "No entry for that day.");
+        if (target !== date && getRow(target))
+          throw new ApiError(
+            409,
+            "That day already has a count. Nothing was moved.",
+          );
+        const updated = makeEntry({ ...body, date: target }, date, row);
+        updated.date = target;
+        const predecessor = previousConfirmed(target);
+        if (
+          predecessor &&
+          predecessor.id !== row.id &&
+          updated.opening_mode !== "manual"
+        ) {
+          const r = reconcileDay(
+            rowInputs(updated),
+            predecessor.actual_cents - predecessor.takeout_cents,
+          );
+          Object.assign(updated, {
+            opening_cents: r.openingCents,
+            expected_cents: r.expectedCents,
+            variance_cents: r.varianceCents,
+            status: r.status,
+            discrepancy_reason: r.discrepancyReason,
+          });
+        }
+        writeRow(updated);
+        syncFollowing(date < target ? date : target);
+        syncState(before);
+        return entryToView(getRow(target));
+      });
+    } else throw new ApiError(405, "Method not allowed.");
+  }
+  sendJson(res, 200, result);
 }
-
-const server = http.createServer((req, res) => {
+const server = http.createServer((req, res) =>
   handle(req, res).catch((err) => {
-    // A rejected amount is the caller's mistake: answer 400 with the reason.
-    if (err instanceof InvalidAmountError) {
-      sendJson(res, 400, { error: err.message })
-      return
-    }
-    console.error('request error:', err)
-    if (!res.headersSent) {
-      sendJson(res, 500, { error: 'internal error' })
-    }
-  })
-})
-
-server.listen(PORT, HOST, () => {
-  console.log(`till-check listening on http://${HOST}:${PORT} (db: ${DB_PATH})`)
-})
+    const code = err instanceof InvalidAmountError ? 400 : err.status || 500;
+    if (code >= 500) console.error("request error:", err);
+    if (!res.headersSent)
+      sendJson(res, code, {
+        error:
+          code >= 500
+            ? "Could not save. Your inputs are still here; please retry."
+            : err.message,
+        field: err.field,
+        path: code === 404 ? req.url : undefined,
+      });
+  }),
+);
+server.requestTimeout = 15000;
+server.headersTimeout = 10000;
+server.listen(PORT, HOST, () =>
+  console.log(
+    `till-check listening on http://${HOST}:${server.address().port} (db: ${DB_PATH})`,
+  ),
+);
+for (const signal of ["SIGTERM", "SIGINT"])
+  process.on(signal, () =>
+    server.close(() => {
+      db.close();
+      process.exit(0);
+    }),
+  );

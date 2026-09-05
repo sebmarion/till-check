@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+if (process.env.TILL_TEST_PORT) throw new Error('External-server write tests are disabled. Unset TILL_TEST_PORT; this suite must create its own disposable database.');
 // Till Check — End-to-End Test Suite
 //
 // Tests ALL scenarios against a LIVE server instance. By default the suite
@@ -130,7 +131,7 @@ if (OWN_SERVER) {
 // stays exact even for very large offsets.
 const BASE_OFFSET = process.env.TILL_TEST_DATE_OFFSET !== undefined
   ? Number(process.env.TILL_TEST_DATE_OFFSET)
-  : 30 + Math.floor(Date.now() / 60000)
+  : -1000
 let testDateOffset = BASE_OFFSET
 function testDate() {
   const d = new Date()
@@ -186,6 +187,39 @@ serialTest('POST /entry creates a balanced entry', async () => {
   assert.equal(Number(data.opening), BALANCE)
 })
 
+serialTest('POST /entry records card-extra-for-cash transactions and subtracts cash handed over', async () => {
+  const seed = testDate()
+  const today = testDate()
+  await req('POST', '/entry', { date: seed, actual: '500' })
+  await req('POST', '/confirm', { date: seed })
+
+  const transaction = [{ cardCharged: '110.00', cashGiven: '100.00', time: '14:30', reference: 'T-001' }]
+  const { status, data } = await req('POST', '/entry', {
+    date: today,
+    actual: '400.00',
+    cardCashTransactions: transaction,
+  })
+  assert.equal(status, 200)
+  assert.equal(data.status, 'balanced')
+  assert.equal(Number(data.expected), 400)
+  assert.deepEqual(data.cardCashTransactions, [{ cardCharged: '110.00', cashGiven: '100.00', extra: '10.00', time: '14:30', reference: 'T-001' }])
+  assert.equal(Number(data.cardCashGiven), 100)
+  assert.equal(Number(data.cardCashExtra), 10)
+
+  const history = await req('GET', '/history')
+  const saved = history.data.entries.find((entry) => entry.date === today)
+  assert.deepEqual(saved.cardCashTransactions, data.cardCashTransactions)
+})
+
+serialTest('POST /entry rejects a cash-tip row without a tip amount', async () => {
+  const { status, data } = await req('POST', '/entry', {
+    date: testDate(),
+    actual: '500',
+    cardCashTransactions: [{ cardCharged: '110' }],
+  })
+  assert.equal(status, 400)
+  assert.match(data.error, /cardCashTransactions/i)
+})
 serialTest('POST /entry creates a short entry', async () => {
   const today = testDate()
   const balance = 500
@@ -240,6 +274,23 @@ serialTest('POST /entry records POS card, actual card billing, and the matching 
   assert.equal(saved.discrepancyReason, data.discrepancyReason)
 })
 
+serialTest('POST /entry exposes card discrepancy and overall match status', async () => {
+  const date = testDate()
+  const { status, data } = await req('POST', '/entry', {
+    date,
+    opening: '500',
+    actual: '500',
+    posCardSales: '100',
+    cardBilled: '110',
+  })
+  assert.equal(status, 200)
+  assert.equal(data.cashMatches, true)
+  assert.equal(data.cardMatches, false)
+  assert.equal(data.overallMatches, false)
+  assert.equal(data.overallStatus, 'not_matches')
+  assert.equal(Number(data.cardVariance), 10)
+})
+
 serialTest('PATCH /entry refreshes the recorded payment discrepancy reason', async () => {
   const date = testDate()
   await req('POST', '/entry', {
@@ -279,7 +330,7 @@ serialTest('POST /entry with invalid JSON returns 400', async () => {
   assert.equal(res.status, 400)
 })
 
-serialTest('POST /entry with negative actual works', async () => {
+serialTest('POST /entry rejects negative physical cash', async () => {
   const today = testDate()
   const { status, data } = await req('POST', '/entry', {
     date: today,
@@ -289,7 +340,7 @@ serialTest('POST /entry with negative actual works', async () => {
     cardTransfer: 0,
     declared: '',
   })
-  assert.equal(status, 200)
+  assert.equal(status, 400)
 })
 
 serialTest('POST /entry with zero values works', async () => {
@@ -324,7 +375,7 @@ serialTest('POST /confirm confirms the entry', async () => {
 })
 
 serialTest('POST /confirm for non-existent date returns 404', async () => {
-  const { status } = await req('POST', '/confirm', { date: '1999-01-01' })
+  const { status } = await req('POST', '/confirm', { date: '2001-01-01' })
   assert.equal(status, 404)
 })
 
@@ -372,7 +423,7 @@ serialTest('POST /reconcile on an unconfirmed day refreshes reconciliation', asy
 })
 
 serialTest('POST /reconcile for non-existent date returns 404', async () => {
-  const { status } = await req('POST', '/reconcile', { date: '1999-01-01', actual: '0' })
+  const { status } = await req('POST', '/reconcile', { date: '2001-01-01', actual: '0' })
   assert.equal(status, 404)
 })
 
@@ -602,17 +653,13 @@ serialTest('move re-points the carried baseline only when moving its own confirm
     'carried opening unchanged by the moves')
 })
 
-serialTest('PATCH /entry/:date rejects non-object denominations instead of storing garbage', async () => {
-  // Mutation killed here: typeof === 'object' -> typeof !== 'object'.
+serialTest('PATCH /entry/:date rejects non-object denominations and preserves count', async () => {
   const day = testDate()
   await req('POST', '/entry', { date: day, actual: '100' })
-  // A string is not a denominations object: it must be dropped, not stored,
-  // and the stored euros count must survive untouched.
   const patched = await req('PATCH', `/entry/${day}`, { denominations: 'six notes' })
-  assert.equal(patched.status, 200)
-  assert.equal(patched.data.denominations, null, 'non-object denominations must not be stored')
-  assert.equal(Number(patched.data.actual), 100,
-    'dropped denominations leave the stored count intact')
+  assert.equal(patched.status, 400)
+  const stored = await req('GET', `/entry/${day}`)
+  assert.equal(stored.data.actual, '100.00')
 })
 
 serialTest('first-day derivation: no opening known -> day balances against its own numbers', async () => {
@@ -740,7 +787,7 @@ serialTest('DELETE /entry/:date deletes the entry', async () => {
 })
 
 serialTest('DELETE /entry/:date for non-existent date returns 404', async () => {
-  const { status } = await req('DELETE', '/entry/1999-01-01')
+  const { status } = await req('DELETE', '/entry/2001-01-01')
   assert.equal(status, 404)
 })
 
@@ -953,16 +1000,15 @@ serialTest('Served page exposes the date picker, expense field, and API wiring',
   const html = await res.text()
 
   // Form fields exist and are wired to the API contract the server serves.
-  for (const id of ['entryDate', 'expense', 'added', 'card', 'cardBilled', 'paymentCheck', 'cashSales', 'black', 'preTakeout', 'takeout', 'declared', 'checkBtn', 'confirmBtn', 'addExpense', 'extraExpenses', 'expectedNow', 'liveCheck']) {
+  for (const id of ['entryDate', 'expense', 'added', 'card', 'cardBilled', 'paymentCheck', 'cardCashRows', 'addCardCash', 'cashSales', 'black', 'preTakeout', 'takeout', 'declared', 'checkBtn', 'confirmBtn', 'addExpense', 'extraExpenses', 'expectedNow', 'liveCheck']) {
     assert.ok(html.includes(`id="${id}"`), `served page must contain #${id}`)
   }
-  assert.ok(html.includes('Step 1 of 3'), 'page must explain the counting workflow')
-  assert.ok(html.includes('Step 3: Save count &amp; see if it matches'), 'save action must explain its result')
-  assert.ok(html.includes('MATCH'), 'page must use an explicit match verdict')
-  assert.ok(html.includes('Taken out at close'), 'history must show saved takeout values')
-  for (const endpoint of ['api/entry', 'api/confirm', 'api/state']) {
-    assert.ok(html.includes(endpoint), `page must call ${endpoint}`)
-  }
+  assert.ok(html.includes('Count the drawer'), 'page must explain the counting workflow')
+  assert.ok(html.includes('Save &amp; check'), 'save action must explain its result')
+  assert.ok(html.includes('app.js'), 'behavior must load from the CSP-safe external script')
+  const script = await fetch(pageUrl + 'app.js')
+  assert.equal(script.status, 200)
+  assert.ok((await script.text()).includes('async function save'), 'save workflow must be served')
 
   // And the endpoints actually behave as the UI expects: a POST with an
   // `expense` field is accepted and echoed back (round-trip through the API).
@@ -997,7 +1043,7 @@ serialTest('POST /entry with a malformed amount returns 400', async () => {
 serialTest('POST /entry with malformed movement fields returns 400', async () => {
   for (const field of ['expense', 'cashAdded', 'cardTransfer', 'black', 'preTakeout', 'takeout']) {
     const day = testDate()
-    const res = await req('POST', '/entry', { date: day, [field]: '12.345' })
+    const res = await req('POST', '/entry', { date: day, actual: '100', [field]: '12.345' })
     assert.equal(res.status, 400, `${field}='12.345' must be rejected with 400`)
     assert.match(res.data.error, /invalid/i)
   }
@@ -1045,7 +1091,7 @@ serialTest('POST /entry/:date/move to the same date is a no-op success', async (
 })
 
 serialTest('POST /entry/:date/move for a non-existent date returns 404', async () => {
-  const res = await req('POST', '/entry/1999-01-01/move', { date: testDate() })
+  const res = await req('POST', '/entry/2001-01-01/move', { date: testDate() })
   assert.equal(res.status, 404)
 })
 
@@ -1070,7 +1116,7 @@ serialTest('POST /entry/:date/move with invalid JSON returns 400', async () => {
 // --- PATCH edge cases ----------------------------------------------------------
 
 serialTest('PATCH /entry/:date for a non-existent date returns 404', async () => {
-  const { status } = await req('PATCH', '/entry/1999-01-01', { declared: 'x' })
+  const { status } = await req('PATCH', '/entry/2001-01-01', { declared: 'x' })
   assert.equal(status, 404)
 })
 

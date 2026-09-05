@@ -80,6 +80,56 @@ test('acceptance: day1 short 10, confirm carries forward, day2 balanced', () => 
   assert.equal(day2.status, STATUS.BALANCED, 'day2 should be balanced')
 })
 
+test('card-extra-for-cash transactions reduce cash target and preserve each transaction', () => {
+  const result = reconcileDay(
+    {
+      actual: '380',
+      cardCashTransactions: [
+        { cardCharged: '110', cashGiven: '100', time: '14:30', reference: 'T-001' },
+        { cardCharged: '55', cashGiven: '50', time: '15:05', reference: 'T-002' },
+      ],
+    },
+    50000,
+  )
+
+  // Cash handed out is the only part that leaves the drawer. The card amount
+  // stays outside the cash target; the €15 difference is recorded separately.
+  assert.equal(result.expectedCents, 35000)
+  assert.equal(result.varianceCents, 3000)
+  assert.equal(result.cardCashGivenCents, 15000)
+  assert.equal(result.cardCashExtraCents, 1500)
+  assert.deepEqual(result.cardCashTransactions, [
+    { cardChargedCents: 11000, cashGivenCents: 10000, extraCents: 1000, cardChargeProvided: true, time: '14:30', reference: 'T-001' },
+    { cardChargedCents: 5500, cashGivenCents: 5000, extraCents: 500, cardChargeProvided: true, time: '15:05', reference: 'T-002' },
+  ])
+})
+
+test('card-extra-for-cash accepts a tip amount without card charged', () => {
+  const result = reconcileDay({ actual: '400', cardCashTransactions: [{ cashGiven: '100' }] }, 50000)
+  assert.equal(result.expectedCents, 40000)
+  assert.equal(result.cardCashGivenCents, 10000)
+  assert.equal(result.cardCashExtraCents, 0)
+  assert.deepEqual(result.cardCashTransactions, [{
+    cardChargedCents: 10000,
+    cashGivenCents: 10000,
+    extraCents: 0,
+    cardChargeProvided: false,
+    time: '',
+    reference: '',
+  }])
+})
+
+test('card-extra-for-cash transactions reject missing tip or a smaller card charge', () => {
+  assert.throws(
+    () => reconcileDay({ actual: '500', cardCashTransactions: [{ cardCharged: '110' }] }, 50000),
+    /cash given|cardCashTransactions/i,
+  )
+  assert.throws(
+    () => reconcileDay({ actual: '500', cardCashTransactions: [{ cardCharged: '100', cashGiven: '110' }] }, 50000),
+    /cardCashTransactions/i,
+  )
+})
+
 test('over: actual above expected is flagged over', () => {
   const r = reconcileDay({ actual: '510', cashRemoved: 0, cashAdded: 0 }, 50000)
   assert.equal(r.varianceCents, 1000)
@@ -156,6 +206,25 @@ test('matching cash/card differences suggest a POS payment-method mistake', () =
     markedCard.discrepancyReason,
     'Likely €10.00 cash sale recorded as card in POS.',
   )
+})
+
+test('overall match requires both cash and card totals to match', () => {
+  const result = reconcileDay(
+    { actual: '500', posCardSales: '110', cardBilled: '100' },
+    50000,
+  )
+  assert.equal(result.cashMatches, true)
+  assert.equal(result.cardMatches, false)
+  assert.equal(result.overallMatches, false)
+  assert.equal(result.overallStatus, 'not_matches')
+})
+
+test('overall match is unknown when card terminal total was not entered', () => {
+  const result = reconcileDay({ actual: '500' }, 50000)
+  assert.equal(result.cashMatches, true)
+  assert.equal(result.cardMatches, null)
+  assert.equal(result.overallMatches, null)
+  assert.equal(result.overallStatus, 'not_checked')
 })
 
 test('card figures do not change cash and no reason is invented without an exact offset', () => {
@@ -253,9 +322,9 @@ test('pre-takeout (removed before counting) reduces expected in its own column',
 })
 
 test('DENOMINATIONS table is complete and in order', () => {
-  assert.equal(DENOMINATIONS.length, 9)
-  assert.equal(DENOMINATIONS[0].id, '50')
-  assert.equal(DENOMINATIONS[8].id, '0.1')
+  assert.equal(DENOMINATIONS.length, 15)
+  assert.equal(DENOMINATIONS[0].id, '500')
+  assert.equal(DENOMINATIONS[14].id, '0.01')
   // Values in descending order
   for (let i = 1; i < DENOMINATIONS.length; i++) {
     assert.ok(DENOMINATIONS[i - 1].valueCents > DENOMINATIONS[i].valueCents)
@@ -268,9 +337,10 @@ test('denominationsToCents sums counts by denomination', () => {
   assert.equal(denominationsToCents(counts), 20660)
 })
 
-test('denominationsToCents ignores unknown and negative counts', () => {
+test('denominationsToCents rejects unknown and negative counts', () => {
   const counts = { "50": 1, "99": 5, "2": -3 }  // 99 not in table, -3 negative
-  assert.equal(denominationsToCents(counts), 5000)  // only the €50 counts
+  assert.throws(() => denominationsToCents(counts))
+  assert.throws(() => denominationsToCents({'99': 1}))
 })
 
 test('reconcileDay with denominations uses derived total as actual', () => {
@@ -310,6 +380,6 @@ test('eurosToCents accepts European comma and stray whitespace', () => {
 test('denominationsToCents handles empty, null, and fractional counts', () => {
   assert.equal(denominationsToCents(null), 0)
   assert.equal(denominationsToCents({}), 0)
-  // Fractional counts are truncated: 2.9 × €50 = €100.
-  assert.equal(denominationsToCents({ '50': 2.9 }), 10000)
+  // A fractional banknote count is invalid, never silently rounded.
+  assert.throws(() => denominationsToCents({ '50': 2.9 }))
 })
