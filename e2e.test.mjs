@@ -86,9 +86,9 @@ async function req(method, path, body) {
   return { status: res.status, data }
 }
 
-async function currentBooksBalance() {
-  const { data } = await req('GET', '/state')
-  return Number(data.openingCash || 0)
+async function currentBooksBalance(date) {
+  const { data } = await req('GET', '/state' + (date ? '?date=' + date : ''))
+  return Number((date ? data.selectedOpening : data.openingCash) || 0)
 }
 
 // The test server shares one mutable ledger. Queue test bodies so one test
@@ -225,6 +225,7 @@ serialTest('POST /entry creates a short entry', async () => {
   const balance = 500
   const { status, data } = await req('POST', '/entry', {
     date: today,
+    opening: String(balance),
     actual: String(balance - 100),
     cashRemoved: 0,
     cashAdded: 0,
@@ -241,6 +242,7 @@ serialTest('POST /entry creates an over entry', async () => {
   const balance = 500
   const { status, data } = await req('POST', '/entry', {
     date: today,
+    opening: String(balance),
     actual: String(balance + 100),
     cashRemoved: 0,
     cashAdded: 0,
@@ -359,7 +361,7 @@ serialTest('POST /entry with zero values works', async () => {
 // --- Confirm tests ---
 serialTest('POST /confirm confirms the entry', async () => {
   const today = testDate()
-  const balance = await currentBooksBalance()
+  const balance = await currentBooksBalance(today)
   const created = await req('POST', '/entry', {
     date: today,
     actual: String(balance),
@@ -444,7 +446,7 @@ serialTest('POST /reconcile with invalid JSON returns 400', async () => {
 // --- History tests ---
 serialTest('POST /entry with cashSales raises expected and persists in history', async () => {
   const day = testDate()
-  const opening = await currentBooksBalance()
+  const opening = await currentBooksBalance(day)
   // Sales are today's POS cash income: expected = opening + sales.
   // Counted = opening + 120 -> balanced; a €300 sale must NOT be ignored.
   const { status, data } = await req('POST', '/entry', {
@@ -478,7 +480,7 @@ serialTest('POST /entry with cashSales raises expected and persists in history',
 
 serialTest('POST /entry records black as unrung cash IN and raises expected', async () => {
   const day = testDate()
-  const opening = await currentBooksBalance()
+  const opening = await currentBooksBalance(day)
   // Black is cash that went INTO the till without a receipt: expected =
   // opening + black. Counted = opening + black -> balanced.
   const { status, data } = await req('POST', '/entry', {
@@ -505,7 +507,7 @@ serialTest('POST /entry records black as unrung cash IN and raises expected', as
 
 serialTest('POST /entry stores taken-out-before-count separately', async () => {
   const day = testDate()
-  const opening = await currentBooksBalance()
+  const opening = await currentBooksBalance(day)
   // €40 removed before counting; counted = opening - 40 -> balanced.
   const { status, data } = await req('POST', '/entry', {
     date: day,
@@ -719,8 +721,8 @@ serialTest('POST /reconcile folds a corrected count into the carried baseline on
     'reconciling an older day must leave the carried baseline alone')
   const probeB = testDate()
   const probeBEntry = await req('POST', '/entry', { date: probeB, actual: '370' })
-  assert.equal(Number(probeBEntry.data.opening), 370,
-    'baseline unchanged after reconciling a non-source day')
+  assert.equal(Number(probeBEntry.data.opening), 450,
+    'latest saved physical count carries provisionally even before confirmation')
 })
 
 serialTest('GET /history returns entries', async () => {
@@ -743,7 +745,7 @@ serialTest('GET /history entries have correct structure', async () => {
 // --- Entry PATCH/DELETE tests ---
 serialTest('PATCH /entry/:date updates the entry', async () => {
   const today = testDate()
-  const balance = await currentBooksBalance()
+  const balance = await currentBooksBalance(today)
   const created = await req('POST', '/entry', {
     date: today,
     actual: String(balance),
@@ -772,7 +774,7 @@ serialTest('PATCH /entry/:date updates the entry', async () => {
 
 serialTest('DELETE /entry/:date deletes the entry', async () => {
   const today = testDate()
-  const balance = await currentBooksBalance()
+  const balance = await currentBooksBalance(today)
   const created = await req('POST', '/entry', {
     date: today,
     actual: String(balance),
@@ -967,7 +969,7 @@ serialTest('PATCH /entry/:date updates takeout on edit (was silently dropped)', 
   assert.equal(Number(data.takeout), 20, 'takeout must update on edit')
 })
 
-serialTest('DELETE /entry/:date falls back to the newest confirmed day for the opening', async () => {
+serialTest('DELETE /entry/:date keeps the newest remaining saved count as the opening source', async () => {
   const day1 = testDate()
   const day2 = testDate()
   const day3 = testDate()
@@ -976,19 +978,17 @@ serialTest('DELETE /entry/:date falls back to the newest confirmed day for the o
   await req('POST', '/confirm', { date: day1 })
   await req('POST', '/entry', { date: day2, actual: '450', opening: '500' })
   await req('POST', '/confirm', { date: day2 })
-  // Unconfirmed newer day must not be picked up when day2 is deleted.
+  // The newer saved physical count remains a valid provisional carry source.
   await req('POST', '/entry', { date: day3, actual: '999', opening: '450' })
 
   const deleted = await req('DELETE', `/entry/${day2}`)
   assert.equal(deleted.status, 200)
 
-  // The opening must now be backed by day1 (the newest confirmed day before
-  // the deleted one) — verified via the entry's own stored opening on a
-  // fresh post, which is independent of the shared rolling state.
+  // The newest remaining saved physical count is day3, so a fresh day carries it provisionally.
   const probeDate = testDate()
   const probe = await req('POST', '/entry', { date: probeDate, actual: '450' })
   assert.equal(probe.status, 200)
-  assert.equal(Number(probe.data.opening), 500)
+  assert.equal(Number(probe.data.opening), 999)
 })
 
 serialTest('Served page exposes the date picker, expense field, and API wiring', async () => {

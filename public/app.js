@@ -31,6 +31,7 @@ const state = {
   mode: "denoms",
   entry: null,
   opening: 0,
+  openingSource: null,
   revision: null,
   busy: false,
   dirty: false,
@@ -412,6 +413,15 @@ function preview() {
   $("expectedNow").textContent = state.baseline
     ? "Not established"
     : money(f.expected);
+  const source = state.openingSource;
+  if (source?.provisional) {
+    const gap = source.gapDays ? ` · ${source.gapDays} uncounted day${source.gapDays === 1 ? "" : "s"} in between` : "";
+    $("openingWarning").textContent = `Opening ${money(state.opening)} carried from ${dateLabel(source.date)}${source.confirmed ? "" : " · saved but not confirmed"}${gap}.`;
+    $("openingWarning").className = "check-line over";
+  } else {
+    $("openingWarning").className = "check-line neutral hidden";
+    $("openingWarning").textContent = "";
+  }
   $("varianceOut").textContent =
     f.variance === null || state.baseline ? "—" : money(f.variance);
   let status = "neutral",
@@ -649,6 +659,7 @@ async function loadDay(date, push = true) {
       today: data.today,
       entry: data.entry,
       opening: parseMoney(data.selectedOpening) || 0,
+      openingSource: data.openingSource || null,
       revision: data.revision,
       dirty: false,
       loaded: true,

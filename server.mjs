@@ -208,18 +208,21 @@ function getState() {
       }
     : null;
 }
+function previousEntry(date) {
+  return db
+    .prepare("SELECT * FROM entries WHERE date<? ORDER BY date DESC LIMIT 1")
+    .get(date);
+}
 function previousConfirmed(date) {
   return db
-    .prepare(
-      "SELECT * FROM entries WHERE date<? AND confirmed_at IS NOT NULL ORDER BY date DESC LIMIT 1",
-    )
+    .prepare("SELECT * FROM entries WHERE date<? AND confirmed_at IS NOT NULL ORDER BY date DESC LIMIT 1")
     .get(date);
 }
 function getOpeningForDate(date, useExisting = true) {
   const existing = useExisting && getRow(date);
   if (existing && existing.opening_cents !== null)
     return existing.opening_cents;
-  const previous = previousConfirmed(date),
+  const previous = previousEntry(date),
     state = getState();
   if (
     state &&
@@ -230,6 +233,15 @@ function getOpeningForDate(date, useExisting = true) {
     return state.openingCents;
   if (previous) return previous.actual_cents - previous.takeout_cents;
   return 0;
+}
+function openingSourceForDate(date) {
+  const previous = previousEntry(date);
+  if (previous) {
+    const days = Math.round((Date.parse(date + "T12:00:00Z") - Date.parse(previous.date + "T12:00:00Z")) / 86400000);
+    return { date: previous.date, confirmed: !!previous.confirmed_at, gapDays: Math.max(0, days - 1), provisional: !previous.confirmed_at || days > 1 };
+  }
+  const state = getState();
+  return state ? { date: state.openingDate, confirmed: state.source === "confirmed", gapDays: null, provisional: state.source !== "confirmed" } : null;
 }
 function setState(cents, date, source = "confirmed") {
   db.prepare(
@@ -350,7 +362,7 @@ function makeEntry(body, date, row = null) {
       "actual",
     );
   const explicit = body.opening !== undefined;
-  const firstDay = !row && !getState() && !previousConfirmed(date) && !explicit;
+  const firstDay = !row && !getState() && !previousEntry(date) && !explicit;
   const opening = explicit
     ? eurosToCents(body.opening)
     : getOpeningForDate(date);
@@ -454,7 +466,7 @@ function syncFollowing(fromDate) {
     .prepare("SELECT * FROM entries WHERE date>? ORDER BY date")
     .all(fromDate)) {
     if (row.opening_mode === "manual") continue;
-    const previous = previousConfirmed(row.date);
+    const previous = previousEntry(row.date);
     if (!previous) continue;
     const opening = previous.actual_cents - previous.takeout_cents;
     if (row.opening_cents === opening) continue;
@@ -634,6 +646,7 @@ async function handle(req, res) {
         openingCash: state ? centsToEuros(state.openingCents) : null,
         openingDate: state?.openingDate || null,
         selectedOpening: centsToEuros(getOpeningForDate(date)),
+        openingSource: openingSourceForDate(date),
         today: todayKey(),
         timeZone: "Europe/Madrid",
         hasTodayEntry: !!getRow(todayKey()),
@@ -886,7 +899,7 @@ async function handle(req, res) {
           );
         const updated = makeEntry({ ...body, date: target }, date, row);
         updated.date = target;
-        const predecessor = previousConfirmed(target);
+        const predecessor = previousEntry(target);
         if (
           predecessor &&
           predecessor.id !== row.id &&
