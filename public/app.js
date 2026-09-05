@@ -401,6 +401,49 @@ function validate(form) {
   showError(new Error(first.message));
   return false;
 }
+function reconciliationView(f) {
+  if (f.variance === null || f.cardVariance === null || state.baseline)
+    return null;
+  const enteredCombined = f.variance + f.cardVariance;
+  const swappedCardVariance =
+    f.pos === null || f.billed === null
+      ? null
+      : f.pos - f.billed - (f.outside ? f.tipCents : 0);
+  const swappedCombined =
+    swappedCardVariance === null ? null : f.variance + swappedCardVariance;
+  const reversedLikely =
+    swappedCombined !== null &&
+    Math.abs(swappedCombined) + 100 < Math.abs(enteredCombined);
+  const cardVariance = reversedLikely ? swappedCardVariance : f.cardVariance;
+  const combined = reversedLikely ? swappedCombined : enteredCombined;
+  const opposite =
+    f.variance !== 0 &&
+    cardVariance !== 0 &&
+    Math.sign(f.variance) !== Math.sign(cardVariance);
+  const offset = opposite
+    ? Math.min(Math.abs(f.variance), Math.abs(cardVariance))
+    : 0;
+  return {
+    enteredCombined,
+    reversedLikely,
+    cardVariance,
+    combined,
+    opposite,
+    offset,
+  };
+}
+function signedLabel(cents, noun = "") {
+  if (cents === 0) return noun ? `€0.00 ${noun} difference` : "€0.00";
+  const direction = cents > 0 ? "EXTRA" : "SHORT";
+  return `${money(Math.abs(cents))} ${direction}${noun ? ` ${noun}` : ""}`;
+}
+function directionText(cents, subject) {
+  if (cents === 0) return `${subject} matches exactly.`;
+  return cents > 0
+    ? `${money(Math.abs(cents))} MORE ${subject} than expected.`
+    : `${money(Math.abs(cents))} LESS ${subject} than expected.`;
+}
+
 function preview() {
   const f = readForm();
   for (const d of state.denoms)
@@ -442,17 +485,15 @@ function preview() {
     icon = "↗";
   } else if (f.variance !== null) {
     status = f.variance === 0 ? "balanced" : f.variance < 0 ? "short" : "over";
-    title =
-      f.variance === 0
-        ? "Cash matches"
-        : money(Math.abs(f.variance)) + (f.variance < 0 ? " short" : " extra");
+    title = f.variance === 0 ? "Cash matches" : signedLabel(f.variance, "cash");
     detail =
       f.variance === 0
         ? "The cash counted agrees with the recorded movements."
-        : f.variance < 0
-          ? "Less cash than expected. Recount and check the movements."
-          : "More cash than expected. Check for an unrecorded receipt.";
-    icon = f.variance === 0 ? "✓" : f.variance < 0 ? "−" : "+";
+        : directionText(f.variance, "cash") +
+          (f.variance < 0
+            ? " Recount and check the movements."
+            : " Check for an unrecorded receipt.");
+    icon = f.variance === 0 ? "✓" : f.variance < 0 ? "↓" : "↑";
   }
   $("liveCheck").className = "result " + status;
   $("resultTitle").textContent = title;
@@ -486,66 +527,61 @@ function preview() {
   $("paymentCheck").className = "check-line " + cardStatus;
   $("paymentCheck").textContent = cardText;
 
-  // Make the end-of-day truth explicit: cash and card can be individually
-  // wrong because a sale was classified under the wrong payment method.
-  // Their signed variances cancel when total takings are actually right.
-  if (f.cardVariance === null || f.variance === null || state.baseline) {
+  // Make cash, card and combined direction impossible to misread.
+  const recon = reconciliationView(f);
+  if (!recon) {
     hide("combinedCheck");
   } else {
     hide("combinedCheck", false);
-    const combined = f.variance + f.cardVariance;
-    const swappedCardVariance =
-      f.pos === null || f.billed === null
-        ? null
-        : f.pos - f.billed - (f.outside ? f.tipCents : 0);
-    const swappedCombined =
-      swappedCardVariance === null ? null : f.variance + swappedCardVariance;
-    const reversedLikely =
-      swappedCombined !== null &&
-      Math.abs(swappedCombined) + 100 < Math.abs(combined);
-    const displayCard = reversedLikely ? swappedCardVariance : f.cardVariance;
-    const displayCombined = reversedLikely ? swappedCombined : combined;
-    const opposite =
-      f.variance !== 0 &&
-      displayCard !== 0 &&
-      Math.sign(f.variance) !== Math.sign(displayCard);
-    const offset = opposite
-      ? Math.min(Math.abs(f.variance), Math.abs(displayCard))
-      : 0;
-    $("combinedCash").textContent = money(f.variance);
-    $("combinedCardLabel").textContent = reversedLikely
+    $("combinedCash").textContent = signedLabel(f.variance);
+    $("combinedCardLabel").textContent = recon.reversedLikely
       ? "Card difference if totals swapped"
       : "Card difference";
-    $("combinedCard").textContent = money(displayCard);
-    $("combinedNet").textContent = money(displayCombined);
+    $("combinedCard").textContent = signedLabel(recon.cardVariance);
+    $("combinedNet").textContent = signedLabel(recon.combined);
+    $("combinedCash").className =
+      `direction-value ${f.variance < 0 ? "short" : f.variance > 0 ? "over" : "balanced"}`;
+    $("combinedCard").className =
+      `direction-value ${recon.cardVariance < 0 ? "short" : recon.cardVariance > 0 ? "over" : "balanced"}`;
+    $("combinedNet").className =
+      `direction-value ${recon.combined < 0 ? "short" : recon.combined > 0 ? "over" : "balanced"}`;
     const box = $("combinedCheck");
     box.className =
       "combined-check " +
-      (displayCombined === 0
+      (recon.combined === 0
         ? "combined-ok"
-        : opposite
+        : recon.opposite
           ? "combined-mix"
           : "combined-bad");
-    if (reversedLikely) {
-      $("combinedTitle").textContent = "Card totals may be reversed";
+    if (recon.reversedLikely) {
+      $("combinedTitle").textContent =
+        recon.combined === 0
+          ? "Cash + card cancel exactly"
+          : "Cash + card almost cancel";
       $("combinedDetail").textContent =
-        `As entered, the combined difference is ${money(Math.abs(combined))}. ` +
-        `If POS card and terminal totals were swapped, the net is ${money(Math.abs(swappedCombined))} ` +
-        `(${swappedCombined >= 0 ? "over" : "short"}). Check the two card figures before confirming.`;
-    } else if (displayCombined === 0) {
-      $("combinedTitle").textContent = "✓ Total takings reconcile";
-      $("combinedDetail").textContent = offset
-        ? `Cash and card cancel exactly. Likely ${money(offset)} was marked under the wrong payment method in the POS.`
-        : "Cash and card are both correct in total.";
-    } else if (opposite) {
-      $("combinedTitle").textContent = "Likely payment-method mix-up";
+        `The two card totals look reversed. Using the coherent interpretation: ` +
+        `${directionText(f.variance, "cash")} ${directionText(recon.cardVariance, "card takings")} ` +
+        `Overall, ${directionText(recon.combined, "total takings").replace(/\.$/, "").toLowerCase()}.`;
+    } else if (recon.combined === 0) {
+      $("combinedTitle").textContent = "✓ TOTAL TAKINGS MATCH";
+      $("combinedDetail").textContent = recon.offset
+        ? `${signedLabel(f.variance, "cash")} and ${signedLabel(recon.cardVariance, "card")} cancel exactly. This strongly suggests a payment-method marking mistake.`
+        : "Cash and card both reconcile.";
+    } else if (recon.opposite) {
+      $("combinedTitle").textContent =
+        recon.combined > 0
+          ? `${money(Math.abs(recon.combined))} EXTRA overall`
+          : `${money(Math.abs(recon.combined))} SHORT overall`;
       $("combinedDetail").textContent =
-        `${money(offset)} of the cash/card differences cancel each other. ` +
-        `${money(Math.abs(displayCombined))} remains unexplained overall.`;
+        `${money(recon.offset)} of the cash/card differences cancel each other. ` +
+        directionText(recon.combined, "total takings");
     } else {
-      $("combinedTitle").textContent = "Total takings still do not reconcile";
+      $("combinedTitle").textContent =
+        recon.combined > 0
+          ? `${money(Math.abs(recon.combined))} EXTRA overall`
+          : `${money(Math.abs(recon.combined))} SHORT overall`;
       $("combinedDetail").textContent =
-        `Cash and card differences point the same way. Net unexplained difference: ${money(Math.abs(displayCombined))}.`;
+        `Cash and card point the same way. ${directionText(recon.combined, "total takings")}`;
     }
   }
   $("movementTotal").textContent = [
@@ -862,30 +898,129 @@ async function save() {
 }
 async function confirmDay() {
   if (state.busy || state.dirty || !state.entry) return;
-  const entry = state.entry,
-    detail = node("div");
-  const counted = money(parseMoney(entry.actual));
-  const withdrawn = money(parseMoney(entry.takeout));
-  const left = money(parseMoney(entry.remaining));
-  detail.append(
-    node(
-      "p",
-      "",
-      `${counted} counted − ${withdrawn} withdrawn = ${left} left in the drawer.`,
-    ),
-  );
-  if (entry.overallMatches !== true)
+  const entry = state.entry;
+  const f = readForm();
+  const recon = reconciliationView(f);
+  const detail = node("div", "confirm-reconciliation");
+
+  const grid = node("div", "confirm-difference-grid");
+  const tile = (label, value, subject, qualifier = "") => {
+    const card = node(
+      "div",
+      `confirm-difference ${value < 0 ? "short" : value > 0 ? "over" : "balanced"}`,
+    );
+    card.append(
+      node("span", "confirm-difference-label", label),
+      node("strong", "confirm-difference-value", signedLabel(value)),
+      node(
+        "span",
+        "confirm-difference-direction",
+        value === 0
+          ? "MATCHES"
+          : value > 0
+            ? `↑ ${money(Math.abs(value))} MORE`
+            : `↓ ${money(Math.abs(value))} LESS`,
+      ),
+      node("p", "", qualifier || directionText(value, subject)),
+    );
+    return card;
+  };
+
+  if (f.variance !== null)
+    grid.append(tile("Cash difference", f.variance, "cash"));
+  if (recon) {
+    grid.append(
+      tile(
+        recon.reversedLikely
+          ? "Card difference · likely swapped"
+          : "Card difference",
+        recon.cardVariance,
+        "card takings",
+      ),
+      tile("Combined difference", recon.combined, "total takings"),
+    );
+  }
+  detail.append(grid);
+
+  if (recon) {
+    const insight = node(
+      "div",
+      `confirm-insight ${recon.combined === 0 ? "balanced" : recon.opposite ? "mix" : "bad"}`,
+    );
+    if (recon.reversedLikely) {
+      insight.append(
+        node("strong", "", "Card totals may be reversed"),
+        node(
+          "p",
+          "",
+          `The entered card totals produce ${signedLabel(recon.enteredCombined)} overall. ` +
+            `If the POS-card and terminal figures are reversed, cash and card almost cancel, leaving ${signedLabel(recon.combined)} overall. Check the card figures before confirming.`,
+        ),
+      );
+    } else if (recon.combined === 0) {
+      insight.append(
+        node("strong", "", "✓ Total takings match"),
+        node(
+          "p",
+          "",
+          recon.offset
+            ? `${money(recon.offset)} appears to have been recorded under the wrong payment method; cash and card cancel exactly.`
+            : "Cash and card both reconcile exactly.",
+        ),
+      );
+    } else if (recon.opposite) {
+      insight.append(
+        node(
+          "strong",
+          "",
+          recon.combined > 0
+            ? `${money(Math.abs(recon.combined))} EXTRA overall`
+            : `${money(Math.abs(recon.combined))} SHORT overall`,
+        ),
+        node(
+          "p",
+          "",
+          `${money(recon.offset)} of the cash/card differences cancel. ${directionText(recon.combined, "total takings")}`,
+        ),
+      );
+    } else {
+      insight.append(
+        node(
+          "strong",
+          "",
+          recon.combined > 0
+            ? `${money(Math.abs(recon.combined))} EXTRA overall`
+            : `${money(Math.abs(recon.combined))} SHORT overall`,
+        ),
+        node("p", "", directionText(recon.combined, "total takings")),
+      );
+    }
+    detail.append(insight);
+  } else if (entry.overallMatches !== true) {
     detail.append(
       node(
         "p",
         "dialog-warning",
-        "This is not a verified full match. Card totals may be unchecked or a difference may remain. Confirmation preserves the discrepancy.",
+        "Card totals are not fully checked. Confirmation records the physical cash count and preserves the discrepancy.",
       ),
     );
+  }
+
+  const counted = money(parseMoney(entry.actual));
+  const withdrawn = money(parseMoney(entry.takeout));
+  const left = money(parseMoney(entry.remaining));
+  const carry = node("div", "confirm-carry");
+  carry.append(
+    node("span", "", "Drawer after closing withdrawal"),
+    node("strong", "", left),
+    node("small", "", `${counted} counted − ${withdrawn} withdrawn`),
+  );
+  detail.append(carry);
+
   const accepted = await ask(
-    "Confirm " + dateLabel(state.date) + "?",
-    "Check the cash remaining before accepting this count as the next opening.",
-    "Confirm day",
+    "Confirm day and save",
+    `You’re confirming the till for ${dateLabel(state.date)}. Check whether each difference is SHORT or EXTRA before saving.`,
+    "✓ Confirm & save",
     detail,
   );
   if (!accepted) return;
@@ -902,6 +1037,7 @@ async function confirmDay() {
     preview();
   }
 }
+
 async function restoreDraft() {
   const draft = readDraft(state.date);
   if (!draft) return;

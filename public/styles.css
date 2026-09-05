@@ -1233,3 +1233,201 @@ footer span:first-child {
   color: inherit;
   opacity: 0.7;
 }
+
+/* Directional reconciliation: always say whether money is SHORT or EXTRA. */
+.direction-value {
+  font-weight: 800 !important;
+  letter-spacing: -0.15px;
+}
+.direction-value.short {
+  color: #9d2d27;
+}
+.direction-value.over {
+  color: #177044;
+}
+.direction-value.balanced {
+  color: #177044;
+}
+.combined-grid dd::first-letter {
+  font-weight: 900;
+}
+
+.confirm-reconciliation {
+  margin-top: 18px;
+}
+.confirm-difference-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.confirm-difference {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  min-width: 0;
+  background: #f7f8f4;
+}
+.confirm-difference.short {
+  background: #fff0ed;
+  border-color: #efc9c2;
+}
+.confirm-difference.over {
+  background: #edf7ee;
+  border-color: #cce2d0;
+}
+.confirm-difference.balanced {
+  background: #edf7ee;
+  border-color: #cce2d0;
+}
+.confirm-difference-label {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  min-height: 30px;
+}
+.confirm-difference-value {
+  display: block;
+  margin-top: 6px;
+  font-size: 18px;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.4px;
+}
+.confirm-difference.short .confirm-difference-value,
+.confirm-difference.short .confirm-difference-direction {
+  color: #a82e29;
+}
+.confirm-difference.over .confirm-difference-value,
+.confirm-difference.over .confirm-difference-direction,
+.confirm-difference.balanced .confirm-difference-value,
+.confirm-difference.balanced .confirm-difference-direction {
+  color: #176a42;
+}
+.confirm-difference-direction {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.35px;
+}
+.confirm-difference p {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.confirm-insight {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f2f4ee;
+}
+.confirm-insight.balanced {
+  background: #e7f3e7;
+  color: #185c3c;
+}
+.confirm-insight.mix {
+  background: #fff2ce;
+  color: #6b470f;
+}
+.confirm-insight.bad {
+  background: #fff0ed;
+  color: #8c302a;
+}
+.confirm-insight strong {
+  display: block;
+  font-size: 14px;
+}
+.confirm-insight p {
+  color: inherit;
+  margin: 5px 0 0;
+  font-size: 12px;
+}
+.confirm-carry {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 14px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.confirm-carry span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.confirm-carry strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.confirm-carry small {
+  grid-column: 1/-1;
+  color: var(--muted);
+}
+
+@media (max-width: 740px) {
+  dialog {
+    width: 100%;
+    max-width: none;
+    margin: auto 0 0;
+    border-radius: 22px 22px 0 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    padding: 24px 18px max(20px, env(safe-area-inset-bottom));
+    max-height: 88dvh;
+    overflow-y: auto;
+  }
+  dialog::before {
+    content: "";
+    display: block;
+    width: 42px;
+    height: 5px;
+    margin: -12px auto 18px;
+    border-radius: 999px;
+    background: #c7cec8;
+  }
+  dialog h2 {
+    font-size: 22px;
+  }
+  .confirm-difference-grid {
+    grid-template-columns: 1fr;
+  }
+  .confirm-difference {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 12px;
+    align-items: center;
+  }
+  .confirm-difference-label {
+    min-height: 0;
+  }
+  .confirm-difference-value {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 0;
+    text-align: right;
+  }
+  .confirm-difference-direction {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 2px;
+    text-align: right;
+  }
+  .confirm-difference p {
+    grid-column: 1;
+    grid-row: 2;
+    margin: 3px 0 0;
+  }
+  .dialog-actions {
+    position: sticky;
+    bottom: -20px;
+    z-index: 2;
+    margin: 18px -18px -20px;
+    padding: 14px 18px max(14px, env(safe-area-inset-bottom));
+    background: #fffefaf2;
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--line);
+  }
+}

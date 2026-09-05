@@ -118,7 +118,10 @@ test("all euro denominations are accessible and small coins contribute exactly",
   await page.fill('[data-denom="50"]', "6");
   await page.fill('[data-denom="0.01"]', "1");
   assert.equal(await page.locator("#stickyTotal").innerText(), "€300.01");
-  assert.match(await page.locator("#resultTitle").innerText(), /0.01 extra/);
+  assert.match(
+    await page.locator("#resultTitle").innerText(),
+    /0.01 EXTRA cash/,
+  );
 });
 test("empty form cannot save; explicitly empty drawer can", async () => {
   await page.click("#checkBtn");
@@ -359,4 +362,19 @@ test("half-entered card check cannot be saved as a misleading match", async () =
     (await fx.request("GET", "/api/history")).data.entries.length,
     0,
   );
+});
+
+test("confirm dialog makes SHORT and EXTRA explicit", async () => {
+  await total("90");
+  await page.fill("#card", "100");
+  await page.fill("#cardBilled", "110");
+  await saveCount();
+  await page.click("#checkBtn");
+  await page.locator("#actionDialog").waitFor();
+  const text = await page.locator("#actionDialog").innerText();
+  assert.match(text, /SHORT/);
+  assert.match(text, /EXTRA|MORE/);
+  assert.match(text, /Combined difference/);
+  assert.match(text, /Confirm & save/);
+  await page.click("#dialogCancel");
 });
