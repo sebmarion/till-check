@@ -169,6 +169,14 @@ test("same-origin browser writes survive a reverse proxy that rewrites Host", as
   assert.equal((await get("state?date=" + DAY)).data.openingCash, "100.00");
 });
 
+test("Safari-style same-origin request without Sec-Fetch-Site is accepted behind nginx", async () => {
+  const result = await post(
+    "opening",
+    { opening: "100" },
+    { Origin: "https://zeus.tailfad2e3.ts.net" },
+  );
+  assert.equal(result.status, 200);
+});
 test("cross-site mutations are blocked", async () => {
   const result = await post(
     "opening",

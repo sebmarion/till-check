@@ -640,31 +640,42 @@ function guardOrigin(req) {
   if (fetchSite === "cross-site")
     throw new ApiError(
       403,
-      "This change was blocked because it came from another site. Reload Till Check and try again.",
+      "This request came from another site and was blocked. Reload Till Check and try again.",
     );
-  if (req.headers.origin) {
-    let originHost;
-    try {
-      originHost = new URL(req.headers.origin).host;
-    } catch {
-      throw new ApiError(
-        403,
-        "This page could not be verified. Reload Till Check and try again.",
-      );
-    }
-    // Browsers provide Sec-Fetch-Site before nginx rewrites the upstream Host.
-    // Trust the browser's same-origin/same-site signal; otherwise compare hosts.
-    if (fetchSite === "same-origin" || fetchSite === "same-site") return;
-    const hosts = [req.headers.host, req.headers["x-forwarded-host"]].filter(
-      Boolean,
+
+  if (!req.headers.origin) return;
+
+  let originHost;
+  try {
+    originHost = new URL(req.headers.origin).host;
+  } catch {
+    throw new ApiError(
+      403,
+      "This page could not be verified. Reload Till Check and try again.",
     );
-    if (!hosts.includes(originHost))
-      throw new ApiError(
-        403,
-        "This page is no longer connected correctly. Reload Till Check, then try again. Your entries are still here.",
-      );
   }
+
+  if (fetchSite === "same-origin" || fetchSite === "same-site") return;
+
+  // iOS Safari can omit Sec-Fetch-Site. Behind nginx, req.headers.host is the
+  // internal upstream address, not the public browser origin, so comparing the
+  // two directly creates a false 403. Accept the known private Till Check host
+  // explicitly, while keeping arbitrary external origins blocked.
+  const publicHosts = new Set(
+    [
+      process.env.TILL_PUBLIC_HOST || "zeus.tailfad2e3.ts.net",
+      req.headers["x-forwarded-host"],
+      req.headers.host,
+    ].filter(Boolean),
+  );
+
+  if (!publicHosts.has(originHost))
+    throw new ApiError(
+      403,
+      "This request came from an unexpected site and was blocked. Reload Till Check and try again.",
+    );
 }
+
 async function handle(req, res) {
   const url = new URL(req.url, "http://localhost"),
     method = req.method;
