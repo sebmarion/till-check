@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "zeus.project/v1",
+  "projectId": "till",
+  "profile": "internal-tool",
+  "canonicalSource": {
+    "repository": "https://github.com/sebmarion/till-check",
+    "branch": "main"
+  },
+  "environments": {
+    "internal": {
+      "url": "https://zeus.tailfad2e3.ts.net/till"
+    }
+  },
+  "capabilities": {
+    "provides": [],
+    "consumes": []
+  },
+  "modules": {
+    "releaseReadiness": {
+      "state": "required",
+      "standard": "zeus.release-readiness/v1"
+    }
+  },
+  "connections": [],
+  "constraints": {
+    "primaryBusinessId": "bistrot",
+    "servesBusinessIds": [
+      "bistrot"
+    ],
+    "rawCustomerDataInZeusOs": "forbidden",
+    "sideEffects": "owner-policy-gated"
+  }
+}
