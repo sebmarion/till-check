@@ -29,5 +29,17 @@
     ],
     "rawCustomerDataInZeusOs": "forbidden",
     "sideEffects": "owner-policy-gated"
+  },
+  "growth": {
+    "unitId": "bistrot",
+    "role": "internal-component",
+    "ownerProjectId": "bistrot"
+  },
+  "observability": {
+    "standard": "zeus.observability/v1",
+    "profile": "service",
+    "incidentOwnerProjectId": "zeus-home",
+    "policyId": "internal-fast-recovery",
+    "productAnalyticsOwnerProjectId": null
   }
 }
