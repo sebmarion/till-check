@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@sentry/node": "10.74.0",
-    "@zeus/observability": "file:./vendor/zeus-observability-0.1.6.tgz",
+    "@zeus/observability": "file:./vendor/zeus-observability-0.1.7.tgz",
     "@sentry/browser": "10.74.0"
   }
 }
