@@ -12,9 +12,18 @@
     "test": "node --test takings.test.mjs reconcile.test.mjs e2e.test.mjs regression.test.mjs",
     "test:ui": "node --test ui.test.mjs",
     "test:all": "npm test && npm run test:ui",
-    "test:links": "node --test zeus-home-links.test.mjs"
+    "test:links": "node --test zeus-home-links.test.mjs",
+    "observability:build": "node ops/build-observability.mjs till public/observability.js",
+    "build": "npm run observability:build"
   },
   "devDependencies": {
-    "playwright": "1.62.1"
+    "playwright": "1.62.1",
+    "esbuild": "0.28.2",
+    "@sentry/cli": "2.58.6"
+  },
+  "dependencies": {
+    "@sentry/node": "10.74.0",
+    "@zeus/observability": "file:./vendor/zeus-observability-0.1.7.tgz",
+    "@sentry/browser": "10.74.0"
   }
 }

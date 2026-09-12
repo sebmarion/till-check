@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import "./ops/observability-node.mjs";
 import { summarizeTakings } from "./takings.mjs";
 // Till Check — single-file, zero-dependency server.
 //
