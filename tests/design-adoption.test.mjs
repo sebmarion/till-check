@@ -29,6 +29,9 @@ function sourceProblems(expected,actual){
 function requirementsCover(requirements,surfaceIds){
  return surfaceIds.every(id=>requirements.some(r=>r.level==='mandatory'&&r.surfaceIds.includes(id)));
 }
+function stable(value){if(Array.isArray(value))return value.map(stable);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(k=>[k,stable(value[k])]));return value;}
+function contractHash(value){const copy=structuredClone(value);delete copy.approval;return hash(Buffer.from(JSON.stringify(stable(copy))));}
+
 test('design adoption binds the canonical specification bytes',()=>{
  assert.equal(spec.schemaVersion,'zeus.design-spec/v1');
  assert.equal(spec.specPath,'docs/DESIGN-SPEC.md');
@@ -38,13 +41,18 @@ test('design adoption binds the canonical specification bytes',()=>{
  assert.equal(manifest.quality.designConformance.state,'required');
  assert.equal(spec.evidencePlan,'.quality/evidence-plan.json');
 });
-test('design adoption records missing approval without claiming certification',()=>{
- assert.equal(spec.state,'draft');
- assert.equal(spec.approval.state,'unapproved');
- assert.equal(adoption.approval.state,'unapproved');
- assert.equal(adoption.approval.approvedBy,null);
- assert.equal(adoption.approval.reference,null);
- assert.equal(adoption.enforcement.sourceCandidate,'staged');
+test('design adoption records owner-approved intent without claiming conformance',()=>{
+ assert.equal(spec.state,'approved');
+ assert.equal(spec.approval.state,'approved');
+ assert.equal(spec.approval.approvedBy,'product:'+manifest.projectId);
+ assert.equal(spec.approval.projectId,manifest.projectId);
+ assert.equal(spec.approval.version,spec.version);
+ assert.equal(spec.approval.contentSha256,spec.contentSha256);
+ assert.equal(spec.approval.contractSha256,contractHash(spec));
+ assert.match(spec.approval.reference,/^owner-directive:cj-d04-finish:/);
+ assert.equal(adoption.approval.state,'approved');
+ assert.equal(adoption.approval.reference,spec.approval.reference);
+ assert.equal(adoption.enforcement.sourceCandidate,'approved-design-intent-staged');
  assert.equal(adoption.enforcement.designConformance,'INCOMPLETE');
  assert.equal(adoption.enforcement.deployedByThisAdoption,false);
  assert.equal(adoption.enforcement.historicalReceipts,'unchanged');
@@ -140,9 +148,10 @@ test('design adoption consumes the governed D01 profile without granting authori
  for(const req of spec.requirements)assert.ok(prose.includes('id="'+req.specAnchor.slice(1)+'"'),req.id);
  assert.ok(g.sharedStandards.length>=2);
  assert.ok(g.sourceConflicts.length>0);
- for(const c of g.sourceConflicts)assert.equal(c.state,'unresolved','Proposed resolution is not independently granted authority');
+ for(const c of g.sourceConflicts){assert.equal(c.state,'resolved');assert.equal(c.authorityRef,spec.approval.reference);}
  assert.deepEqual(g.exceptions,[]);
  assert.equal(adoption.governance.authorityResolved,false);
- assert.equal(adoption.governance.implementationAdmission,'INCOMPLETE');
- assert.equal(spec.approval.state,'unapproved');
+ assert.equal(adoption.governance.implementationAdmission,'REQUIRES-INDEPENDENT-OWNER-RESOLUTION');
+ assert.equal(adoption.governance.authorityResolved,false);
+ assert.equal(spec.approval.state,'approved');
 });

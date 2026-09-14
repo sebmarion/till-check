@@ -6,9 +6,13 @@
   "inspectedSourceRevision": "831acb8a25810935f7a3a4604478ac9a9a100bf5",
   "contractInterfaceRevision": "f71c728242ea520fbcf5793222628fca276699c3",
   "approval": {
-    "state": "unapproved",
-    "approvedBy": null,
-    "reference": null
+    "state": "approved",
+    "approvedBy": "product:till",
+    "approvedAt": "2026-09-14T13:20:00+02:00",
+    "reference": "owner-directive:cj-d04-finish:2026-09-14T13-20+02-00:till",
+    "contentSha256": "afd82a7f31f0d9c3f1184e8146b964c8af5a30355a038701748b65a5bb1427c9",
+    "contractSha256": "66fce5b6334a3059468975faa8cc62e311774fc5d8e843452de16f5c3472d0fa",
+    "meaning": "Owner-approved product design intent only; not implementation/design conformance."
   },
   "sourceScan": {
     "roots": [
@@ -713,12 +717,12 @@
     "Audio is not applicable to the current non-auditory ledger; future auditory surfaces require a contract extension.",
     "No physical-device acceptance was performed by this source adoption.",
     "No historical receipt or previously recorded evidence is recertified by this adoption.",
-    "Consumed CJ-D02 commit 2da8213 counts requirement \u00d7 surface \u00d7 medium cells; specialist review/audio/temporal/device formats still fail closed. No source-hygiene assertion is promoted to a design-conformance claim.",
+    "Consumed CJ-D02 commit 2da8213 counts requirement × surface × medium cells; specialist review/audio/temporal/device formats still fail closed. No source-hygiene assertion is promoted to a design-conformance claim.",
     "D01 governed context is structurally declared but owner approval/independent authority remains unresolved; no implementation admission is granted.",
     "Managed-CDP reload/reopen tests use the product pagehide persistence hook plus same-origin reopen to avoid dual native-dialog controllers; this is test-harness behavior only, not production navigation logic."
   ],
   "enforcement": {
-    "sourceCandidate": "staged",
+    "sourceCandidate": "approved-design-intent-staged",
     "designConformance": "INCOMPLETE",
     "deployedByThisAdoption": false,
     "historicalReceipts": "unchanged",
@@ -731,7 +735,7 @@
     "interfaceRevision": "e6ff55a7822521ec9dc704b758a0ba35f43d7116",
     "priorAdoptionRevision": "9344f9c23101717f0fc61127949943787a2f647d",
     "authorityResolved": false,
-    "implementationAdmission": "INCOMPLETE",
+    "implementationAdmission": "REQUIRES-INDEPENDENT-OWNER-RESOLUTION",
     "largePinnedAssetsBeyondCurrentLoader": [],
     "retiredSurfaceIds": [],
     "sharedStandards": [
@@ -751,6 +755,8 @@
         "originPath": "standards/ZEUS-PLATFORM-V1.md",
         "originRevision": "e6ff55a7822521ec9dc704b758a0ba35f43d7116"
       }
-    ]
+    ],
+    "ownerApprovalReference": "owner-directive:cj-d04-finish:2026-09-14T13-20+02-00:till",
+    "ownerApprovalRecordedAt": "2026-09-14T13:33:54+02:00"
   }
 }

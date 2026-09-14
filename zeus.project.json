@@ -54,13 +54,20 @@
   },
   "designSpec": {
     "schemaVersion": "zeus.design-spec/v1",
-    "state": "draft",
+    "state": "approved",
     "specPath": "docs/DESIGN-SPEC.md",
-    "version": "2026-09-14-cjd04-governed-draft3",
-    "contentSha256": "318a3328eb8a790b86c0678c9be1df6dc5c3c960b6135bdc3943f917d74a8a29",
+    "version": "2026-09-14-cjd04-v1",
+    "contentSha256": "afd82a7f31f0d9c3f1184e8146b964c8af5a30355a038701748b65a5bb1427c9",
     "owner": "product:till",
     "approval": {
-      "state": "unapproved"
+      "state": "approved",
+      "approvedBy": "product:till",
+      "approvedAt": "2026-09-14T13:20:00+02:00",
+      "reference": "owner-directive:cj-d04-finish:2026-09-14T13-20+02-00:till",
+      "projectId": "till",
+      "version": "2026-09-14-cjd04-v1",
+      "contentSha256": "afd82a7f31f0d9c3f1184e8146b964c8af5a30355a038701748b65a5bb1427c9",
+      "contractSha256": "66fce5b6334a3059468975faa8cc62e311774fc5d8e843452de16f5c3472d0fa"
     },
     "dependencies": {
       "tokens": [
@@ -404,12 +411,13 @@
       "sourceConflicts": [
         {
           "id": "CONFLICT-TILL-VERSIONED-SUMMARY",
-          "state": "unresolved",
+          "state": "resolved",
           "reason": "The later documented 0.2.1 closed-day summary behavior takes precedence over the 0.2.0 review; the proposed spec preserves both sources and pending independent approval.",
           "references": [
             "README.md",
             "REVIEW.md"
-          ]
+          ],
+          "authorityRef": "owner-directive:cj-d04-finish:2026-09-14T13-20+02-00:till"
         }
       ],
       "exceptions": []
