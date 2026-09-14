@@ -14,7 +14,9 @@
     "test:all": "npm test && npm run test:ui",
     "test:links": "node --test zeus-home-links.test.mjs",
     "observability:build": "node ops/build-observability.mjs till public/observability.js",
-    "build": "npm run observability:build"
+    "build": "npm run observability:build",
+    "test:design": "node --test tests/design-adoption.test.mjs",
+    "pretest": "npm run test:design"
   },
   "devDependencies": {
     "playwright": "1.62.1",

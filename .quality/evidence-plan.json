@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "zeus.quality-evidence-plan/v1",
+  "projectId": "till",
+  "incidentIds": [],
+  "jobs": {
+    "design-adoption-source": {
+      "kind": "node-test",
+      "lane": "normal",
+      "command": [
+        "/usr/bin/node",
+        "--test",
+        "tests/design-adoption.test.mjs"
+      ],
+      "timeoutSeconds": 60,
+      "assertions": {
+        "check:source_state": [
+          "design adoption binds the canonical specification bytes",
+          "design adoption rejects changed added and removed user-facing source bytes"
+        ],
+        "check:tests": [
+          "design adoption maps every declared surface to states and mandatory requirements",
+          "design adoption lists each required evidence modality without treating history as current proof",
+          "till protected design obligations cannot be silently downgraded"
+        ]
+      }
+    }
+  }
+}

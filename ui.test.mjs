@@ -2,9 +2,6 @@
 import { test, before, after, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { existsSync, readdirSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { startFixture } from "./test-support.mjs";
 const require = createRequire(import.meta.url);
 let playwright;
@@ -19,23 +16,14 @@ try {
 const { chromium } = playwright;
 let browser, fx, context, page, errors;
 const DAY = "2025-06-02";
-function executable() {
-  if (existsSync(chromium.executablePath())) return chromium.executablePath();
-  const root = join(homedir(), ".cache/ms-playwright");
-  for (const dir of readdirSync(root)
-    .filter((d) => d.startsWith("chromium-"))
-    .sort()
-    .reverse()) {
-    const file = join(root, dir, "chrome-linux64", "chrome");
-    if (existsSync(file)) return file;
-  }
-  throw new Error("Install a browser with: npx playwright install chromium");
-}
 before(async () => {
-  browser = await chromium.launch({
-    executablePath: executable(),
-    args: ["--no-sandbox"],
-  });
+  const endpoint = process.env.ZEUS_BROWSER_CDP;
+  if (!endpoint) throw new Error("Run this suite under the existing zeus-browser-with-session broker.");
+  const url = new URL(endpoint);
+  if (!["http:", "https:"].includes(url.protocol) ||
+      !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) ||
+      url.port === "9334") throw new Error("A scoped broker loopback endpoint is required, never owner CDP.");
+  browser = await chromium.connectOverCDP(endpoint);
 });
 after(async () => {
   await browser?.close();

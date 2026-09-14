@@ -41,5 +41,202 @@
     "incidentOwnerProjectId": "zeus-home",
     "policyId": "internal-fast-recovery",
     "productAnalyticsOwnerProjectId": null
+  },
+  "quality": {
+    "schemaVersion": "zeus.quality-contract/v1",
+    "archetypes": [
+      "internal-tool"
+    ],
+    "packs": {},
+    "designConformance": {
+      "state": "required"
+    }
+  },
+  "designSpec": {
+    "schemaVersion": "zeus.design-spec/v1",
+    "state": "draft",
+    "specPath": "docs/DESIGN-SPEC.md",
+    "version": "2026-09-14-cjd04-draft2",
+    "contentSha256": "5c749e21a1482b843374e81f182fc7184de133edc14d542d4531f2dc8e5ee65f",
+    "owner": "product:till",
+    "approval": {
+      "state": "unapproved"
+    },
+    "dependencies": {
+      "tokens": [
+        "public/styles.css"
+      ],
+      "components": [
+        "public/index.html",
+        "public/app.js"
+      ],
+      "assets": [
+        "public/index.html"
+      ]
+    },
+    "surfaceIds": [
+      "action:form:public/index.html",
+      "dialog:review",
+      "output:csv",
+      "page:/",
+      "view:daily-count",
+      "view:history"
+    ],
+    "evidencePlan": ".quality/evidence-plan.json",
+    "requirements": [
+      {
+        "id": "DESIGN-TILL-001",
+        "level": "mandatory",
+        "surfaceIds": [
+          "view:daily-count",
+          "view:history",
+          "dialog:review",
+          "output:csv"
+        ],
+        "evidence": [
+          "source",
+          "behavioral",
+          "visual",
+          "expert-review"
+        ],
+        "violation": "Blank cash is treated as zero, counted cash is confused with sales/profit, or an unresolved cash/card difference is hidden or counted twice."
+      },
+      {
+        "id": "DESIGN-CLOSE-001",
+        "level": "mandatory",
+        "surfaceIds": [
+          "page:/",
+          "action:form:public/index.html",
+          "view:daily-count",
+          "dialog:review"
+        ],
+        "evidence": [
+          "source",
+          "behavioral",
+          "visual",
+          "expert-review"
+        ],
+        "violation": "Save, review and confirmation collapse into an implicit money-changing action; failed requests or navigation discard valid input; a stale browser silently overwrites newer ledger values."
+      },
+      {
+        "id": "DESIGN-DATE-001",
+        "level": "mandatory",
+        "surfaceIds": [
+          "view:daily-count",
+          "view:history",
+          "dialog:review"
+        ],
+        "evidence": [
+          "source",
+          "behavioral",
+          "visual"
+        ],
+        "violation": "Date arrows move records, a date change bypasses review, or the UI uses the device timezone instead of Barcelona business dates. A future/invalid date is displayed as an accepted close."
+      },
+      {
+        "id": "DESIGN-RECOVERY-001",
+        "level": "mandatory",
+        "surfaceIds": [
+          "action:form:public/index.html",
+          "dialog:review",
+          "output:csv",
+          "page:/",
+          "view:daily-count",
+          "view:history"
+        ],
+        "evidence": [
+          "source",
+          "behavioral",
+          "visual",
+          "expert-review"
+        ],
+        "violation": "Date-local draft restore, confirmed correction, guarded delete/undo, stale-ledger recovery or retry is ambiguous or loses known amounts. Local drafts are represented as server backups."
+      },
+      {
+        "id": "DESIGN-A11Y-001",
+        "level": "mandatory",
+        "surfaceIds": [
+          "action:form:public/index.html",
+          "dialog:review",
+          "output:csv",
+          "page:/",
+          "view:daily-count",
+          "view:history"
+        ],
+        "evidence": [
+          "source",
+          "visual",
+          "behavioral",
+          "physical-device",
+          "expert-review"
+        ],
+        "violation": "Critical phone actions are clipped, have less than the 44px target baseline, lose keyboard focus/labels, become unreachable with the soft keyboard or retain nonessential motion under reduced motion."
+      },
+      {
+        "id": "DESIGN-BRAND-001",
+        "level": "mandatory",
+        "surfaceIds": [
+          "action:form:public/index.html",
+          "dialog:review",
+          "output:csv",
+          "page:/",
+          "view:daily-count",
+          "view:history"
+        ],
+        "evidence": [
+          "source",
+          "visual",
+          "expert-review"
+        ],
+        "violation": "The private Till Check ledger is presented as the TillProof SaaS or a public multi-tenant app; unclear visual hierarchy hides the amount, discrepancy or next required step. Missing brand/reference approval is treated as accepted current UI."
+      },
+      {
+        "id": "DESIGN-STATE-001",
+        "level": "mandatory",
+        "surfaceIds": [
+          "action:form:public/index.html",
+          "dialog:review",
+          "output:csv",
+          "page:/",
+          "view:daily-count",
+          "view:history"
+        ],
+        "evidence": [
+          "source",
+          "visual",
+          "behavioral",
+          "expert-review"
+        ],
+        "violation": "Loading, empty, pending, disconnected, validation-error, stale, provisional-opening or confirmed/read-only state is absent or falsely presented as a successful independently reconciled close."
+      },
+      {
+        "id": "DESIGN-FEEDBACK-001",
+        "level": "mandatory",
+        "surfaceIds": [
+          "view:daily-count",
+          "view:history",
+          "dialog:review"
+        ],
+        "evidence": [
+          "behavioral",
+          "temporal",
+          "expert-review"
+        ],
+        "violation": "Pending save feedback appears too late or is replaced by success before the response, repeated clicks duplicate an operation, or a late response overwrites a newer date/form."
+      },
+      {
+        "id": "DESIGN-DENSITY-001",
+        "level": "advisory",
+        "surfaceIds": [
+          "page:/",
+          "view:daily-count"
+        ],
+        "evidence": [
+          "visual",
+          "expert-review"
+        ],
+        "violation": "The drawer count, discrepancy and next action compete with secondary explanations, history detail or decorative elements on a small phone."
+      }
+    ]
   }
 }

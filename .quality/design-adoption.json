@@ -1,0 +1,716 @@
+{
+  "formatVersion": 1,
+  "purpose": "product-local-adoption-index-not-certification",
+  "projectId": "till",
+  "specPath": "docs/DESIGN-SPEC.md",
+  "inspectedSourceRevision": "831acb8a25810935f7a3a4604478ac9a9a100bf5",
+  "contractInterfaceRevision": "2da82130aaf757cd50c94a48c25008aa341f81f3",
+  "approval": {
+    "state": "unapproved",
+    "approvedBy": null,
+    "reference": null
+  },
+  "sourceScan": {
+    "roots": [
+      "public",
+      "server.mjs",
+      "reconcile.mjs",
+      "takings.mjs"
+    ],
+    "extensions": [
+      ".css",
+      ".js",
+      ".mjs",
+      ".cjs",
+      ".ts",
+      ".tsx",
+      ".jsx",
+      ".html",
+      ".json",
+      ".svg",
+      ".png",
+      ".jpg",
+      ".jpeg",
+      ".webp",
+      ".ico",
+      ".wav",
+      ".m4a",
+      ".mp3",
+      ".py",
+      ".csv"
+    ]
+  },
+  "sourceFiles": [
+    {
+      "path": "public/app.js",
+      "sha256": "47fe12403fb27a9fc3ac73d5df9483e654fd0f8e90589462938bb1031cb0897f"
+    },
+    {
+      "path": "public/index.html",
+      "sha256": "0ef3f1d54a49078638e1c0d634a353b6994455135bd7060f4029a01f0f38a42c"
+    },
+    {
+      "path": "public/observability.js",
+      "sha256": "046b3768a84d6a6840fe9ddd725010e4b91b4c65c54e928301965a42e6d21d1e"
+    },
+    {
+      "path": "public/styles.css",
+      "sha256": "fffad3b122a5b4d8c7d3a6a625dc73ff63d642311b61681f5eb404240faf7844"
+    },
+    {
+      "path": "reconcile.mjs",
+      "sha256": "2f78ebce1f88af512932148e27bb5b8d3736f2d6b9100a570f098b820777715e"
+    },
+    {
+      "path": "server.mjs",
+      "sha256": "b7f6cdeb103fa2961607baef8de2cbdf167b93f666664466fdfe1870f29e6d8d"
+    },
+    {
+      "path": "takings.mjs",
+      "sha256": "9a074cd820290ba39b0e24851b53576f46475769fde7ecf112530a605e88d0dd"
+    }
+  ],
+  "authorities": [
+    {
+      "path": "README.md",
+      "sha256": "1a3671ee7da697bfd9df168513dfa29ce2b72ddd8eb03cb4eed9ad92c65d1e46",
+      "role": "Current product behavior and private boundary intent",
+      "approvalStatus": "documented-intent-not-full-spec-approval"
+    },
+    {
+      "path": "REVIEW.md",
+      "sha256": "6c0723bd053d8a4857c58320619d09e9ea819a1da86b2576a65ecc339638f509",
+      "role": "Historical implementation and acceptance limits",
+      "approvalStatus": "historical-report-only"
+    },
+    {
+      "path": "docs-count.png",
+      "sha256": "17dd7c6bceead295acba1d6d99bbc97264bb6cd0c341c47f0041c5739ce0f9d1",
+      "role": "Historical visual illustration, not approved baseline",
+      "approvalStatus": "approval-not-recorded"
+    },
+    {
+      "path": "docs-history.png",
+      "sha256": "2e8c738414d38505f0717bc3457c20562d3e97f6df988318d5c8cf1bc8b449ab",
+      "role": "Historical visual illustration, not approved baseline",
+      "approvalStatus": "approval-not-recorded"
+    },
+    {
+      "path": "docs-verdict.png",
+      "sha256": "0ae81c31fabac8468bcf1f4434a24d74aeafdff6771988d4ac47446ae65a6215",
+      "role": "Historical visual illustration, not approved baseline",
+      "approvalStatus": "approval-not-recorded"
+    },
+    {
+      "path": "package.json",
+      "sha256": "f5703d75a3cc1a38205c0dd1c3eeef2065bdda38f2c33cd5e648818859be7ee3",
+      "role": "Pinned dependency/test-entry provenance; not design approval",
+      "approvalStatus": "package-provenance-only"
+    },
+    {
+      "path": "package-lock.json",
+      "sha256": "60e47f929cbb45b23205f458cfe5bb99d6af440afef021d9cef5d98bf8dded1a",
+      "role": "Pinned dependency/test-entry provenance; not design approval",
+      "approvalStatus": "package-provenance-only"
+    },
+    {
+      "path": "ui.test.mjs",
+      "sha256": "ebf04e984ff85816063f226d699946549ee31a655f0126d495682943408eee94",
+      "role": "Scoped browser/disposable SQLite test adapter; not visual approval",
+      "approvalStatus": "test-implementation-only"
+    },
+    {
+      "path": "test-support.mjs",
+      "sha256": "17b70517d8180a7e059229485ec238f060f747eec7acea043f110181ead70bc8",
+      "role": "Scoped browser/disposable SQLite test adapter; not visual approval",
+      "approvalStatus": "test-implementation-only"
+    }
+  ],
+  "surfaces": [
+    {
+      "id": "action:form:public/index.html",
+      "source": "public/index.html",
+      "states": [
+        "initial",
+        "loading",
+        "empty",
+        "partial-draft",
+        "success",
+        "validation-error",
+        "network-failure",
+        "stale-ledger",
+        "review-cancel",
+        "read-only-confirmed"
+      ],
+      "discovery": "form-source",
+      "evidenceStatus": "missing-current-candidate-proof"
+    },
+    {
+      "id": "dialog:review",
+      "source": "public/index.html",
+      "states": [
+        "opened",
+        "review",
+        "cancelled",
+        "confirm-pending",
+        "validation-error",
+        "stale-ledger",
+        "confirmed"
+      ],
+      "discovery": "explicit-product-surface",
+      "evidenceStatus": "missing-current-candidate-proof"
+    },
+    {
+      "id": "output:csv",
+      "source": "server.mjs",
+      "states": [
+        "requested",
+        "ready",
+        "failed",
+        "disconnected"
+      ],
+      "discovery": "explicit-product-surface",
+      "evidenceStatus": "missing-current-candidate-proof"
+    },
+    {
+      "id": "page:/",
+      "source": "public/index.html",
+      "states": [
+        "initial",
+        "loading",
+        "ready",
+        "disconnected",
+        "reduced-motion"
+      ],
+      "discovery": "explicit-product-surface",
+      "evidenceStatus": "missing-current-candidate-proof"
+    },
+    {
+      "id": "view:daily-count",
+      "source": "public/app.js",
+      "states": [
+        "initial",
+        "loading",
+        "empty",
+        "partial-draft",
+        "success",
+        "validation-error",
+        "network-failure",
+        "stale-ledger",
+        "review-cancel",
+        "read-only-confirmed"
+      ],
+      "discovery": "explicit-product-surface",
+      "evidenceStatus": "missing-current-candidate-proof"
+    },
+    {
+      "id": "view:history",
+      "source": "public/app.js",
+      "states": [
+        "loading",
+        "empty",
+        "paged-data",
+        "correction-review",
+        "delete-review",
+        "undo-eligible",
+        "undo-expired",
+        "export-pending",
+        "export-failure",
+        "network-failure"
+      ],
+      "discovery": "explicit-product-surface",
+      "evidenceStatus": "missing-current-candidate-proof"
+    }
+  ],
+  "discoveryExclusions": {},
+  "evidenceGaps": [
+    {
+      "requirementId": "DESIGN-TILL-001",
+      "kind": "source",
+      "state": "missing",
+      "reason": "Source audit exists only as reference hygiene; no trusted per-requirement candidate-bound execution has certified this cell.",
+      "surfaceIds": [
+        "view:daily-count",
+        "view:history",
+        "dialog:review",
+        "output:csv"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 4
+    },
+    {
+      "requirementId": "DESIGN-TILL-001",
+      "kind": "behavioral",
+      "state": "missing",
+      "reason": "No current-candidate behavioral proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "view:daily-count",
+        "view:history",
+        "dialog:review",
+        "output:csv"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 4
+    },
+    {
+      "requirementId": "DESIGN-TILL-001",
+      "kind": "visual",
+      "state": "missing",
+      "reason": "No current-candidate visual proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "view:daily-count",
+        "view:history",
+        "dialog:review",
+        "output:csv"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 4
+    },
+    {
+      "requirementId": "DESIGN-TILL-001",
+      "kind": "expert-review",
+      "state": "missing",
+      "reason": "No current-candidate expert-review proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "view:daily-count",
+        "view:history",
+        "dialog:review",
+        "output:csv"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 4
+    },
+    {
+      "requirementId": "DESIGN-CLOSE-001",
+      "kind": "source",
+      "state": "missing",
+      "reason": "Source audit exists only as reference hygiene; no trusted per-requirement candidate-bound execution has certified this cell.",
+      "surfaceIds": [
+        "page:/",
+        "action:form:public/index.html",
+        "view:daily-count",
+        "dialog:review"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 4
+    },
+    {
+      "requirementId": "DESIGN-CLOSE-001",
+      "kind": "behavioral",
+      "state": "missing",
+      "reason": "No current-candidate behavioral proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "page:/",
+        "action:form:public/index.html",
+        "view:daily-count",
+        "dialog:review"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 4
+    },
+    {
+      "requirementId": "DESIGN-CLOSE-001",
+      "kind": "visual",
+      "state": "missing",
+      "reason": "No current-candidate visual proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "page:/",
+        "action:form:public/index.html",
+        "view:daily-count",
+        "dialog:review"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 4
+    },
+    {
+      "requirementId": "DESIGN-CLOSE-001",
+      "kind": "expert-review",
+      "state": "missing",
+      "reason": "No current-candidate expert-review proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "page:/",
+        "action:form:public/index.html",
+        "view:daily-count",
+        "dialog:review"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 4
+    },
+    {
+      "requirementId": "DESIGN-DATE-001",
+      "kind": "source",
+      "state": "missing",
+      "reason": "Source audit exists only as reference hygiene; no trusted per-requirement candidate-bound execution has certified this cell.",
+      "surfaceIds": [
+        "view:daily-count",
+        "view:history",
+        "dialog:review"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 3
+    },
+    {
+      "requirementId": "DESIGN-DATE-001",
+      "kind": "behavioral",
+      "state": "missing",
+      "reason": "No current-candidate behavioral proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "view:daily-count",
+        "view:history",
+        "dialog:review"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 3
+    },
+    {
+      "requirementId": "DESIGN-DATE-001",
+      "kind": "visual",
+      "state": "missing",
+      "reason": "No current-candidate visual proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "view:daily-count",
+        "view:history",
+        "dialog:review"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 3
+    },
+    {
+      "requirementId": "DESIGN-RECOVERY-001",
+      "kind": "source",
+      "state": "missing",
+      "reason": "Source audit exists only as reference hygiene; no trusted per-requirement candidate-bound execution has certified this cell.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-RECOVERY-001",
+      "kind": "behavioral",
+      "state": "missing",
+      "reason": "No current-candidate behavioral proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-RECOVERY-001",
+      "kind": "visual",
+      "state": "missing",
+      "reason": "No current-candidate visual proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-RECOVERY-001",
+      "kind": "expert-review",
+      "state": "missing",
+      "reason": "No current-candidate expert-review proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-A11Y-001",
+      "kind": "source",
+      "state": "missing",
+      "reason": "Source audit exists only as reference hygiene; no trusted per-requirement candidate-bound execution has certified this cell.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-A11Y-001",
+      "kind": "visual",
+      "state": "missing",
+      "reason": "No current-candidate visual proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-A11Y-001",
+      "kind": "behavioral",
+      "state": "missing",
+      "reason": "No current-candidate behavioral proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-A11Y-001",
+      "kind": "physical-device",
+      "state": "missing",
+      "reason": "No current-candidate physical-device proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-A11Y-001",
+      "kind": "expert-review",
+      "state": "missing",
+      "reason": "No current-candidate expert-review proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-BRAND-001",
+      "kind": "source",
+      "state": "missing",
+      "reason": "Source audit exists only as reference hygiene; no trusted per-requirement candidate-bound execution has certified this cell.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-BRAND-001",
+      "kind": "visual",
+      "state": "missing",
+      "reason": "No current-candidate visual proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-BRAND-001",
+      "kind": "expert-review",
+      "state": "missing",
+      "reason": "No current-candidate expert-review proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-STATE-001",
+      "kind": "source",
+      "state": "missing",
+      "reason": "Source audit exists only as reference hygiene; no trusted per-requirement candidate-bound execution has certified this cell.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-STATE-001",
+      "kind": "visual",
+      "state": "missing",
+      "reason": "No current-candidate visual proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-STATE-001",
+      "kind": "behavioral",
+      "state": "missing",
+      "reason": "No current-candidate behavioral proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-STATE-001",
+      "kind": "expert-review",
+      "state": "missing",
+      "reason": "No current-candidate expert-review proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "action:form:public/index.html",
+        "dialog:review",
+        "output:csv",
+        "page:/",
+        "view:daily-count",
+        "view:history"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 6
+    },
+    {
+      "requirementId": "DESIGN-FEEDBACK-001",
+      "kind": "behavioral",
+      "state": "missing",
+      "reason": "No current-candidate behavioral proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "view:daily-count",
+        "view:history",
+        "dialog:review"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 3
+    },
+    {
+      "requirementId": "DESIGN-FEEDBACK-001",
+      "kind": "temporal",
+      "state": "missing",
+      "reason": "No current-candidate temporal proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "view:daily-count",
+        "view:history",
+        "dialog:review"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 3
+    },
+    {
+      "requirementId": "DESIGN-FEEDBACK-001",
+      "kind": "expert-review",
+      "state": "missing",
+      "reason": "No current-candidate expert-review proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "view:daily-count",
+        "view:history",
+        "dialog:review"
+      ],
+      "level": "mandatory",
+      "missingCellCount": 3
+    },
+    {
+      "requirementId": "DESIGN-DENSITY-001",
+      "kind": "visual",
+      "state": "missing",
+      "reason": "No current-candidate visual proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "page:/",
+        "view:daily-count"
+      ],
+      "level": "advisory",
+      "missingCellCount": 2
+    },
+    {
+      "requirementId": "DESIGN-DENSITY-001",
+      "kind": "expert-review",
+      "state": "missing",
+      "reason": "No current-candidate expert-review proof is accepted; historical reports and this implementer-written specification are not substitutes.",
+      "surfaceIds": [
+        "page:/",
+        "view:daily-count"
+      ],
+      "level": "advisory",
+      "missingCellCount": 2
+    }
+  ],
+  "limitations": [
+    "Private page and internal view discovery require the CJ-D02/D03 owned interface; declarations are not executable proof.",
+    "Test-only UI adapter now requires scoped broker CDP and rejects owner CDP; fresh suite output is not physical-device proof.",
+    "Audio is not applicable to the current non-auditory ledger; future auditory surfaces require a contract extension.",
+    "No physical-device acceptance was performed by this source adoption.",
+    "No historical receipt or previously recorded evidence is recertified by this adoption.",
+    "Consumed CJ-D02 commit 2da8213 counts requirement \u00d7 surface \u00d7 medium cells; specialist review/audio/temporal/device formats still fail closed. No source-hygiene assertion is promoted to a design-conformance claim."
+  ],
+  "enforcement": {
+    "sourceCandidate": "staged",
+    "designConformance": "INCOMPLETE",
+    "deployedByThisAdoption": false,
+    "historicalReceipts": "unchanged",
+    "currentProduction": "not-verified",
+    "designRequiredCells": 146,
+    "designSatisfiedCells": 0
+  },
+  "sourceCheckMeaning": "Source hygiene only; not visual, behavioral, review, device, audio, temporal or release certification."
+}
