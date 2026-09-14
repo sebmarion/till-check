@@ -42,15 +42,32 @@ beforeEach(async () => {
   page.setDefaultTimeout(7000);
   errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  page.on("dialog", (dialog) => dialog.accept());
   await go();
 });
 afterEach(async () => {
+  // A managed CDP context can still have a dirty-page beforeunload prompt while
+  // context.close() is tearing it down. Close the disposable page without
+  // running beforeunload first; this preserves the navigation/reload assertions
+  // inside each test while avoiding a second dialog controller at teardown.
+  if (page && !page.isClosed()) await page.close({ runBeforeUnload: false });
   await context?.close();
   await fx?.close();
   assert.deepEqual(errors, [], "No browser errors");
 });
 async function go(date = DAY, prefix = "/") {
+  // The managed CDP controller and Playwright can otherwise race on the native
+  // beforeunload prompt. For same-origin reload/reopen checks, explicitly fire
+  // pagehide (the product's draft-persistence hook), close without beforeunload,
+  // then reopen the same origin in the same context. This keeps real storage,
+  // network and application startup behavior while leaving native dialogs to a
+  // single controller. Initial navigation still uses the original page.
+  if (page.url() !== "about:blank") {
+    await page.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pagehide")));
+    await page.close({ runBeforeUnload: false });
+    page = await context.newPage();
+    page.setDefaultTimeout(7000);
+    page.on("pageerror", (error) => errors.push(error.message));
+  }
   await page.goto(fx.base + prefix + "?date=" + date, {
     waitUntil: "networkidle",
   });

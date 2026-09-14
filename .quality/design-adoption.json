@@ -133,7 +133,7 @@
     },
     {
       "path": "ui.test.mjs",
-      "sha256": "ebf04e984ff85816063f226d699946549ee31a655f0126d495682943408eee94",
+      "sha256": "52347d865ba4eaebf0e151b5dfa7c3469f4e3f1b7fd7f25d016e68a0cc1e9ead",
       "role": "Scoped browser/disposable SQLite test adapter; not visual approval",
       "approvalStatus": "test-implementation-only"
     }
@@ -713,8 +713,9 @@
     "Audio is not applicable to the current non-auditory ledger; future auditory surfaces require a contract extension.",
     "No physical-device acceptance was performed by this source adoption.",
     "No historical receipt or previously recorded evidence is recertified by this adoption.",
-    "Consumed CJ-D02 commit 2da8213 counts requirement × surface × medium cells; specialist review/audio/temporal/device formats still fail closed. No source-hygiene assertion is promoted to a design-conformance claim.",
-    "D01 governed context is structurally declared but owner approval/independent authority remains unresolved; no implementation admission is granted."
+    "Consumed CJ-D02 commit 2da8213 counts requirement \u00d7 surface \u00d7 medium cells; specialist review/audio/temporal/device formats still fail closed. No source-hygiene assertion is promoted to a design-conformance claim.",
+    "D01 governed context is structurally declared but owner approval/independent authority remains unresolved; no implementation admission is granted.",
+    "Managed-CDP reload/reopen tests use the product pagehide persistence hook plus same-origin reopen to avoid dual native-dialog controllers; this is test-harness behavior only, not production navigation logic."
   ],
   "enforcement": {
     "sourceCandidate": "staged",

@@ -57,7 +57,7 @@
     "state": "draft",
     "specPath": "docs/DESIGN-SPEC.md",
     "version": "2026-09-14-cjd04-governed-draft3",
-    "contentSha256": "44f83425f4714e871966452eccb4dbde3956a27b7983451ba0c89eb9a67be9d6",
+    "contentSha256": "318a3328eb8a790b86c0678c9be1df6dc5c3c960b6135bdc3943f917d74a8a29",
     "owner": "product:till",
     "approval": {
       "state": "unapproved"
