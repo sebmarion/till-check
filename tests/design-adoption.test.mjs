@@ -121,3 +121,28 @@ test("till protected design obligations cannot be silently downgraded",()=>{
  assert.equal(adoption.enforcement.designRequiredCells,spec.requirements.filter(r=>r.level==='mandatory').reduce((n,r)=>n+r.surfaceIds.length*r.evidence.length,0));
  assert.equal(adoption.enforcement.designSatisfiedCells,0);
 });
+
+test('design adoption consumes the governed D01 profile without granting authority',()=>{
+ const g=spec.governance;
+ assert.equal(g.schemaVersion,'zeus.design-governance/v1');
+ assert.equal(g.projectId,manifest.projectId);
+ assert.equal(g.manifestPath,'zeus.project.json');
+ assert.equal(g.accountIsolation,'product-owned');
+ assert.equal(g.identityOwner,manifest.projectId);
+ assert.equal(g.evidencePlanSha256,hash(fs.readFileSync(spec.evidencePlan)));
+ assert.deepEqual(g.surfaces.map(s=>s.id).sort(),[...spec.surfaceIds].sort());
+ for(const s of g.surfaces)for(const p of s.paths)assert.ok(fs.existsSync(p));
+ for(const kind of ['tokens','components','assets']){
+  assert.deepEqual(g.dependencyPins.filter(p=>p.kind===kind).map(p=>p.id).sort(),[...spec.dependencies[kind]].sort());
+ }
+ for(const pin of [...g.dependencyPins,...g.sharedStandards])assert.equal(hash(fs.readFileSync(pin.path)),pin.sha256,pin.path);
+ const prose=fs.readFileSync(spec.specPath,'utf8');
+ for(const req of spec.requirements)assert.ok(prose.includes('id="'+req.specAnchor.slice(1)+'"'),req.id);
+ assert.ok(g.sharedStandards.length>=2);
+ assert.ok(g.sourceConflicts.length>0);
+ for(const c of g.sourceConflicts)assert.equal(c.state,'unresolved','Proposed resolution is not independently granted authority');
+ assert.deepEqual(g.exceptions,[]);
+ assert.equal(adoption.governance.authorityResolved,false);
+ assert.equal(adoption.governance.implementationAdmission,'INCOMPLETE');
+ assert.equal(spec.approval.state,'unapproved');
+});

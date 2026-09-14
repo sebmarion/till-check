@@ -20,7 +20,8 @@
         "check:tests": [
           "design adoption maps every declared surface to states and mandatory requirements",
           "design adoption lists each required evidence modality without treating history as current proof",
-          "till protected design obligations cannot be silently downgraded"
+          "till protected design obligations cannot be silently downgraded",
+          "design adoption consumes the governed D01 profile without granting authority"
         ]
       }
     }

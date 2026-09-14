@@ -4,7 +4,7 @@
   "projectId": "till",
   "specPath": "docs/DESIGN-SPEC.md",
   "inspectedSourceRevision": "831acb8a25810935f7a3a4604478ac9a9a100bf5",
-  "contractInterfaceRevision": "2da82130aaf757cd50c94a48c25008aa341f81f3",
+  "contractInterfaceRevision": "f71c728242ea520fbcf5793222628fca276699c3",
   "approval": {
     "state": "unapproved",
     "approvedBy": null,
@@ -102,10 +102,16 @@
       "approvalStatus": "approval-not-recorded"
     },
     {
-      "path": "package.json",
-      "sha256": "f5703d75a3cc1a38205c0dd1c3eeef2065bdda38f2c33cd5e648818859be7ee3",
-      "role": "Pinned dependency/test-entry provenance; not design approval",
-      "approvalStatus": "package-provenance-only"
+      "path": "docs/shared-standards/standards--DESIGN-GOVERNANCE-V1.md",
+      "sha256": "d4d216efa4c18e14654d284675eb5e940990653b3e0e31332a8fd80bc4abd5ae",
+      "role": "Immutable upstream shared standard snapshot; origin is pinned in governance.sharedStandards",
+      "approvalStatus": "shared-contract-not-product-approval"
+    },
+    {
+      "path": "docs/shared-standards/standards--ZEUS-PLATFORM-V1.md",
+      "sha256": "9066d04695b87ab301488697c2f4cecf99dff26a22d867d392506d6b9523459e",
+      "role": "Immutable upstream shared standard snapshot; origin is pinned in governance.sharedStandards",
+      "approvalStatus": "shared-contract-not-product-approval"
     },
     {
       "path": "package-lock.json",
@@ -114,14 +120,20 @@
       "approvalStatus": "package-provenance-only"
     },
     {
-      "path": "ui.test.mjs",
-      "sha256": "ebf04e984ff85816063f226d699946549ee31a655f0126d495682943408eee94",
-      "role": "Scoped browser/disposable SQLite test adapter; not visual approval",
-      "approvalStatus": "test-implementation-only"
+      "path": "package.json",
+      "sha256": "f5703d75a3cc1a38205c0dd1c3eeef2065bdda38f2c33cd5e648818859be7ee3",
+      "role": "Pinned dependency/test-entry provenance; not design approval",
+      "approvalStatus": "package-provenance-only"
     },
     {
       "path": "test-support.mjs",
       "sha256": "17b70517d8180a7e059229485ec238f060f747eec7acea043f110181ead70bc8",
+      "role": "Scoped browser/disposable SQLite test adapter; not visual approval",
+      "approvalStatus": "test-implementation-only"
+    },
+    {
+      "path": "ui.test.mjs",
+      "sha256": "ebf04e984ff85816063f226d699946549ee31a655f0126d495682943408eee94",
       "role": "Scoped browser/disposable SQLite test adapter; not visual approval",
       "approvalStatus": "test-implementation-only"
     }
@@ -701,7 +713,8 @@
     "Audio is not applicable to the current non-auditory ledger; future auditory surfaces require a contract extension.",
     "No physical-device acceptance was performed by this source adoption.",
     "No historical receipt or previously recorded evidence is recertified by this adoption.",
-    "Consumed CJ-D02 commit 2da8213 counts requirement \u00d7 surface \u00d7 medium cells; specialist review/audio/temporal/device formats still fail closed. No source-hygiene assertion is promoted to a design-conformance claim."
+    "Consumed CJ-D02 commit 2da8213 counts requirement × surface × medium cells; specialist review/audio/temporal/device formats still fail closed. No source-hygiene assertion is promoted to a design-conformance claim.",
+    "D01 governed context is structurally declared but owner approval/independent authority remains unresolved; no implementation admission is granted."
   ],
   "enforcement": {
     "sourceCandidate": "staged",
@@ -712,5 +725,31 @@
     "designRequiredCells": 146,
     "designSatisfiedCells": 0
   },
-  "sourceCheckMeaning": "Source hygiene only; not visual, behavioral, review, device, audio, temporal or release certification."
+  "sourceCheckMeaning": "Source hygiene only; not visual, behavioral, review, device, audio, temporal or release certification.",
+  "governance": {
+    "interfaceRevision": "e6ff55a7822521ec9dc704b758a0ba35f43d7116",
+    "priorAdoptionRevision": "9344f9c23101717f0fc61127949943787a2f647d",
+    "authorityResolved": false,
+    "implementationAdmission": "INCOMPLETE",
+    "largePinnedAssetsBeyondCurrentLoader": [],
+    "retiredSurfaceIds": [],
+    "sharedStandards": [
+      {
+        "path": "docs/shared-standards/standards--DESIGN-GOVERNANCE-V1.md",
+        "sha256": "d4d216efa4c18e14654d284675eb5e940990653b3e0e31332a8fd80bc4abd5ae",
+        "version": "git:e6ff55a7822521ec9dc704b758a0ba35f43d7116",
+        "originRepository": "Zeus Home",
+        "originPath": "standards/DESIGN-GOVERNANCE-V1.md",
+        "originRevision": "e6ff55a7822521ec9dc704b758a0ba35f43d7116"
+      },
+      {
+        "path": "docs/shared-standards/standards--ZEUS-PLATFORM-V1.md",
+        "sha256": "9066d04695b87ab301488697c2f4cecf99dff26a22d867d392506d6b9523459e",
+        "version": "git:e6ff55a7822521ec9dc704b758a0ba35f43d7116",
+        "originRepository": "Zeus Home",
+        "originPath": "standards/ZEUS-PLATFORM-V1.md",
+        "originRevision": "e6ff55a7822521ec9dc704b758a0ba35f43d7116"
+      }
+    ]
+  }
 }

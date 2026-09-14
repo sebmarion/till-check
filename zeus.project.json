@@ -56,8 +56,8 @@
     "schemaVersion": "zeus.design-spec/v1",
     "state": "draft",
     "specPath": "docs/DESIGN-SPEC.md",
-    "version": "2026-09-14-cjd04-draft2",
-    "contentSha256": "5c749e21a1482b843374e81f182fc7184de133edc14d542d4531f2dc8e5ee65f",
+    "version": "2026-09-14-cjd04-governed-draft3",
+    "contentSha256": "44f83425f4714e871966452eccb4dbde3956a27b7983451ba0c89eb9a67be9d6",
     "owner": "product:till",
     "approval": {
       "state": "unapproved"
@@ -99,7 +99,8 @@
           "visual",
           "expert-review"
         ],
-        "violation": "Blank cash is treated as zero, counted cash is confused with sales/profit, or an unresolved cash/card difference is hidden or counted twice."
+        "violation": "Blank cash is treated as zero, counted cash is confused with sales/profit, or an unresolved cash/card difference is hidden or counted twice.",
+        "specAnchor": "#design-till-001"
       },
       {
         "id": "DESIGN-CLOSE-001",
@@ -116,7 +117,8 @@
           "visual",
           "expert-review"
         ],
-        "violation": "Save, review and confirmation collapse into an implicit money-changing action; failed requests or navigation discard valid input; a stale browser silently overwrites newer ledger values."
+        "violation": "Save, review and confirmation collapse into an implicit money-changing action; failed requests or navigation discard valid input; a stale browser silently overwrites newer ledger values.",
+        "specAnchor": "#design-close-001"
       },
       {
         "id": "DESIGN-DATE-001",
@@ -131,7 +133,8 @@
           "behavioral",
           "visual"
         ],
-        "violation": "Date arrows move records, a date change bypasses review, or the UI uses the device timezone instead of Barcelona business dates. A future/invalid date is displayed as an accepted close."
+        "violation": "Date arrows move records, a date change bypasses review, or the UI uses the device timezone instead of Barcelona business dates. A future/invalid date is displayed as an accepted close.",
+        "specAnchor": "#design-date-001"
       },
       {
         "id": "DESIGN-RECOVERY-001",
@@ -150,7 +153,8 @@
           "visual",
           "expert-review"
         ],
-        "violation": "Date-local draft restore, confirmed correction, guarded delete/undo, stale-ledger recovery or retry is ambiguous or loses known amounts. Local drafts are represented as server backups."
+        "violation": "Date-local draft restore, confirmed correction, guarded delete/undo, stale-ledger recovery or retry is ambiguous or loses known amounts. Local drafts are represented as server backups.",
+        "specAnchor": "#design-recovery-001"
       },
       {
         "id": "DESIGN-A11Y-001",
@@ -170,7 +174,8 @@
           "physical-device",
           "expert-review"
         ],
-        "violation": "Critical phone actions are clipped, have less than the 44px target baseline, lose keyboard focus/labels, become unreachable with the soft keyboard or retain nonessential motion under reduced motion."
+        "violation": "Critical phone actions are clipped, have less than the 44px target baseline, lose keyboard focus/labels, become unreachable with the soft keyboard or retain nonessential motion under reduced motion.",
+        "specAnchor": "#design-a11y-001"
       },
       {
         "id": "DESIGN-BRAND-001",
@@ -188,7 +193,8 @@
           "visual",
           "expert-review"
         ],
-        "violation": "The private Till Check ledger is presented as the TillProof SaaS or a public multi-tenant app; unclear visual hierarchy hides the amount, discrepancy or next required step. Missing brand/reference approval is treated as accepted current UI."
+        "violation": "The private Till Check ledger is presented as the TillProof SaaS or a public multi-tenant app; unclear visual hierarchy hides the amount, discrepancy or next required step. Missing brand/reference approval is treated as accepted current UI.",
+        "specAnchor": "#design-brand-001"
       },
       {
         "id": "DESIGN-STATE-001",
@@ -207,7 +213,8 @@
           "behavioral",
           "expert-review"
         ],
-        "violation": "Loading, empty, pending, disconnected, validation-error, stale, provisional-opening or confirmed/read-only state is absent or falsely presented as a successful independently reconciled close."
+        "violation": "Loading, empty, pending, disconnected, validation-error, stale, provisional-opening or confirmed/read-only state is absent or falsely presented as a successful independently reconciled close.",
+        "specAnchor": "#design-state-001"
       },
       {
         "id": "DESIGN-FEEDBACK-001",
@@ -222,7 +229,8 @@
           "temporal",
           "expert-review"
         ],
-        "violation": "Pending save feedback appears too late or is replaced by success before the response, repeated clicks duplicate an operation, or a late response overwrites a newer date/form."
+        "violation": "Pending save feedback appears too late or is replaced by success before the response, repeated clicks duplicate an operation, or a late response overwrites a newer date/form.",
+        "specAnchor": "#design-feedback-001"
       },
       {
         "id": "DESIGN-DENSITY-001",
@@ -235,8 +243,176 @@
           "visual",
           "expert-review"
         ],
-        "violation": "The drawer count, discrepancy and next action compete with secondary explanations, history detail or decorative elements on a small phone."
+        "violation": "The drawer count, discrepancy and next action compete with secondary explanations, history detail or decorative elements on a small phone.",
+        "specAnchor": "#design-density-001"
       }
-    ]
+    ],
+    "governance": {
+      "schemaVersion": "zeus.design-governance/v1",
+      "projectId": "till",
+      "manifestPath": "zeus.project.json",
+      "authorityRef": "project:till",
+      "accountIsolation": "product-owned",
+      "identityOwner": "till",
+      "evidencePlanSha256": "8f30ac1e4243a033587d04012b0f302f7ffee02d457e446236cb8d4e8d20a05e",
+      "dependencyPins": [
+        {
+          "kind": "tokens",
+          "id": "public/styles.css",
+          "path": "public/styles.css",
+          "sha256": "fffad3b122a5b4d8c7d3a6a625dc73ff63d642311b61681f5eb404240faf7844",
+          "version": "sha256:fffad3b122a5b4d8c7d3a6a625dc73ff63d642311b61681f5eb404240faf7844"
+        },
+        {
+          "kind": "components",
+          "id": "public/index.html",
+          "path": "public/index.html",
+          "sha256": "0ef3f1d54a49078638e1c0d634a353b6994455135bd7060f4029a01f0f38a42c",
+          "version": "sha256:0ef3f1d54a49078638e1c0d634a353b6994455135bd7060f4029a01f0f38a42c"
+        },
+        {
+          "kind": "components",
+          "id": "public/app.js",
+          "path": "public/app.js",
+          "sha256": "47fe12403fb27a9fc3ac73d5df9483e654fd0f8e90589462938bb1031cb0897f",
+          "version": "sha256:47fe12403fb27a9fc3ac73d5df9483e654fd0f8e90589462938bb1031cb0897f"
+        },
+        {
+          "kind": "assets",
+          "id": "public/index.html",
+          "path": "public/index.html",
+          "sha256": "0ef3f1d54a49078638e1c0d634a353b6994455135bd7060f4029a01f0f38a42c",
+          "version": "sha256:0ef3f1d54a49078638e1c0d634a353b6994455135bd7060f4029a01f0f38a42c"
+        }
+      ],
+      "sharedStandards": [
+        {
+          "path": "docs/shared-standards/standards--DESIGN-GOVERNANCE-V1.md",
+          "sha256": "d4d216efa4c18e14654d284675eb5e940990653b3e0e31332a8fd80bc4abd5ae",
+          "version": "git:e6ff55a7822521ec9dc704b758a0ba35f43d7116",
+          "originRepository": "Zeus Home",
+          "originPath": "standards/DESIGN-GOVERNANCE-V1.md",
+          "originRevision": "e6ff55a7822521ec9dc704b758a0ba35f43d7116"
+        },
+        {
+          "path": "docs/shared-standards/standards--ZEUS-PLATFORM-V1.md",
+          "sha256": "9066d04695b87ab301488697c2f4cecf99dff26a22d867d392506d6b9523459e",
+          "version": "git:e6ff55a7822521ec9dc704b758a0ba35f43d7116",
+          "originRepository": "Zeus Home",
+          "originPath": "standards/ZEUS-PLATFORM-V1.md",
+          "originRevision": "e6ff55a7822521ec9dc704b758a0ba35f43d7116"
+        }
+      ],
+      "surfaces": [
+        {
+          "id": "action:form:public/index.html",
+          "paths": [
+            "public/index.html"
+          ],
+          "states": [
+            "initial",
+            "loading",
+            "empty",
+            "partial-draft",
+            "success",
+            "validation-error",
+            "network-failure",
+            "stale-ledger",
+            "review-cancel",
+            "read-only-confirmed"
+          ]
+        },
+        {
+          "id": "dialog:review",
+          "paths": [
+            "public/index.html"
+          ],
+          "states": [
+            "opened",
+            "review",
+            "cancelled",
+            "confirm-pending",
+            "validation-error",
+            "stale-ledger",
+            "confirmed"
+          ]
+        },
+        {
+          "id": "output:csv",
+          "paths": [
+            "server.mjs"
+          ],
+          "states": [
+            "requested",
+            "ready",
+            "failed",
+            "disconnected"
+          ]
+        },
+        {
+          "id": "page:/",
+          "paths": [
+            "public/index.html"
+          ],
+          "states": [
+            "initial",
+            "loading",
+            "ready",
+            "disconnected",
+            "reduced-motion"
+          ]
+        },
+        {
+          "id": "view:daily-count",
+          "paths": [
+            "public/app.js"
+          ],
+          "states": [
+            "initial",
+            "loading",
+            "empty",
+            "partial-draft",
+            "success",
+            "validation-error",
+            "network-failure",
+            "stale-ledger",
+            "review-cancel",
+            "read-only-confirmed"
+          ]
+        },
+        {
+          "id": "view:history",
+          "paths": [
+            "public/app.js"
+          ],
+          "states": [
+            "loading",
+            "empty",
+            "paged-data",
+            "correction-review",
+            "delete-review",
+            "undo-eligible",
+            "undo-expired",
+            "export-pending",
+            "export-failure",
+            "network-failure"
+          ]
+        }
+      ],
+      "retiredRequirementIds": [],
+      "retiredSurfaceIds": [],
+      "sourceConflicts": [
+        {
+          "id": "CONFLICT-TILL-VERSIONED-SUMMARY",
+          "state": "unresolved",
+          "reason": "The later documented 0.2.1 closed-day summary behavior takes precedence over the 0.2.0 review; the proposed spec preserves both sources and pending independent approval.",
+          "references": [
+            "README.md",
+            "REVIEW.md"
+          ]
+        }
+      ],
+      "exceptions": []
+    }
   }
 }

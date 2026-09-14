@@ -1,6 +1,6 @@
 # Till Check — product design specification
 
-Contract: `zeus.design-spec/v1`. Version: `2026-09-14-cjd04-draft2`.
+Contract: `zeus.design-spec/v1`. Version: `2026-09-14-cjd04-governed-draft3`.
 **DRAFT / UNAPPROVED. Source adoption is staged; design conformance is INCOMPLETE.**
 
 This document is the consolidated product design intent for review. Existing implementation and historical acceptance are evidence inputs, not automatic approval. The owner has authorized preserving the specific decisions quoted below, not approved all current pixels, assets, code or this entire specification. No implementer approval, screenshot self-acceptance, production deployment or historical receipt rewrite occurs here.
@@ -58,11 +58,15 @@ Source tests and the pure/API suite can run on isolated state. Run the full suit
 
 Mandatory requirements cannot be downgraded to make a candidate pass. Advisory requirements remain visible but do not certify or repair missing mandatory evidence. Each violation below is an observable failure condition. Surface/state membership and source-byte bindings are indexed in `.quality/design-adoption.json`; `zeus.project.json.designSpec` is the executable declaration, not a second prose specification.
 
+<a id="design-till-001"></a>
+
 ### DESIGN-TILL-001 — mandatory
 
 Violation: Blank cash is treated as zero, counted cash is confused with sales/profit, or an unresolved cash/card difference is hidden or counted twice.
 
 Evidence required: source, behavioral, visual, expert-review. Applicable surfaces: `view:daily-count`, `view:history`, `dialog:review`, `output:csv`.
+
+<a id="design-close-001"></a>
 
 ### DESIGN-CLOSE-001 — mandatory
 
@@ -70,11 +74,15 @@ Violation: Save, review and confirmation collapse into an implicit money-changin
 
 Evidence required: source, behavioral, visual, expert-review. Applicable surfaces: `page:/`, `action:form:public/index.html`, `view:daily-count`, `dialog:review`.
 
+<a id="design-date-001"></a>
+
 ### DESIGN-DATE-001 — mandatory
 
 Violation: Date arrows move records, a date change bypasses review, or the UI uses the device timezone instead of Barcelona business dates. A future/invalid date is displayed as an accepted close.
 
 Evidence required: source, behavioral, visual. Applicable surfaces: `view:daily-count`, `view:history`, `dialog:review`.
+
+<a id="design-recovery-001"></a>
 
 ### DESIGN-RECOVERY-001 — mandatory
 
@@ -82,11 +90,15 @@ Violation: Date-local draft restore, confirmed correction, guarded delete/undo, 
 
 Evidence required: source, behavioral, visual, expert-review. Applicable surfaces: `action:form:public/index.html`, `dialog:review`, `output:csv`, `page:/`, `view:daily-count`, `view:history`.
 
+<a id="design-a11y-001"></a>
+
 ### DESIGN-A11Y-001 — mandatory
 
 Violation: Critical phone actions are clipped, have less than the 44px target baseline, lose keyboard focus/labels, become unreachable with the soft keyboard or retain nonessential motion under reduced motion.
 
 Evidence required: source, visual, behavioral, physical-device, expert-review. Applicable surfaces: `action:form:public/index.html`, `dialog:review`, `output:csv`, `page:/`, `view:daily-count`, `view:history`.
+
+<a id="design-brand-001"></a>
 
 ### DESIGN-BRAND-001 — mandatory
 
@@ -94,17 +106,23 @@ Violation: The private Till Check ledger is presented as the TillProof SaaS or a
 
 Evidence required: source, visual, expert-review. Applicable surfaces: `action:form:public/index.html`, `dialog:review`, `output:csv`, `page:/`, `view:daily-count`, `view:history`.
 
+<a id="design-state-001"></a>
+
 ### DESIGN-STATE-001 — mandatory
 
 Violation: Loading, empty, pending, disconnected, validation-error, stale, provisional-opening or confirmed/read-only state is absent or falsely presented as a successful independently reconciled close.
 
 Evidence required: source, visual, behavioral, expert-review. Applicable surfaces: `action:form:public/index.html`, `dialog:review`, `output:csv`, `page:/`, `view:daily-count`, `view:history`.
 
+<a id="design-feedback-001"></a>
+
 ### DESIGN-FEEDBACK-001 — mandatory
 
 Violation: Pending save feedback appears too late or is replaced by success before the response, repeated clicks duplicate an operation, or a late response overwrites a newer date/form.
 
 Evidence required: behavioral, temporal, expert-review. Applicable surfaces: `view:daily-count`, `view:history`, `dialog:review`.
+
+<a id="design-density-001"></a>
 
 ### DESIGN-DENSITY-001 — advisory
 
@@ -121,3 +139,13 @@ Before changing any scanned UI/component/token/asset/copy/source route, update t
 The existing `.quality/evidence-plan.json` records source jobs only where they actually exist; missing modality executors/reviewer/device evidence remain missing. The existing AfterCI authority is the only release authority. Candidate qualification, deployment verification and current-production conformance remain separate. No compatibility claim is made beyond the committed Crown interface consumed by this branch. Integration must recheck that interface and these product source hashes before merging.
 
 Rollback is a reviewed revert of this isolated source-adoption commit, not a runtime flag change, data reset, provider change or receipt rewrite. Existing historical receipts remain immutable. Unadopted products remain incomplete. This branch does not update a deployed manifest overlay: only the normal release authority may bind and promote that exact product candidate after its required proof.
+
+## Governed agent context — committed D01 interface
+
+This draft consumes `zeus.design-governance/v1` from Zeus commit `e6ff55a7822521ec9dc704b758a0ba35f43d7116`, within the existing v1 design declaration. Product identity/accounts remain product-owned. Exact dependency bytes, evidence-plan bytes, actual shared-standard text, surface-to-path/state mappings and stable prose anchors are pinned in the existing manifest. Adopted local shared-standard copies are immutable snapshots of the stated upstream path/revision, not a separately authored standard.
+
+The authority reference names the existing product role, not an approval. No candidate-owned file supplies trusted authority. Proposed source precedence resolutions above remain machine-readable unresolved approval obligations until independently ratified by the existing coordinator; no agent resolves its own conflicts or grants an exception. Retired IDs are retained as tombstones and require review, never silent reuse. The complete human spec remains the only consolidated product design prose.
+
+`validate_governed_design_spec` may accept the structure while `build_design_context(..., authority=None)` must remain INCOMPLETE. Research/specification proposals are allowed; this draft does not authorize UI implementation. No approved baseline, READY context, design certification or production permission is invented. D02 `f71c728` still marks every design medium unsupported.
+
+The current D01 loader limits each referenced file to 512 KiB and counts all bytes toward 2 MiB. Any full-sized declared asset beyond those limits remains pinned and recorded as an integration limitation; it must not be omitted/downsampled just to make the context green. D01/D02 own a bounded streaming/content-addressed asset interface. This adoption does not alter their loaders or engines.
