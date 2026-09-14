@@ -56,8 +56,8 @@
     "schemaVersion": "zeus.design-spec/v1",
     "state": "approved",
     "specPath": "docs/DESIGN-SPEC.md",
-    "version": "2026-09-14-cjd04-v1",
-    "contentSha256": "afd82a7f31f0d9c3f1184e8146b964c8af5a30355a038701748b65a5bb1427c9",
+    "version": "2026-09-14-cjd04-v1.1",
+    "contentSha256": "a30b9a268bc728883d023f5ef7f1caeb1e5291e53f8fba8e86566a5a9ba8119c",
     "owner": "product:till",
     "approval": {
       "state": "approved",
@@ -65,9 +65,9 @@
       "approvedAt": "2026-09-14T13:20:00+02:00",
       "reference": "owner-directive:cj-d04-finish:2026-09-14T13-20+02-00:till",
       "projectId": "till",
-      "version": "2026-09-14-cjd04-v1",
-      "contentSha256": "afd82a7f31f0d9c3f1184e8146b964c8af5a30355a038701748b65a5bb1427c9",
-      "contractSha256": "66fce5b6334a3059468975faa8cc62e311774fc5d8e843452de16f5c3472d0fa"
+      "version": "2026-09-14-cjd04-v1.1",
+      "contentSha256": "a30b9a268bc728883d023f5ef7f1caeb1e5291e53f8fba8e86566a5a9ba8119c",
+      "contractSha256": "433d7f7f79b6f013f51d74fcc4a4d749c5b0730cf9b754e05b4aef058c79b261"
     },
     "dependencies": {
       "tokens": [

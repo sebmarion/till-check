@@ -4,14 +4,14 @@
   "projectId": "till",
   "specPath": "docs/DESIGN-SPEC.md",
   "inspectedSourceRevision": "831acb8a25810935f7a3a4604478ac9a9a100bf5",
-  "contractInterfaceRevision": "f71c728242ea520fbcf5793222628fca276699c3",
+  "contractInterfaceRevision": "d39e6ae8a7427340eb6ef463eef6bc81a313da36",
   "approval": {
     "state": "approved",
     "approvedBy": "product:till",
     "approvedAt": "2026-09-14T13:20:00+02:00",
     "reference": "owner-directive:cj-d04-finish:2026-09-14T13-20+02-00:till",
-    "contentSha256": "afd82a7f31f0d9c3f1184e8146b964c8af5a30355a038701748b65a5bb1427c9",
-    "contractSha256": "66fce5b6334a3059468975faa8cc62e311774fc5d8e843452de16f5c3472d0fa",
+    "contentSha256": "a30b9a268bc728883d023f5ef7f1caeb1e5291e53f8fba8e86566a5a9ba8119c",
+    "contractSha256": "433d7f7f79b6f013f51d74fcc4a4d749c5b0730cf9b754e05b4aef058c79b261",
     "meaning": "Owner-approved product design intent only; not implementation/design conformance."
   },
   "sourceScan": {
@@ -719,7 +719,8 @@
     "No historical receipt or previously recorded evidence is recertified by this adoption.",
     "Consumed CJ-D02 commit 2da8213 counts requirement × surface × medium cells; specialist review/audio/temporal/device formats still fail closed. No source-hygiene assertion is promoted to a design-conformance claim.",
     "D01 governed context is structurally declared but owner approval/independent authority remains unresolved; no implementation admission is granted.",
-    "Managed-CDP reload/reopen tests use the product pagehide persistence hook plus same-origin reopen to avoid dual native-dialog controllers; this is test-harness behavior only, not production navigation logic."
+    "Managed-CDP reload/reopen tests use the product pagehide persistence hook plus same-origin reopen to avoid dual native-dialog controllers; this is test-harness behavior only, not production navigation logic.",
+    "CJ-D02 d39e6ae qualifies source/component, visual, behavioral and independent-review media; temporal/audio/physical-device remain explicit unsupported gaps and ordinary product tests are not relabelled as typed evidence."
   ],
   "enforcement": {
     "sourceCandidate": "approved-design-intent-staged",
@@ -728,7 +729,19 @@
     "historicalReceipts": "unchanged",
     "currentProduction": "not-verified",
     "designRequiredCells": 146,
-    "designSatisfiedCells": 0
+    "designSatisfiedCells": 0,
+    "qualifiedCoreMedia": [
+      "source",
+      "visual",
+      "behavioral",
+      "expert-review"
+    ],
+    "unsupportedSpecialistMedia": [
+      "audio",
+      "temporal",
+      "physical-device"
+    ],
+    "d02Denominator": "mandatory requirement × surface × state × required medium, lower-bounded by exact-build discovery"
   },
   "sourceCheckMeaning": "Source hygiene only; not visual, behavioral, review, device, audio, temporal or release certification.",
   "governance": {
@@ -758,5 +771,6 @@
     ],
     "ownerApprovalReference": "owner-directive:cj-d04-finish:2026-09-14T13-20+02-00:till",
     "ownerApprovalRecordedAt": "2026-09-14T13:33:54+02:00"
-  }
+  },
+  "d02CompletionCheckpoint": "f7843f16cd3756f0344c99f931b1c482357a0ae8"
 }
